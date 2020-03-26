@@ -1,0 +1,55 @@
+<p><a href="http://qiita.com/hotoku/items/a36974d2ecfec9ace930" id="reference-f36d2cdeef49a273c3b1">Schemeでジェネレーター - Qiita</a>を拝見したところ、ジェネレータ関数の内部でyieldが呼ばれなかったときに無限ループに入るバグを見つけたので修正した。</p>
+
+<div class="code-frame" data-lang="scm"><div class="highlight"><pre>;; make-generator: ((a → ⊥) → a) → (() → a|undefined)
+(define (make-generator proc)
+
+  ;; nop: () → undefined
+  (define (nop) (if #f 0))
+
+  ;; return: a → ⊥
+  (define (return val) ()) ;; 一回目のリターンポイントは未定義
+
+  ;; next: () → a|undefined
+  (define (next) (proc yield));; 一回目のジェネレータ関数内部のセーブポイントはproc最初から、ジェネレータ関数の最後まで到達したらundefinedを返す
+
+  ;; yield a → ⊥
+  (define (yield value)
+    (call/cc (lambda (next*)
+      (set! next next*)
+      (return value) )) )
+
+  ;; generator*: () → a
+  (define (generator*)
+    (call/cc (lambda (return*);; generatorが呼ばれた時のリターンポイント、gen=make_generator(fn);gen()のとき
+      (set! return return*) 
+      (let ((val (next)))
+        ;; ここに到達した -&gt; nextでyieldは使われなかった -&gt; return は使われなかった
+        (set! generator* nop) ;; 以後nop
+        (return val) ) )) )
+
+  ;; generator: () → a|undefined
+  (define (generator) (generator*))
+
+  generator)
+
+;; gen-n: () → a|undefined
+(define (gen-n)
+  (make-generator
+   (lambda (yield)
+     (yield 1) ;;ここの各行の継続がnextに保持されるセーブポイント
+     (yield 2)
+     (yield 3)
+     -1 )) )
+
+(let ((an (gen-n)))
+  (print (an));; 1 ここの各行の継続がreturnに保持されるリターンポイント
+  (print (an));; 2
+  (print (an));; 3
+  (print (an));; -1
+  (print (an)));; #&lt;undef&gt;
+</pre></div></div>
+
+<h2>
+<span id="感想" class="fragment"></span><a href="#%E6%84%9F%E6%83%B3"><i class="fa fa-link"></i></a>感想</h2>
+
+<p>人類には第一級継続は早すぎるし型のない言語はつらい</p>

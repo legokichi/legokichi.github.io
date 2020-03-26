@@ -1,0 +1,1 @@
+roomba open interfaceのドキュメントにもとに戻す方法が書いてあると思います

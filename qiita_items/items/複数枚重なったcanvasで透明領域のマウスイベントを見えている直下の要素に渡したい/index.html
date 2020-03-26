@@ -1,0 +1,233 @@
+
+<h1>
+<span id="複数枚重なったcanvasで透明領域のマウスイベントを見えている直下の要素に渡したい" class="fragment"></span><a href="#%E8%A4%87%E6%95%B0%E6%9E%9A%E9%87%8D%E3%81%AA%E3%81%A3%E3%81%9Fcanvas%E3%81%A7%E9%80%8F%E6%98%8E%E9%A0%98%E5%9F%9F%E3%81%AE%E3%83%9E%E3%82%A6%E3%82%B9%E3%82%A4%E3%83%99%E3%83%B3%E3%83%88%E3%82%92%E8%A6%8B%E3%81%88%E3%81%A6%E3%81%84%E3%82%8B%E7%9B%B4%E4%B8%8B%E3%81%AE%E8%A6%81%E7%B4%A0%E3%81%AB%E6%B8%A1%E3%81%97%E3%81%9F%E3%81%84"><i class="fa fa-link"></i></a>複数枚重なったcanvasで透明領域のマウスイベントを見えている直下の要素に渡したい</h1>
+
+<h2>
+<span id="例" class="fragment"></span><a href="#%E4%BE%8B"><i class="fa fa-link"></i></a>例</h2>
+
+<p><a href="https://jsfiddle.net/oyb4jby8/6/" class="autolink" rel="nofollow noopener" target="_blank">https://jsfiddle.net/oyb4jby8/6/</a></p>
+
+<p><a href="https://qiita-user-contents.imgix.net/https%3A%2F%2Fi.gyazo.com%2F91fc6ede4087ecd1a3865b57bbc3297c.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=3be35398038212fcabdfcdaa243032ec" target="_blank" rel="nofollow noopener"><img src="https://qiita-user-contents.imgix.net/https%3A%2F%2Fi.gyazo.com%2F91fc6ede4087ecd1a3865b57bbc3297c.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=3be35398038212fcabdfcdaa243032ec" alt="canvas layers" data-canonical-src="https://i.gyazo.com/91fc6ede4087ecd1a3865b57bbc3297c.png" srcset="https://qiita-user-contents.imgix.net/https%3A%2F%2Fi.gyazo.com%2F91fc6ede4087ecd1a3865b57bbc3297c.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;w=1400&amp;fit=max&amp;s=991befda86e67abc70019bc1230953b5 1x" loading="lazy"></a></p>
+
+<p>こういう透明なcanvasが複数枚重なっていたとして、<br>
+canvasの不透明領域(図中の丸)ではcanvasにマウスイベントが発生して、<br>
+それ以外の透明領域ではマウス直下の要素にマウスイベントを発火させたいとする。</p>
+
+<div class="code-frame" data-lang="html"><div class="highlight"><pre><span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">"wrapper"</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;canvas</span> <span class="na">id=</span><span class="s">"cnv1"</span><span class="nt">&gt;&lt;/canvas&gt;</span>
+  <span class="nt">&lt;canvas</span> <span class="na">id=</span><span class="s">"cnv2"</span><span class="nt">&gt;&lt;/canvas&gt;</span>
+  <span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">"rect"</span><span class="nt">&gt;&lt;/div&gt;</span>
+  <span class="nt">&lt;canvas</span> <span class="na">id=</span><span class="s">"cnv3"</span><span class="nt">&gt;&lt;/canvas&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+</pre></div></div>
+
+<div class="code-frame" data-lang="css"><div class="highlight"><pre><span class="nt">canvas</span> <span class="p">{</span>
+  <span class="nl">border</span><span class="p">:</span> <span class="nb">none</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="nf">#wrapper</span><span class="p">{</span>
+  <span class="nl">position</span><span class="p">:</span> <span class="nb">relative</span><span class="p">;</span>
+  <span class="nl">top</span><span class="p">:</span> <span class="m">20px</span><span class="p">;</span>
+  <span class="nl">left</span><span class="p">:</span> <span class="m">20px</span><span class="p">;</span>
+  <span class="nl">width</span><span class="p">:</span> <span class="m">100px</span><span class="p">;</span>
+  <span class="nl">height</span><span class="p">:</span> <span class="m">100px</span><span class="p">;</span>
+  <span class="nl">background-color</span><span class="p">:</span> <span class="no">gray</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="nf">#wrapper</span><span class="o">&gt;*</span><span class="p">{</span>
+  <span class="nl">position</span><span class="p">:</span> <span class="nb">absolute</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="nf">#rect</span><span class="p">{</span>
+  <span class="nl">top</span><span class="p">:</span> <span class="m">25px</span><span class="p">;</span>
+  <span class="nl">left</span><span class="p">:</span> <span class="m">75px</span><span class="p">;</span>
+  <span class="nl">width</span><span class="p">:</span> <span class="m">50px</span><span class="p">;</span>
+  <span class="nl">height</span><span class="p">:</span> <span class="m">50px</span><span class="p">;</span>
+  <span class="nl">background-color</span><span class="p">:</span> <span class="no">yellow</span><span class="p">;</span>
+  <span class="nl">border</span><span class="p">:</span> <span class="m">1px</span> <span class="nb">solid</span> <span class="no">black</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="nf">#cnv1</span><span class="p">{</span>
+  <span class="nl">top</span><span class="p">:</span> <span class="m">10px</span><span class="p">;</span>
+  <span class="nl">left</span><span class="p">:</span> <span class="m">10px</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="nf">#cnv2</span><span class="p">{</span>
+  <span class="nl">top</span><span class="p">:</span> <span class="m">20px</span><span class="p">;</span>
+  <span class="nl">left</span><span class="p">:</span> <span class="m">20px</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="nf">#cnv3</span><span class="p">{</span>
+  <span class="nl">top</span><span class="p">:</span> <span class="m">30px</span><span class="p">;</span>
+  <span class="nl">left</span><span class="p">:</span> <span class="m">30px</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="pointer-events" class="fragment"></span><a href="#pointer-events"><i class="fa fa-link"></i></a>pointer-events</h2>
+
+<p>このとき、<a href="https://developer.mozilla.org/en/docs/Web/CSS/pointer-events" rel="nofollow noopener" target="_blank">pointer-events</a><br>
+というCSSプロパティを使えばその要素にマウスイベントを発生させず透過させることができるが、canvasの不透明要素へのマウスイベントも当然発生しなくなる。故に今回の場合この方法は使えない。</p>
+
+<h2>
+<span id="座標の位置の要素を取得する" class="fragment"></span><a href="#%E5%BA%A7%E6%A8%99%E3%81%AE%E4%BD%8D%E7%BD%AE%E3%81%AE%E8%A6%81%E7%B4%A0%E3%82%92%E5%8F%96%E5%BE%97%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>座標の位置の要素を取得する</h2>
+
+<p>そこで次に考えるのが<a href="https://developer.mozilla.org/en/docs/Web/API/Document/elementFromPoint" rel="nofollow noopener" target="_blank">document.elementFromPoint</a>である。これは、vieportのx,y座標の位置の要素を取得できるAPIである。これと<a href="https://developer.mozilla.org/en/docs/Web/API/MouseEvent" rel="nofollow noopener" target="_blank">MouseEvent</a>のclientX,clientYを組み合わせれば、マウスポインタの座標の要素を取得できる。このAPIを使って、ある要素の背後の要素を取得するには次のようにする。</p>
+
+<div class="code-frame" data-lang="coffeescript"><div class="highlight"><pre><span class="nx">getUnderElement</span> <span class="o">=</span> <span class="p">(</span><span class="nx">target</span><span class="p">,</span> <span class="nx">clientX</span><span class="p">,</span> <span class="nx">clientY</span><span class="p">)</span><span class="o">-&gt;</span>
+  <span class="nx">tmp</span> <span class="o">=</span> <span class="nx">target</span><span class="p">.</span><span class="na">style</span><span class="p">.</span><span class="na">display</span>
+  <span class="nx">target</span><span class="p">.</span><span class="na">style</span><span class="p">.</span><span class="na">display</span> <span class="o">=</span> <span class="s">"none"</span>
+  <span class="nx">under</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="na">elementFromPoint</span><span class="p">(</span><span class="nx">clientX</span><span class="p">,</span> <span class="nx">clientY</span><span class="p">)</span>
+  <span class="nx">target</span><span class="p">.</span><span class="na">style</span><span class="p">.</span><span class="na">display</span> <span class="o">=</span> <span class="nx">tmp</span>
+  <span class="nx">under</span>
+</pre></div></div>
+
+<p>まず、マウスイベントが発生した要素<code>target</code>のCSSの<a href="https://developer.mozilla.org/en/docs/Web/CSS/display" rel="nofollow noopener" target="_blank">display</a>プロパティを<code>none</code>にしてレンダリングツリーから存在を消す。<br>
+そうしておいて、<code>document.elementFromPoint(x, y)</code>をすることで、その座標における、直下の要素を取得できる。<br>
+これは今回の目的に使えそうである。</p>
+
+<blockquote>
+<p>参考:<br>
+"What is the difference between screenX/Y, clientX/Y and pageX/Y?"<br>
+<a href="http://stackoverflow.com/questions/6073505/what-is-the-difference-between-screenx-y-clientx-y-and-pagex-y" class="autolink" rel="nofollow noopener" target="_blank">http://stackoverflow.com/questions/6073505/what-is-the-difference-between-screenx-y-clientx-y-and-pagex-y</a></p>
+</blockquote>
+
+<h2>
+<span id="canvasのある座標が透明かどうか判定する" class="fragment"></span><a href="#canvas%E3%81%AE%E3%81%82%E3%82%8B%E5%BA%A7%E6%A8%99%E3%81%8C%E9%80%8F%E6%98%8E%E3%81%8B%E3%81%A9%E3%81%86%E3%81%8B%E5%88%A4%E5%AE%9A%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>canvasのある座標が透明かどうか判定する</h2>
+
+<p>次に、canvasのマウスイベントが発生したその座標において、透明であるかそうでないかを判定する方法を考える。これにはcanvas要素のalpha channelを調べればよい。</p>
+
+<div class="code-frame" data-lang="coffeescript"><div class="highlight"><pre><span class="nx">isHit</span> <span class="o">=</span> <span class="p">(</span><span class="nx">cnv</span><span class="p">,</span> <span class="nx">x</span><span class="p">,</span> <span class="nx">y</span><span class="p">)</span><span class="o">-&gt;</span>
+  <span class="nx">ctx</span> <span class="o">=</span> <span class="nx">cnv</span><span class="p">.</span><span class="na">getContext</span><span class="p">(</span><span class="s">"2d"</span><span class="p">)</span>
+  <span class="nx">imgdata</span> <span class="o">=</span> <span class="nx">ctx</span><span class="p">.</span><span class="na">getImageData</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nx">y</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+  <span class="nx">imgdata</span><span class="p">.</span><span class="na">data</span><span class="p">[</span><span class="nx">imgdata</span><span class="p">.</span><span class="na">data</span><span class="p">.</span><span class="na">length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">isnt</span> <span class="mi">0</span>
+</pre></div></div>
+
+<p>対象ピクセルの1x1のimagedataからalpha channelを読み込み、その領域が透明であるか判定できる。</p>
+
+<h2>
+<span id="直下の要素にマウスイベントを投げる" class="fragment"></span><a href="#%E7%9B%B4%E4%B8%8B%E3%81%AE%E8%A6%81%E7%B4%A0%E3%81%AB%E3%83%9E%E3%82%A6%E3%82%B9%E3%82%A4%E3%83%99%E3%83%B3%E3%83%88%E3%82%92%E6%8A%95%E3%81%92%E3%82%8B"><i class="fa fa-link"></i></a>直下の要素にマウスイベントを投げる</h2>
+
+<p><code>MouseEvent</code>コンストラクタと<a href="https://developer.mozilla.org/en/docs/Web/API/EventTarget" rel="nofollow noopener" target="_blank">EventTarget#dispatchEvent</a>メソッドを使うことで、現在のマウスイベントの値を持った新しいマウスイベントを生成して、直下の要素<code>underElement</code>に対してマウスイベントを発火させることができる。</p>
+
+<div class="code-frame" data-lang="coffeescript"><div class="highlight"><pre><span class="nx">ev</span><span class="p">.</span><span class="na">preventDefault</span><span class="p">()</span>
+<span class="nx">ev</span><span class="p">.</span><span class="na">stopPropagation</span><span class="p">()</span>
+<span class="nx">mev</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">MouseEvent</span> <span class="nx">ev</span><span class="p">.</span><span class="na">type</span><span class="p">,</span>
+  <span class="na">screenX</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">screenX</span>
+  <span class="na">screenY</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">screenY</span>
+  <span class="na">clientX</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">clientX</span>
+  <span class="na">clientY</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">clientY</span>
+  <span class="na">ctrlKey</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">ctrlKey</span>
+  <span class="na">altKey</span><span class="o">:</span>  <span class="nx">ev</span><span class="p">.</span><span class="na">altKey</span>
+  <span class="na">shiftKey</span><span class="o">:</span><span class="nx">ev</span><span class="p">.</span><span class="na">shiftKey</span>
+  <span class="na">metaKey</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">metaKey</span>
+  <span class="na">button</span><span class="o">:</span>  <span class="nx">ev</span><span class="p">.</span><span class="na">button</span>
+  <span class="na">buttons</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">buttons</span>
+  <span class="na">relatedTarget</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">relatedTarget</span>
+  <span class="na">view</span><span class="o">:</span>    <span class="nx">ev</span><span class="p">.</span><span class="na">view</span>
+  <span class="na">detail</span><span class="o">:</span>  <span class="nx">ev</span><span class="p">.</span><span class="na">detail</span>
+  <span class="na">bubbles</span><span class="o">:</span> <span class="no">false</span>
+<span class="nx">underElement</span><span class="p">.</span><span class="na">dispatchEvent</span><span class="p">(</span><span class="nx">mev</span><span class="p">);</span>
+</pre></div></div>
+
+<p>ここまでが問題解決に必要な技術である。</p>
+
+<h2>
+<span id="複数枚重なったcanvasに対応する" class="fragment"></span><a href="#%E8%A4%87%E6%95%B0%E6%9E%9A%E9%87%8D%E3%81%AA%E3%81%A3%E3%81%9Fcanvas%E3%81%AB%E5%AF%BE%E5%BF%9C%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>複数枚重なったcanvasに対応する</h2>
+
+<p>canvasが複数枚重なっている場合、上の手法をそのまま使うだけでは、見えている要素にはイベントが発生しない。先ほど作った<code>getUnderElement</code>関数を思い出してほしい。</p>
+
+<div class="code-frame" data-lang="coffeescript"><div class="highlight"><pre><span class="nx">getUnderElement</span> <span class="o">=</span> <span class="p">(</span><span class="nx">target</span><span class="p">,</span> <span class="nx">x</span><span class="p">,</span> <span class="nx">y</span><span class="p">)</span><span class="o">-&gt;</span>
+  <span class="nx">tmp</span> <span class="o">=</span> <span class="nx">target</span><span class="p">.</span><span class="na">style</span><span class="p">.</span><span class="na">display</span>
+  <span class="nx">target</span><span class="p">.</span><span class="na">style</span><span class="p">.</span><span class="na">display</span> <span class="o">=</span> <span class="s">"none"</span>
+  <span class="nx">under</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="na">elementFromPoint</span><span class="p">(</span><span class="nx">x</span><span class="p">,</span> <span class="nx">y</span><span class="p">)</span>
+  <span class="nx">target</span><span class="p">.</span><span class="na">style</span><span class="p">.</span><span class="na">display</span> <span class="o">=</span> <span class="nx">tmp</span>
+  <span class="nx">under</span>
+</pre></div></div>
+
+<p>返り値を渡す前に<code>target.style.display = tmp</code>をして、レンダリングツリーに再表示している。これでは複数枚canvasが重なっている場合、１枚目と２枚目が互いにイベントを発生しあい、それより下にイベントが通知されなくなる。そのため、一回のイベント内で、再帰的に直下要素がcanvasであるかどうか、また、そのcanvasのその位置が透明であるかを判定する必要がある。そして、直下の要素がcanvasかつ不透明ならその当たりと判定し、透明かつcanvas以外の要素であったらマウスイベントを発火させる。</p>
+
+<p>説明するのが面倒くさくなってきたので、最終的なコードだけ示す。</p>
+
+<div class="code-frame" data-lang="coffeescript"><div class="highlight"><pre><span class="nx">ids</span> <span class="o">=</span> <span class="p">[</span><span class="s">"cnv1"</span><span class="p">,</span> <span class="s">"cnv2"</span><span class="p">,</span> <span class="s">"cnv3"</span><span class="p">]</span>
+<span class="nx">cnvs</span> <span class="o">=</span> <span class="nx">ids</span><span class="p">.</span><span class="na">map</span> <span class="p">(</span><span class="nx">id</span><span class="p">)</span><span class="o">-&gt;</span> <span class="nb">document</span><span class="p">.</span><span class="na">getElementById</span><span class="p">(</span><span class="nx">id</span><span class="p">)</span>
+<span class="nx">cnvs</span><span class="p">.</span><span class="na">forEach</span> <span class="p">(</span><span class="nx">cnv</span><span class="p">)</span><span class="o">-&gt;</span> <span class="nx">cnv</span><span class="p">.</span><span class="na">width</span> <span class="o">=</span> <span class="nx">cnv</span><span class="p">.</span><span class="na">height</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="nx">ctxs</span> <span class="o">=</span> <span class="nx">cnvs</span><span class="p">.</span><span class="na">map</span> <span class="p">(</span><span class="nx">cnv</span><span class="p">)</span><span class="o">-&gt;</span> <span class="nx">cnv</span><span class="p">.</span><span class="na">getContext</span><span class="p">(</span><span class="s">"2d"</span><span class="p">)</span>
+<span class="nx">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s">"red"</span><span class="p">,</span> <span class="s">"green"</span><span class="p">,</span> <span class="s">"blue"</span><span class="p">]</span>
+
+<span class="nx">ctxs</span><span class="p">.</span><span class="na">forEach</span> <span class="p">(</span><span class="nx">ctx</span><span class="p">,</span> <span class="nx">i</span><span class="p">)</span><span class="o">-&gt;</span>
+  <span class="nx">ctx</span><span class="p">.</span><span class="na">beginPath</span><span class="p">()</span>
+  <span class="nx">ctx</span><span class="p">.</span><span class="na">arc</span><span class="p">(</span><span class="nx">cnvs</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="na">width</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="nx">cnvs</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="na">height</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="nx">cnvs</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="na">width</span><span class="o">/</span><span class="mi">4</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="nb">Math</span><span class="p">.</span><span class="na">PI</span><span class="p">,</span> <span class="no">true</span><span class="p">)</span>
+  <span class="nx">ctx</span><span class="p">.</span><span class="na">closePath</span><span class="p">()</span>
+  <span class="nx">ctx</span><span class="p">.</span><span class="na">fillStyle</span> <span class="o">=</span> <span class="nx">colors</span><span class="p">[</span><span class="nx">i</span><span class="o">%</span><span class="nx">colors</span><span class="p">.</span><span class="na">length</span><span class="p">]</span>
+  <span class="nx">ctx</span><span class="p">.</span><span class="na">fill</span><span class="p">()</span>
+  <span class="nx">ctx</span><span class="p">.</span><span class="na">beginPath</span><span class="p">()</span>
+  <span class="nx">ctx</span><span class="p">.</span><span class="na">rect</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">);</span>
+  <span class="nx">ctx</span><span class="p">.</span><span class="na">closePath</span><span class="p">()</span>
+  <span class="nx">ctx</span><span class="p">.</span><span class="na">stroke</span><span class="p">();</span>
+
+<span class="nx">cnvs</span><span class="p">.</span><span class="na">forEach</span> <span class="p">(</span><span class="nx">cnv</span><span class="p">)</span><span class="o">-&gt;</span>
+  <span class="nx">console</span><span class="p">.</span><span class="na">log</span> <span class="nx">cnv</span><span class="p">.</span><span class="na">id</span><span class="p">,</span> <span class="nx">$</span><span class="p">(</span><span class="nx">cnv</span><span class="p">).</span><span class="na">offset</span><span class="p">()</span>
+
+<span class="nx">$</span><span class="p">(</span><span class="s">"#wrapper"</span><span class="p">).</span><span class="na">on</span> <span class="s">"click"</span><span class="p">,</span>  <span class="p">(</span><span class="nx">ev</span><span class="p">)</span><span class="o">-&gt;</span>
+  <span class="nx">console</span><span class="p">.</span><span class="na">log</span> <span class="s">"wrapper"</span> <span class="k">if</span> <span class="nx">ev</span><span class="p">.</span><span class="na">target</span> <span class="o">is</span> <span class="err">@</span>
+
+<span class="nx">$</span><span class="p">(</span><span class="s">"#wrapper"</span><span class="p">).</span><span class="na">delegate</span> <span class="s">"canvas"</span><span class="p">,</span> <span class="s">"click"</span><span class="p">,</span> <span class="p">(</span><span class="nx">ev</span><span class="p">)</span><span class="o">-&gt;</span>
+  <span class="nx">hit</span> <span class="o">=</span> <span class="nx">recursiveElementFromPoint</span><span class="p">(</span><span class="nx">ev</span><span class="p">,</span> <span class="nx">wrapper</span><span class="p">,</span> <span class="nx">ev</span><span class="p">.</span><span class="na">target</span><span class="p">)</span>
+  <span class="k">return</span> <span class="nx">unless</span> <span class="nx">hit</span><span class="o">?</span>
+  <span class="nx">console</span><span class="p">.</span><span class="na">log</span> <span class="s">"circle"</span><span class="p">,</span> <span class="nx">hit</span>
+
+<span class="nx">$</span><span class="p">(</span><span class="s">"#rect"</span><span class="p">).</span><span class="na">on</span> <span class="s">"click"</span><span class="p">,</span> <span class="p">(</span><span class="nx">ev</span><span class="p">)</span><span class="o">-&gt;</span>
+  <span class="nx">console</span><span class="p">.</span><span class="na">log</span> <span class="s">"rect"</span>
+
+<span class="nx">recursiveElementFromPoint</span> <span class="o">=</span> <span class="p">(</span><span class="nx">ev</span><span class="p">,</span> <span class="nx">parent</span><span class="p">,</span> <span class="nx">target</span><span class="p">)</span><span class="o">-&gt;</span>
+  <span class="p">{</span><span class="nx">clientX</span><span class="p">,</span> <span class="nx">clientY</span><span class="p">,</span> <span class="nx">pageX</span><span class="p">,</span> <span class="nx">pageY</span><span class="p">}</span> <span class="o">=</span> <span class="nx">ev</span>
+  <span class="p">{</span><span class="nx">left</span><span class="p">,</span> <span class="nx">top</span><span class="p">}</span> <span class="o">=</span> <span class="nx">$</span><span class="p">(</span><span class="nx">target</span><span class="p">).</span><span class="na">offset</span><span class="p">()</span>
+  <span class="p">[</span><span class="nx">offsetX</span><span class="p">,</span> <span class="nx">offsetY</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nx">pageX</span> <span class="o">-</span> <span class="nx">left</span><span class="p">,</span> <span class="nx">pageY</span> <span class="o">-</span> <span class="nx">top</span><span class="p">]</span>
+  <span class="k">if</span> <span class="p">[].</span><span class="na">slice</span><span class="p">.</span><span class="na">call</span><span class="p">(</span><span class="nx">wrapper</span><span class="p">.</span><span class="na">children</span><span class="p">).</span><span class="na">indexOf</span><span class="p">(</span><span class="nx">target</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">1</span> <span class="o">and</span>
+     <span class="nx">target</span> <span class="k">instanceof</span> <span class="nx">HTMLCanvasElement</span> <span class="o">and</span>
+     <span class="nx">isHit</span><span class="p">(</span><span class="nx">target</span><span class="p">,</span> <span class="nx">offsetX</span><span class="p">,</span> <span class="nx">offsetY</span><span class="p">)</span>
+    <span class="nx">ev</span><span class="p">.</span><span class="na">preventDefault</span><span class="p">()</span>
+    <span class="nx">ev</span><span class="p">.</span><span class="na">stopPropagation</span><span class="p">()</span>
+    <span class="k">return</span> <span class="nx">target</span>
+  <span class="nx">tmp</span> <span class="o">=</span> <span class="nx">target</span><span class="p">.</span><span class="na">style</span><span class="p">.</span><span class="na">display</span>
+  <span class="nx">target</span><span class="p">.</span><span class="na">style</span><span class="p">.</span><span class="na">display</span> <span class="o">=</span> <span class="s">"none"</span>
+  <span class="nx">under</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="na">elementFromPoint</span><span class="p">(</span><span class="nx">clientX</span><span class="p">,</span> <span class="nx">clientY</span><span class="p">)</span>
+  <span class="nx">unless</span> <span class="nx">under</span><span class="o">?</span>
+    <span class="nx">target</span><span class="p">.</span><span class="na">style</span><span class="p">.</span><span class="na">display</span> <span class="o">=</span> <span class="nx">tmp</span>
+    <span class="k">return</span> <span class="no">null</span> 
+  <span class="k">if</span> <span class="p">[].</span><span class="na">slice</span><span class="p">.</span><span class="na">call</span><span class="p">(</span><span class="nx">wrapper</span><span class="p">.</span><span class="na">children</span><span class="p">).</span><span class="na">indexOf</span><span class="p">(</span><span class="nx">under</span><span class="p">)</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">1</span> <span class="o">and</span>
+     <span class="nx">under</span> <span class="k">instanceof</span> <span class="nx">HTMLCanvasElement</span>
+    <span class="nx">result</span> <span class="o">=</span> <span class="nx">recursiveElementFromPoint</span><span class="p">(</span><span class="nx">ev</span><span class="p">,</span> <span class="nx">wrapper</span><span class="p">,</span> <span class="nx">under</span><span class="p">)</span> <span class="c1"># display:noneしたまま再帰的に直下要素を調べる。ここがミソ</span>
+    <span class="nx">target</span><span class="p">.</span><span class="na">style</span><span class="p">.</span><span class="na">display</span> <span class="o">=</span> <span class="nx">tmp</span>
+    <span class="k">return</span> <span class="nx">result</span>
+  <span class="nx">target</span><span class="p">.</span><span class="na">style</span><span class="p">.</span><span class="na">display</span> <span class="o">=</span> <span class="nx">tmp</span>
+  <span class="nx">ev</span><span class="p">.</span><span class="na">preventDefault</span><span class="p">()</span>
+  <span class="nx">ev</span><span class="p">.</span><span class="na">stopPropagation</span><span class="p">()</span>
+  <span class="nx">eventPropagationSim</span><span class="p">(</span><span class="nx">under</span><span class="p">,</span> <span class="nx">ev</span><span class="p">)</span>
+  <span class="k">return</span> <span class="no">null</span>
+
+<span class="nx">isHit</span> <span class="o">=</span> <span class="p">(</span><span class="nx">cnv</span><span class="p">,</span> <span class="nx">x</span><span class="p">,</span> <span class="nx">y</span><span class="p">)</span><span class="o">-&gt;</span>
+  <span class="nx">ctx</span> <span class="o">=</span> <span class="nx">cnv</span><span class="p">.</span><span class="na">getContext</span><span class="p">(</span><span class="s">"2d"</span><span class="p">)</span>
+  <span class="nx">imgdata</span> <span class="o">=</span> <span class="nx">ctx</span><span class="p">.</span><span class="na">getImageData</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nx">y</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+  <span class="nx">imgdata</span><span class="p">.</span><span class="na">data</span><span class="p">[</span><span class="nx">imgdata</span><span class="p">.</span><span class="na">data</span><span class="p">.</span><span class="na">length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">isnt</span> <span class="mi">0</span>
+
+<span class="nx">eventPropagationSim</span> <span class="o">=</span> <span class="p">(</span><span class="nx">target</span><span class="p">,</span> <span class="nx">ev</span><span class="p">)</span><span class="o">-&gt;</span>
+  <span class="k">if</span> <span class="nx">ev</span><span class="p">.</span><span class="na">type</span> <span class="o">is</span> <span class="s">"click"</span> <span class="o">or</span>
+     <span class="sr">/^mouse/</span><span class="p">.</span><span class="na">test</span><span class="p">(</span><span class="nx">ev</span><span class="p">.</span><span class="na">type</span><span class="p">)</span>
+    <span class="nx">ev</span><span class="p">.</span><span class="na">preventDefault</span><span class="p">()</span>
+    <span class="nx">ev</span><span class="p">.</span><span class="na">stopPropagation</span><span class="p">()</span>
+    <span class="nx">mev</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">MouseEvent</span> <span class="nx">ev</span><span class="p">.</span><span class="na">type</span><span class="p">,</span>
+      <span class="na">screenX</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">screenX</span>
+      <span class="na">screenY</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">screenY</span>
+      <span class="na">clientX</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">clientX</span>
+      <span class="na">clientY</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">clientY</span>
+      <span class="na">ctrlKey</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">ctrlKey</span>
+      <span class="na">altKey</span><span class="o">:</span>  <span class="nx">ev</span><span class="p">.</span><span class="na">altKey</span>
+      <span class="na">shiftKey</span><span class="o">:</span><span class="nx">ev</span><span class="p">.</span><span class="na">shiftKey</span>
+      <span class="na">metaKey</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">metaKey</span>
+      <span class="na">button</span><span class="o">:</span>  <span class="nx">ev</span><span class="p">.</span><span class="na">button</span>
+      <span class="na">buttons</span><span class="o">:</span> <span class="nx">ev</span><span class="p">[</span><span class="s">"buttons"</span><span class="p">]</span>
+      <span class="na">relatedTarget</span><span class="o">:</span> <span class="nx">ev</span><span class="p">.</span><span class="na">relatedTarget</span>
+      <span class="na">view</span><span class="o">:</span>    <span class="nx">ev</span><span class="p">[</span><span class="s">"view"</span><span class="p">]</span>
+      <span class="na">detail</span><span class="o">:</span>  <span class="nx">ev</span><span class="p">[</span><span class="s">"detail"</span><span class="p">]</span>
+      <span class="na">bubbles</span><span class="o">:</span> <span class="no">false</span>
+    <span class="nx">target</span><span class="p">.</span><span class="na">dispatchEvent</span><span class="p">(</span><span class="nx">mev</span><span class="p">);</span>
+  <span class="k">else</span>
+   <span class="nx">console</span><span class="p">.</span><span class="na">log</span><span class="p">(</span><span class="nx">ev</span><span class="p">.</span><span class="na">type</span><span class="p">)</span>
+  <span class="k">return</span>
+</pre></div></div>

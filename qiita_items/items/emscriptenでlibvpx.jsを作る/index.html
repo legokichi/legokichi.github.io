@@ -1,0 +1,198 @@
+
+<h1>
+<span id="emscriptenでlibvpxjsを作る" class="fragment"></span><a href="#emscripten%E3%81%A7libvpxjs%E3%82%92%E4%BD%9C%E3%82%8B"><i class="fa fa-link"></i></a>emscriptenでlibvpx.jsを作る</h1>
+
+<h2>
+<span id="ビルドの流れ" class="fragment"></span><a href="#%E3%83%93%E3%83%AB%E3%83%89%E3%81%AE%E6%B5%81%E3%82%8C"><i class="fa fa-link"></i></a>ビルドの流れ</h2>
+
+<p><code>.o</code> <code>.a</code> アセンブリを作る代わりに <code>--emit-llvm</code> で llvm bitcode を出力し、それを emcc で asm.js にビルドする</p>
+
+<h2>
+<span id="configure-を書き換える" class="fragment"></span><a href="#configure-%E3%82%92%E6%9B%B8%E3%81%8D%E6%8F%9B%E3%81%88%E3%82%8B"><i class="fa fa-link"></i></a>configure を書き換える</h2>
+
+<p>参考</p>
+
+<ul>
+<li><a href="https://bitbucket.org/desmaj/libvpx.js/src/1ea3218282b6eb129061341831d23409dd539054/configure.patch" class="autolink" rel="nofollow noopener" target="_blank">https://bitbucket.org/desmaj/libvpx.js/src/1ea3218282b6eb129061341831d23409dd539054/configure.patch</a></li>
+</ul>
+
+<p><a href="https://chromium.googlesource.com/webm/libvpx/+/904b957ae965bd3d67f15a75cd9db7954f810d33" class="autolink" rel="nofollow noopener" target="_blank">https://chromium.googlesource.com/webm/libvpx/+/904b957ae965bd3d67f15a75cd9db7954f810d33</a> 時点の場合だと</p>
+
+<div class="code-frame" data-lang="diff">
+<div class="code-lang"><span class="bold">configure.patch</span></div>
+<div class="highlight"><pre><span class="gh">diff --git a/build/make/configure.sh b/build/make/configure.sh
+index ac60f50..f95dbdc 100644
+</span><span class="gd">--- a/build/make/configure.sh
+</span><span class="gi">+++ b/build/make/configure.sh
+</span><span class="p">@@ -456,7 +456,7 @@</span> NM=${NM}
+
+ CFLAGS  = ${CFLAGS}
+ CXXFLAGS  = ${CXXFLAGS}
+<span class="gd">-ARFLAGS = -crs\$(if \$(quiet),,v)
+</span><span class="gi">+ARFLAGS = crs\$(if \$(quiet),,v)
+</span> LDFLAGS = ${LDFLAGS}
+ ASFLAGS = ${ASFLAGS}
+ extralibs = ${extralibs}
+<span class="p">@@ -1337,6 +1337,22 @@</span> EOF
+           ;;
+       esac
+       ;;
+<span class="gi">+    asmjs-unknown-emscripten)
++      # echo "@ " $toolchain " = asmjs-unknown-emscripten""
++      # echo "@ " $tgt_isa "-" $tgt_os "-" $tgt_cc
++      CC=emcc
++      LD=llvm-link
++      AR=llvm-ar
++      AS=llvm-as
++      NM=llvm-nm
++      tune_cflags=""
++      tune_asflags=""
++      add_cflags -emit-llvm
++      #add_ldflags
++      #add_asflags 
++      disabled multithread
++      HAVE_GNU_STRIP=no
++      ;;
+</span>     *-gcc|generic-gnu)
+       link_with_cc=gcc
+       enable_feature gcc
+<span class="gh">diff --git a/configure b/configure
+index 379c2f4..deb0965 100755
+</span><span class="gd">--- a/configure
+</span><span class="gi">+++ b/configure
+</span><span class="p">@@ -155,6 +155,7 @@</span> all_platforms="${all_platforms} x86_64-win64-vs11"
+ all_platforms="${all_platforms} x86_64-win64-vs12"
+ all_platforms="${all_platforms} x86_64-win64-vs14"
+ all_platforms="${all_platforms} generic-gnu"
+<span class="gi">+all_platforms="${all_platforms} asmjs-unknown-emscripten"
+</span>
+ # all_targets is a list of all targets that can be configured
+ # note that these should be in dependency order for now.
+</pre></div>
+</div>
+
+<p>のようにすればよい</p>
+
+<ul>
+<li>
+<code>llvm-ar</code> は <code>ar</code> と違ってオプションに <code>-</code> がつかない</li>
+</ul>
+
+<h2>
+<span id="ビルドの手順" class="fragment"></span><a href="#%E3%83%93%E3%83%AB%E3%83%89%E3%81%AE%E6%89%8B%E9%A0%86"><i class="fa fa-link"></i></a>ビルドの手順</h2>
+
+<p>参考</p>
+
+<ul>
+<li><a href="https://bitbucket.org/desmaj/libvpx.js/src/1ea3218282b6eb129061341831d23409dd539054/build.sh" class="autolink" rel="nofollow noopener" target="_blank">https://bitbucket.org/desmaj/libvpx.js/src/1ea3218282b6eb129061341831d23409dd539054/build.sh</a></li>
+<li><a href="https://github.com/bemasc/Broadway/blob/master/vp8/README" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/bemasc/Broadway/blob/master/vp8/README</a></li>
+</ul>
+
+<div class="code-frame" data-lang="bash">
+<div class="code-lang"><span class="bold">build.sh</span></div>
+<div class="highlight"><pre>git clone https://chromium.googlesource.com/webm/libvpx
+<span class="nb">cd </span>libvpx
+patch <span class="nt">-p1</span> <span class="nt">-i</span> ./configure.patch
+<span class="nb">source</span> /path/to/emsdk_env.sh
+emsdk activate latest
+emconfigure ./configure <span class="se">\</span>
+  <span class="nt">--disable-optimizations</span> <span class="se">\</span>
+  <span class="nt">--disable-runtime-cpu-detect</span> <span class="se">\</span>
+  <span class="nt">--disable-examples</span> <span class="se">\</span>
+  <span class="nt">--disable-docs</span> <span class="se">\</span>
+  <span class="nt">--disable-vp9</span> <span class="se">\</span>
+  <span class="nt">--disable-vp8-encoder</span> <span class="se">\</span>
+  <span class="nt">--disable-unit_tests</span> <span class="se">\</span>
+  <span class="nt">--disable-install_bins</span> <span class="se">\</span>
+  <span class="nt">--disable-install_libs</span> <span class="se">\</span>
+  <span class="nt">--disable-encode_perf_tests</span> <span class="se">\</span>
+  <span class="nt">--disable-decode_perf_tests</span> <span class="se">\</span>
+  <span class="nt">--disable-vp8_encoder</span> <span class="se">\</span>
+  <span class="nt">--target</span><span class="o">=</span>asmjs-unknown-emscripten <span class="se">\</span>
+  <span class="nt">--extra-cflags</span><span class="o">=</span><span class="s2">"-O2"</span>
+emmake make
+<span class="nv">exported_functions</span><span class="o">=</span><span class="s2">"['_vpx_codec_version_str', '_vpx_codec_dec_init_ver', '_vpx_codec_enc_init_ver', '_vpx_codec_vp8_dx', '_vpx_codec_iface_name', '_vpx_codec_err_to_string', '_vpx_codec_error_detail', '_vpx_codec_error', '_vpx_codec_decode', '_vpx_codec_get_frame', '_vpx_codec_encode', '_vpx_codec_get_cx_data', '_vpx_img_alloc']"</span>
+emcc <span class="se">\</span>
+  <span class="nt">-s</span> <span class="nv">ALLOW_MEMORY_GROWTH</span><span class="o">=</span>1 <span class="se">\</span>
+  <span class="nt">-s</span> <span class="nv">EXPORTED_FUNCTIONS</span><span class="o">=</span><span class="s2">"</span><span class="nv">$exported_functions</span><span class="s2">"</span> <span class="se">\</span>
+  libvpx.a <span class="se">\</span>
+  <span class="nt">-o</span> libvpx.js
+</pre></div>
+</div>
+
+<ul>
+<li>vp8 の decoder だけほしかったので <code>--disable-vp9</code> <code>--disable-vp8-encoder</code> をした。</li>
+<li>
+<code>-s ALLOW_MEMORY_GROWTH=1</code> の代わりに <code>-O2</code> ができたら asm.js　の最適化が働いて嬉しい</li>
+<li>
+</ul>
+
+<h2>
+<span id="js-との-interface" class="fragment"></span><a href="#js-%E3%81%A8%E3%81%AE-interface"><i class="fa fa-link"></i></a>JS との Interface</h2>
+
+<ul>
+<li>JS との interface の例は下記が参考になる。 必要に応じてこのような JS を書いて <code>--post-js</code> するとよい
+
+<ul>
+<li><a href="https://bitbucket.org/desmaj/libvpx.js/src/1ea3218282b6eb129061341831d23409dd539054/epilogue.libvpx.js" class="autolink" rel="nofollow noopener" target="_blank">https://bitbucket.org/desmaj/libvpx.js/src/1ea3218282b6eb129061341831d23409dd539054/epilogue.libvpx.js</a></li>
+<li><a href="https://bitbucket.org/desmaj/libvpx.js/src/1ea3218282b6eb129061341831d23409dd539054/examples/browser/encode.js" class="autolink" rel="nofollow noopener" target="_blank">https://bitbucket.org/desmaj/libvpx.js/src/1ea3218282b6eb129061341831d23409dd539054/examples/browser/encode.js</a></li>
+</ul>
+</li>
+</ul>
+
+<h2>
+<span id="libvpx-の使い方について" class="fragment"></span><a href="#libvpx-%E3%81%AE%E4%BD%BF%E3%81%84%E6%96%B9%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6"><i class="fa fa-link"></i></a>libvpx の使い方について</h2>
+
+<ul>
+<li>libvpx そのものの使い方は libvpx のリポジトリのドキュメントやサンプルコードを追えばよい
+
+<ul>
+<li><a href="https://chromium.googlesource.com/webm/libvpx/+/904b957ae965bd3d67f15a75cd9db7954f810d33/examples/simple_decoder.c" class="autolink" rel="nofollow noopener" target="_blank">https://chromium.googlesource.com/webm/libvpx/+/904b957ae965bd3d67f15a75cd9db7954f810d33/examples/simple_decoder.c</a></li>
+<li><a href="https://chromium.googlesource.com/webm/libvpx/+/904b957ae965bd3d67f15a75cd9db7954f810d33/usage.dox" class="autolink" rel="nofollow noopener" target="_blank">https://chromium.googlesource.com/webm/libvpx/+/904b957ae965bd3d67f15a75cd9db7954f810d33/usage.dox</a></li>
+<li><a href="https://chromium.googlesource.com/webm/libvpx/+/904b957ae965bd3d67f15a75cd9db7954f810d33/usage_dx.dox" class="autolink" rel="nofollow noopener" target="_blank">https://chromium.googlesource.com/webm/libvpx/+/904b957ae965bd3d67f15a75cd9db7954f810d33/usage_dx.dox</a></li>
+</ul>
+</li>
+</ul>
+
+<h2>
+<span id="vp8--vp9-の-詳細について" class="fragment"></span><a href="#vp8--vp9-%E3%81%AE-%E8%A9%B3%E7%B4%B0%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6"><i class="fa fa-link"></i></a>VP8 、 VP9 の 詳細について</h2>
+
+<h3>
+<span id="vp8" class="fragment"></span><a href="#vp8"><i class="fa fa-link"></i></a>VP8</h3>
+
+<ul>
+<li>圧縮方式、実際のバイナリの格納方式 - <a href="https://tools.ietf.org/html/rfc6386" class="autolink" rel="nofollow noopener" target="_blank">https://tools.ietf.org/html/rfc6386</a>
+</li>
+<li>圧縮の概要 - <a href="http://blog.webmproject.org/2010/07/inside-webm-technology-vp8-intra-and.html" class="autolink" rel="nofollow noopener" target="_blank">http://blog.webmproject.org/2010/07/inside-webm-technology-vp8-intra-and.html</a>
+</li>
+</ul>
+
+<h3>
+<span id="vp9" class="fragment"></span><a href="#vp9"><i class="fa fa-link"></i></a>VP9</h3>
+
+<ul>
+<li>圧縮方式、実際のバイナリの格納方式 - <a href="https://storage.googleapis.com/downloads.webmproject.org/docs/vp9/vp9-bitstream-specification-v0.6-20160331-draft.pdf" class="autolink" rel="nofollow noopener" target="_blank">https://storage.googleapis.com/downloads.webmproject.org/docs/vp9/vp9-bitstream-specification-v0.6-20160331-draft.pdf</a>
+</li>
+<li>バイナリの格納方式 - <a href="http://downloads.webmproject.org/docs/vp9/vp9-bitstream_superframe-and-uncompressed-header_v1.0.pdf" class="autolink" rel="nofollow noopener" target="_blank">http://downloads.webmproject.org/docs/vp9/vp9-bitstream_superframe-and-uncompressed-header_v1.0.pdf</a>
+</li>
+<li>概要 - <a href="https://blogs.gnome.org/rbultje/2016/12/13/overview-of-the-vp9-video-codec/" class="autolink" rel="nofollow noopener" target="_blank">https://blogs.gnome.org/rbultje/2016/12/13/overview-of-the-vp9-video-codec/</a>
+</li>
+<li>概要 - <a href="https://forum.doom9.org/showthread.php?t=168947" class="autolink" rel="nofollow noopener" target="_blank">https://forum.doom9.org/showthread.php?t=168947</a>
+</li>
+</ul>
+
+<h3>
+<span id="emscripten-の情報を得るには" class="fragment"></span><a href="#emscripten-%E3%81%AE%E6%83%85%E5%A0%B1%E3%82%92%E5%BE%97%E3%82%8B%E3%81%AB%E3%81%AF"><i class="fa fa-link"></i></a>emscripten の情報を得るには</h3>
+
+<ul>
+<li>
+<a href="https://github.com/kripken/emscripten" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/kripken/emscripten</a> を clone して git grep すると学びがある
+
+<ul>
+<li>
+<a href="https://github.com/kripken/emscripten/tree/master/site/source/docs" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/kripken/emscripten/tree/master/site/source/docs</a> にはまだ書かれていないことも多い</li>
+</ul>
+</li>
+<li>
+<a href="https://github.com/kripken/emscripten/issues" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/kripken/emscripten/issues</a> で検索する</li>
+</ul>

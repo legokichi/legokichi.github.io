@@ -1,0 +1,81 @@
+
+<h1>
+<span id="optiont-を-serdewith-するイディオム" class="fragment"></span><a href="#optiont-%E3%82%92-serdewith-%E3%81%99%E3%82%8B%E3%82%A4%E3%83%87%E3%82%A3%E3%82%AA%E3%83%A0"><i class="fa fa-link"></i></a><code>Option&lt;T&gt;</code> を <code>serde(with="...")</code> するイディオム</h1>
+
+<div class="code-frame" data-lang="ts"><div class="highlight"><pre><span class="nx">type</span> <span class="nx">UnixTimeMillis</span> <span class="o">=</span> <span class="nx">number</span><span class="p">;</span>
+
+<span class="kr">interface</span> <span class="nx">Job</span> <span class="p">{</span>
+    <span class="nl">started_at</span><span class="p">:</span> <span class="nx">UnixTimeMillis</span><span class="p">;</span>
+    <span class="nx">ended_at</span><span class="p">?:</span> <span class="nx">UnixTimeMillis</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>のような JSON を <a href="https://docs.rs/chrono/0.4.6/chrono/serde/ts_milliseconds/index.html" rel="nofollow noopener" target="_blank"><code>chrono::serde::ts_milliseconds</code></a> でシリアライズ｜デシリアライズしたい。</p>
+
+<p>直感的に書くと以下のようになるが、 <code>ended_at</code> の <code>???</code> の部分はどうしたらよいのか、という問題が起きる。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nd">#[derive(Serialize,</span> <span class="nd">Deserialize)]</span>
+<span class="k">pub</span> <span class="k">struct</span> <span class="n">Job</span> <span class="p">{</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"::chrono::serde::ts_milliseconds"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">started_at</span><span class="p">:</span> <span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;</span><span class="p">,</span>
+    <span class="nd">#[serde(skip_serializing_if</span> <span class="nd">=</span> <span class="s">"Option::is_none"</span><span class="nd">)]</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"???"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">ended_at</span><span class="p">:</span> <span class="nb">Option</span><span class="o">&lt;</span><span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;&gt;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>現状の serde では <a href="https://github.com/serde-rs/serde/issues/723" rel="nofollow noopener" target="_blank">Option などにラップされた型を with を使ったカスタムシリアライザで扱うことができない</a> ためである。</p>
+
+<p>そこで、 <a href="https://github.com/serde-rs/serde/issues/1301#issuecomment-394108486" rel="nofollow noopener" target="_blank">以下のような <code>Helper</code> 構造体を介してパースしてやると良い</a> 。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nd">#[derive(Serialize,</span> <span class="nd">Deserialize)]</span>
+<span class="k">pub</span> <span class="k">struct</span> <span class="n">Job</span> <span class="p">{</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"::chrono::serde::ts_milliseconds"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">started_at</span><span class="p">:</span> <span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;</span><span class="p">,</span>
+    <span class="nd">#[serde(skip_serializing_if</span> <span class="nd">=</span> <span class="s">"Option::is_none"</span><span class="nd">)]</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"option_ts_milliseconds"</span><span class="nd">)]</span>
+    <span class="nd">#[serde(default=</span><span class="s">"default_opt_date"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">ended_at</span><span class="p">:</span> <span class="nb">Option</span><span class="o">&lt;</span><span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;&gt;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">fn</span> <span class="nf">default_opt_date</span><span class="p">()</span> <span class="k">-&gt;</span> <span class="nb">Option</span><span class="o">&lt;</span><span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;&gt;</span> <span class="p">{</span>
+    <span class="nb">None</span>
+<span class="p">}</span>
+
+<span class="k">mod</span> <span class="n">option_ts_milliseconds</span> <span class="p">{</span>
+    <span class="k">use</span> <span class="nn">serde_derive</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">chrono</span><span class="p">::{</span><span class="n">Utc</span><span class="p">,</span> <span class="n">DateTime</span><span class="p">};</span>
+    <span class="k">use</span> <span class="nn">serde</span><span class="p">::</span><span class="nn">ser</span><span class="p">::{</span><span class="n">Serialize</span><span class="p">,</span> <span class="n">Serializer</span><span class="p">};</span>
+    <span class="k">use</span> <span class="nn">serde</span><span class="p">::</span><span class="nn">de</span><span class="p">::{</span><span class="n">Deserialize</span><span class="p">,</span> <span class="n">Deserializer</span><span class="p">};</span>
+
+    <span class="k">pub</span> <span class="k">fn</span> <span class="n">serialize</span><span class="o">&lt;</span><span class="n">S</span><span class="o">&gt;</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="o">&amp;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;&gt;</span><span class="p">,</span> <span class="n">serializer</span><span class="p">:</span> <span class="n">S</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Result</span><span class="o">&lt;</span><span class="nn">S</span><span class="p">::</span><span class="nb">Ok</span><span class="p">,</span> <span class="nn">S</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span>
+    <span class="k">where</span>
+        <span class="n">S</span><span class="p">:</span> <span class="n">Serializer</span><span class="p">,</span>
+    <span class="p">{</span>
+        <span class="nd">#[derive(Serialize)]</span>
+        <span class="k">struct</span> <span class="n">Helper</span><span class="o">&lt;</span><span class="nv">'a</span><span class="o">&gt;</span><span class="p">(</span><span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"::chrono::serde::ts_milliseconds"</span><span class="nd">)]</span> <span class="o">&amp;</span><span class="nv">'a</span> <span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;</span><span class="p">);</span>
+        <span class="n">value</span><span class="nf">.as_ref</span><span class="p">()</span><span class="nf">.map</span><span class="p">(</span><span class="n">Helper</span><span class="p">)</span><span class="nf">.serialize</span><span class="p">(</span><span class="n">serializer</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">pub</span> <span class="k">fn</span> <span class="n">deserialize</span><span class="o">&lt;</span><span class="nv">'de</span><span class="p">,</span> <span class="n">D</span><span class="o">&gt;</span><span class="p">(</span><span class="n">deserializer</span><span class="p">:</span> <span class="n">D</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Result</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;&gt;</span><span class="p">,</span> <span class="nn">D</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span>
+    <span class="k">where</span>
+        <span class="n">D</span><span class="p">:</span> <span class="n">Deserializer</span><span class="o">&lt;</span><span class="nv">'de</span><span class="o">&gt;</span><span class="p">,</span>
+    <span class="p">{</span>
+        <span class="nd">#[derive(Deserialize)]</span>
+        <span class="k">struct</span> <span class="nf">Helper</span><span class="p">(</span><span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"::chrono::serde::ts_milliseconds"</span><span class="nd">)]</span> <span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;</span><span class="p">);</span>
+        <span class="k">let</span> <span class="n">helper</span> <span class="o">=</span> <span class="nn">Option</span><span class="p">::</span><span class="nf">deserialize</span><span class="p">(</span><span class="n">deserializer</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+        <span class="nf">Ok</span><span class="p">(</span><span class="n">helper</span><span class="nf">.map</span><span class="p">(|</span><span class="nf">Helper</span><span class="p">(</span><span class="n">o</span><span class="p">)|</span> <span class="n">o</span><span class="p">))</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p><strong>※ <code>skip_serializing_if</code> を使う場合は Default で None を返すようにしてやる必要がある</strong></p>
+
+<h2>
+<span id="参考" class="fragment"></span><a href="#%E5%8F%82%E8%80%83"><i class="fa fa-link"></i></a>参考</h2>
+
+<ul>
+<li>Using de/serialize_with inside of an Option, Map, Vec - <a href="https://github.com/serde-rs/serde/issues/723" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/serde-rs/serde/issues/723</a>
+</li>
+<li>(De)serialize remote struct with Option fields - <a href="https://github.com/serde-rs/serde/issues/1301#issuecomment-394108486" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/serde-rs/serde/issues/1301#issuecomment-394108486</a>
+</li>
+</ul>

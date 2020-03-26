@@ -1,0 +1,151 @@
+
+<h1>
+<span id="emscripten-で-simdjs-を使う" class="fragment"></span><a href="#emscripten-%E3%81%A7-simdjs-%E3%82%92%E4%BD%BF%E3%81%86"><i class="fa fa-link"></i></a>emscripten で SIMD.js を使う</h1>
+
+<p><a href="https://kripken.github.io/emscripten-site/docs/porting/simd.html" rel="nofollow noopener" target="_blank">コンパイル時とリンク時に <code>emcc -s SIMD</code> する</a>。</p>
+
+<p>SIMD.js が使われるケースは3種類ある。</p>
+
+<ol>
+<li>clang デフォルトの <a href="http://llvm.org/docs/Vectorizers.html" rel="nofollow noopener" target="_blank">LLVM autovectorization</a> が働いて自動的に SIMD 化する</li>
+<li>GCC 拡張の <a href="https://gcc.gnu.org/onlinedocs/gcc/Vector-Extensions.html" rel="nofollow noopener" target="_blank">SIMD Vector Extensions</a> で明示的に使う</li>
+<li>x86 の <a href="https://ja.wikipedia.org/wiki/Streaming_SIMD_Extensions" rel="nofollow noopener" target="_blank">Streaming SIMD Extensions</a> 命令を使う。詳細は <a href="https://kripken.github.io/emscripten-site/docs/porting/simd.html" rel="nofollow noopener" target="_blank">大本営</a> を読むべし</li>
+</ol>
+
+<p>opencv など sse サポートしているものをを asm.js にする場合は 3 が使えそう</p>
+
+<h2>
+<span id="simdjs-が有効なブラウザを用意する" class="fragment"></span><a href="#simdjs-%E3%81%8C%E6%9C%89%E5%8A%B9%E3%81%AA%E3%83%96%E3%83%A9%E3%82%A6%E3%82%B6%E3%82%92%E7%94%A8%E6%84%8F%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>SIMD.js が有効なブラウザを用意する</h2>
+
+<p><code>-s SIMD</code> で JS 出力すると SIMD.js の polyfill が付いてくる。<br>
+これをそのまま使うと遅くなる。</p>
+
+<p><a href="https://developer.mozilla.org/ja/docs/Web/JavaScript/Reference/Global_Objects/SIMD" rel="nofollow noopener" target="_blank">2017年上半期現在標準で SIMD が有効なブラウザはない</a>。</p>
+
+<p>chrome の場合起動フラグでV8の起動フラグを渡せば有効になる。 </p>
+
+<p><code>chrome --js-flags="--harmony-simd"</code></p>
+
+<p>使える V8 起動フラグの一覧を見るには <code>chrome --js-flags="--help"</code></p>
+
+<p>フラグ指定して起動する方法は<a href="https://www.chromium.org/developers/how-tos/run-chromium-with-flags" rel="nofollow noopener" target="_blank">リンク参照</a>。</p>
+
+<h2>
+<span id="ビルド例opencv-の場合" class="fragment"></span><a href="#%E3%83%93%E3%83%AB%E3%83%89%E4%BE%8Bopencv-%E3%81%AE%E5%A0%B4%E5%90%88"><i class="fa fa-link"></i></a>ビルド例(opencv の場合)</h2>
+
+<h3>
+<span id="1-configure" class="fragment"></span><a href="#1-configure"><i class="fa fa-link"></i></a>1. configure</h3>
+
+<p><code>-s SIMD=1</code> をつけて cmake する</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>git clone https://github.com/opencv/opencv.git
+cd opencv
+mkdir build
+cd build
+OPTS='-O2 --llvm-lto 1 -s SIMD=1'
+emcmake cmake \
+  -DCMAKE_BUILD_TYPE=RELEASE \
+  -DBUILD_DOCS=OFF \
+  -DBUILD_EXAMPLES=OFF \
+  -DBUILD_PACKAGE=OFF \
+  -DBUILD_WITH_DEBUG_INFO=OFF \
+  -DBUILD_opencv_cuda=OFF \
+  -DBUILD_opencv_cudaarithm=OFF \
+  -DBUILD_opencv_cudabgsegm=OFF \
+  -DBUILD_opencv_cudacodec=OFF \
+  -DBUILD_opencv_cudafeatures2d=OFF \
+  -DBUILD_opencv_cudafilters=OFF \
+  -DBUILD_opencv_cudaimgproc=OFF \
+  -DBUILD_opencv_cudaoptflow=OFF \
+  -DBUILD_opencv_cudastereo=OFF \
+  -DBUILD_opencv_cudawarping=OFF \
+  -DENABLE_PRECOMPILED_HEADERS=OFF \
+  -DWITH_1394=OFF \
+  -DWITH_CUDA=OFF \
+  -DWITH_CUFFT=OFF \
+  -DWITH_EIGEN=OFF \
+  -DWITH_FFMPEG=OFF \
+  -DWITH_GIGEAPI=OFF \
+  -DWITH_GSTREAMER=OFF \
+  -DWITH_GTK=OFF \
+  -DWITH_JASPER=OFF \
+  -DWITH_JPEG=OFF \
+  -DWITH_OPENCL=OFF \
+  -DWITH_OPENCLAMDBLAS=OFF \
+  -DWITH_OPENCLAMDFFT=OFF \
+  -DWITH_OPENEXR=OFF \
+  -DWITH_PNG=OFF \
+  -DWITH_PVAPI=OFF \
+  -DWITH_TIFF=OFF \
+  -DWITH_LIBV4L=OFF \
+  -DWITH_WEBP=OFF \
+  -DWITH_PTHREADS_PF=OFF \
+  -DBUILD_opencv_apps=OFF \
+  -DBUILD_PERF_TESTS=OFF \
+  -DBUILD_TESTS=OFF \
+  -DBUILD_SHARED_LIBS=OFF \
+  -DENABLE_SSE=OFF \
+  -DENABLE_SSE2=OFF \
+  -DENABLE_SSE3=ON \
+  -DENABLE_SSE41=OFF \
+  -DENABLE_SSE42=OFF \
+  -DENABLE_AVX=OFF \
+  -DENABLE_AVX2=OFF \
+  -DCMAKE_CXX_FLAGS=$OPTS \
+  -DCMAKE_EXE_LINKER_FLAGS=$OPTS \
+  -DCMAKE_CXX_FLAGS_DEBUG=$OPTS \
+  -DCMAKE_CXX_FLAGS_RELWITHDEBINFO=$OPTS \
+  -DCMAKE_C_FLAGS_RELWITHDEBINFO=$OPTS \
+  -DCMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO=$OPTS \
+  -DCMAKE_MODULE_LINKER_FLAGS_RELEASE=$OPTS \
+  -DCMAKE_MODULE_LINKER_FLAGS_DEBUG=$OPTS \
+  -DCMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO=$OPTS \
+  -DCMAKE_SHARED_LINKER_FLAGS_RELEASE=$OPTS \
+  -DCMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO=$OPTS \
+  -DCMAKE_SHARED_LINKER_FLAGS_DEBUG=$OPTS \
+  ../
+</pre></div></div>
+
+<p><code>-DENABLE_SSE3=ON</code> にする</p>
+
+<h3>
+<span id="2-make" class="fragment"></span><a href="#2-make"><i class="fa fa-link"></i></a>2. make</h3>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>emmake make -j 4
+</pre></div></div>
+
+<p>これで　llvm bitcode な <code>libopencv_*.a</code> ができる</p>
+
+<h3>
+<span id="3-リンク" class="fragment"></span><a href="#3-%E3%83%AA%E3%83%B3%E3%82%AF"><i class="fa fa-link"></i></a>3. リンク</h3>
+
+<p>あらかじめ用意しておいた opencv を使用するプログラム <code>my_program.bc</code> とリンクする</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>emcc \
+  ./my_program.bc \
+  ./lib/libopencv_video.a \
+  ./lib/libopencv_imgproc.a \
+  ./lib/libopencv_core.a \
+  ./3rdparty/lib/libzlib.a \
+  -O2 --llvm-lto 1 -s SIMD=1 \
+  -o ./my_program.bc
+</pre></div></div>
+
+<p><code>llvm-nm my_program.bc</code> でシンボルが見える</p>
+
+<p>基礎的な注意点として 依存するライブラリは順番を後ろにすること。<br>
+例えば libopencv_imgproc.a は libzlib.a に依存し、<br>
+libopencv_video.a は libopencv_core.a に依存している。</p>
+
+<h3>
+<span id="4-asmjs-へコンパイル" class="fragment"></span><a href="#4-asmjs-%E3%81%B8%E3%82%B3%E3%83%B3%E3%83%91%E3%82%A4%E3%83%AB"><i class="fa fa-link"></i></a>4. asm.js へコンパイル</h3>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>emcc \
+  my_program.bc \
+  -O2 --llvm-lto 3 -s SIMD=1 \
+  -s TOTAL_MEMORY=33554432 \
+  -s ASSERTIONS=0 \
+  -o ./cv.js
+</pre></div></div>
+
+<p>これで SIMD が有効なブラウザだと例えば <code>cv::calcOpticalFlowFarneback</code> が 4 倍ほど速くなる</p>

@@ -1,0 +1,388 @@
+<p>続編 <a href="https://qiita.com/legokichi/items/d4819f7d464c0d2ce2b8" id="reference-27f8f39ab37f17152644">Rustのエラーまわりの変遷</a></p>
+
+<h2>
+<span id="動機" class="fragment"></span><a href="#%E5%8B%95%E6%A9%9F"><i class="fa fa-link"></i></a>動機</h2>
+
+<p>Rust で何かライブラリを作ったらエラーを定義設計する必要があります。<br>
+パースエラー、ネットワークエラー、etc...<br>
+例えば、</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">pub</span> <span class="k">fn</span> <span class="nf">get_value_from_db</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="o">&amp;</span><span class="nb">str</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Result</span><span class="o">&lt;</span><span class="nb">String</span><span class="p">,</span> <span class="n">Error</span><span class="o">&gt;</span>
+</pre></div></div>
+
+<p>のような API を公開するときに、 <code>Result&lt;String, Error&gt;</code> の <code>Error</code> をどうしようかという問題です。</p>
+
+<p>2018 年 6 月現在の Rust のエラー設計のベストプラクティスは failure - <a href="https://github.com/rust-lang-nursery/failure" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/failure</a> - です。</p>
+
+<h3>
+<span id="補足情報" class="fragment"></span><a href="#%E8%A3%9C%E8%B6%B3%E6%83%85%E5%A0%B1"><i class="fa fa-link"></i></a>補足情報</h3>
+
+<ul>
+<li>2年ほど前までは <code>error-chain</code> が推奨されていました - <a href="https://github.com/rust-lang-nursery/error-chain" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/error-chain</a> 
+
+<ul>
+<li><a href="https://users.rust-lang.org/t/announcing-error-chain-a-library-for-consistent-and-reliable-rust-error-handling/6133" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/announcing-error-chain-a-library-for-consistent-and-reliable-rust-error-handling/6133</a></li>
+<li><a href="http://siciarz.net/24-days-rust-error_chain/" class="autolink" rel="nofollow noopener" target="_blank">http://siciarz.net/24-days-rust-error_chain/</a></li>
+</ul>
+</li>
+<li>しかし std の Error トレイトや error-chain マクロの欠点が明らかになり、 failure という新しいクレートと Fail トレイトが提案されました
+
+<ul>
+<li>この動画の 1:17:30 あたりが導入経緯について詳しいです -  <a href="https://air.mozilla.org/bay-area-rust-meetup-november-2017/" class="autolink" rel="nofollow noopener" target="_blank">https://air.mozilla.org/bay-area-rust-meetup-november-2017/</a>
+</li>
+<li><a href="https://www.reddit.com/r/rust/comments/7h8v1z/errorchain_and_failure/" class="autolink" rel="nofollow noopener" target="_blank">https://www.reddit.com/r/rust/comments/7h8v1z/errorchain_and_failure/</a></li>
+<li><a href="https://github.com/rust-lang-nursery/failure/issues/14" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/failure/issues/14</a></li>
+</ul>
+</li>
+<li>このクレートは将来的に std に入るようです - <a href="https://github.com/rust-lang-nursery/failure/issues/209#issuecomment-400816826" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/failure/issues/209#issuecomment-400816826</a>
+</li>
+</ul>
+
+<h2>
+<span id="使い方" class="fragment"></span><a href="#%E4%BD%BF%E3%81%84%E6%96%B9"><i class="fa fa-link"></i></a>使い方</h2>
+
+<p>※ この記事はライブラリ作者向けです。普段使いで unwrap しててエラー設計が必要ないという人は <code>failure::Error</code> 構造体を使ってください - <a href="https://boats.gitlab.io/failure/use-error.html" class="autolink" rel="nofollow noopener" target="_blank">https://boats.gitlab.io/failure/use-error.html</a></p>
+
+<h3>
+<span id="errorkind-を定義する" class="fragment"></span><a href="#errorkind-%E3%82%92%E5%AE%9A%E7%BE%A9%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a><code>ErrorKind</code> を定義する</h3>
+
+<p>まず <code>enum ErrorKind</code> を定義します。<br>
+このとき 依存ライブラリのエラーも一緒に定義します。</p>
+
+<div class="code-frame" data-lang="rust">
+<div class="code-lang"><span class="bold">error.rs</span></div>
+<div class="highlight"><pre><span class="nd">#[derive(Fail,</span> <span class="nd">Debug)]</span>
+<span class="k">pub</span> <span class="k">enum</span> <span class="n">ErrorKind</span> <span class="p">{</span>
+    <span class="nd">#[fail(display</span> <span class="nd">=</span> <span class="s">"IO error"</span><span class="nd">)]</span>
+    <span class="n">Io</span><span class="p">,</span>
+    <span class="nd">#[fail(display</span> <span class="nd">=</span> <span class="s">"Serde error"</span><span class="nd">)]</span>
+    <span class="n">Serde</span><span class="p">,</span>
+    <span class="nd">#[fail(display</span> <span class="nd">=</span> <span class="s">"Hyper error"</span><span class="nd">)]</span>
+    <span class="n">Hyper</span><span class="p">,</span>
+    <span class="nd">#[fail(display</span> <span class="nd">=</span> <span class="s">"Cannot parse uri"</span><span class="nd">)]</span>
+    <span class="n">UrlParse</span><span class="p">,</span>
+    <span class="nd">#[fail(display</span> <span class="nd">=</span> <span class="s">"askama error"</span><span class="nd">)]</span>
+    <span class="n">Askama</span><span class="p">,</span>
+    <span class="nd">#[fail(display</span> <span class="nd">=</span> <span class="s">"service error"</span><span class="nd">)]</span>
+    <span class="n">Service</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+
+<p>この <code>Fail</code> トレイトがこのライブラリが提供する新しいエラー表現です。</p>
+
+<h3>
+<span id="derive-できないコードのボイラープレートを書く" class="fragment"></span><a href="#derive-%E3%81%A7%E3%81%8D%E3%81%AA%E3%81%84%E3%82%B3%E3%83%BC%E3%83%89%E3%81%AE%E3%83%9C%E3%82%A4%E3%83%A9%E3%83%BC%E3%83%97%E3%83%AC%E3%83%BC%E3%83%88%E3%82%92%E6%9B%B8%E3%81%8F"><i class="fa fa-link"></i></a>derive できないコードのボイラープレートを書く</h3>
+
+<p>次に以下のコードをコピペします。</p>
+
+<div class="code-frame" data-lang="rust">
+<div class="code-lang"><span class="bold">error.rs</span></div>
+<div class="highlight"><pre><span class="cm">/* ----------- failure boilerplate ----------- */</span>
+
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="n">fmt</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">fmt</span><span class="p">::</span><span class="n">Display</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">failure</span><span class="p">::{</span><span class="n">Backtrace</span><span class="p">,</span> <span class="n">Context</span><span class="p">,</span> <span class="n">Fail</span><span class="p">};</span>
+
+<span class="nd">#[derive(Debug)]</span>
+<span class="k">pub</span> <span class="k">struct</span> <span class="n">Error</span> <span class="p">{</span>
+    <span class="n">inner</span><span class="p">:</span> <span class="n">Context</span><span class="o">&lt;</span><span class="n">ErrorKind</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="n">Fail</span> <span class="k">for</span> <span class="n">Error</span> <span class="p">{</span>
+    <span class="k">fn</span> <span class="nf">cause</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="n">Fail</span><span class="o">&gt;</span> <span class="p">{</span>
+        <span class="k">self</span><span class="py">.inner</span><span class="nf">.cause</span><span class="p">()</span>
+    <span class="p">}</span>
+
+    <span class="k">fn</span> <span class="nf">backtrace</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="n">Backtrace</span><span class="o">&gt;</span> <span class="p">{</span>
+        <span class="k">self</span><span class="py">.inner</span><span class="nf">.backtrace</span><span class="p">()</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="n">Display</span> <span class="k">for</span> <span class="n">Error</span> <span class="p">{</span>
+    <span class="k">fn</span> <span class="nf">fmt</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="o">&amp;</span><span class="k">mut</span> <span class="nn">fmt</span><span class="p">::</span><span class="n">Formatter</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nn">fmt</span><span class="p">::</span><span class="n">Result</span> <span class="p">{</span>
+        <span class="nn">Display</span><span class="p">::</span><span class="nf">fmt</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="py">.inner</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="n">Error</span> <span class="p">{</span>
+    <span class="k">pub</span> <span class="k">fn</span> <span class="nf">new</span><span class="p">(</span><span class="n">inner</span><span class="p">:</span> <span class="n">Context</span><span class="o">&lt;</span><span class="n">ErrorKind</span><span class="o">&gt;</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Error</span> <span class="p">{</span>
+        <span class="n">Error</span> <span class="p">{</span> <span class="n">inner</span> <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="k">pub</span> <span class="k">fn</span> <span class="nf">kind</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="o">&amp;</span><span class="n">ErrorKind</span> <span class="p">{</span>
+        <span class="k">self</span><span class="py">.inner</span><span class="nf">.get_context</span><span class="p">()</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="n">From</span><span class="o">&lt;</span><span class="n">ErrorKind</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">Error</span> <span class="p">{</span>
+    <span class="k">fn</span> <span class="nf">from</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n">ErrorKind</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Error</span> <span class="p">{</span>
+        <span class="n">Error</span> <span class="p">{</span>
+            <span class="n">inner</span><span class="p">:</span> <span class="nn">Context</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="n">kind</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="n">From</span><span class="o">&lt;</span><span class="n">Context</span><span class="o">&lt;</span><span class="n">ErrorKind</span><span class="o">&gt;&gt;</span> <span class="k">for</span> <span class="n">Error</span> <span class="p">{</span>
+    <span class="k">fn</span> <span class="nf">from</span><span class="p">(</span><span class="n">inner</span><span class="p">:</span> <span class="n">Context</span><span class="o">&lt;</span><span class="n">ErrorKind</span><span class="o">&gt;</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Error</span> <span class="p">{</span>
+        <span class="n">Error</span> <span class="p">{</span> <span class="n">inner</span> <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+</pre></div>
+</div>
+
+<p>ここ <a href="https://boats.gitlab.io/failure/error-errorkind.html" class="autolink" rel="nofollow noopener" target="_blank">https://boats.gitlab.io/failure/error-errorkind.html</a> にかかれている通り、現状の failure 0.1 crate をうまく使うにはボイラープレートが伴います。<br>
+このボイラープレートは脳死でコピペしてください。マイクロソフトの <a href="https://github.com/Azure/iotedge/tree/master/edgelet" rel="nofollow noopener" target="_blank">iotedge の edgelet</a> もコピペしています。</p>
+
+<ul>
+<li><a href="https://github.com/Azure/iotedge/blob/master/edgelet/edgelet-http/src/error.rs" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/Azure/iotedge/blob/master/edgelet/edgelet-http/src/error.rs</a></li>
+<li><a href="https://github.com/Azure/iotedge/blob/master/edgelet/edgelet-http-mgmt/src/error.rs" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/Azure/iotedge/blob/master/edgelet/edgelet-http-mgmt/src/error.rs</a></li>
+<li><a href="https://github.com/Azure/iotedge/blob/master/edgelet/edgelet-utils/src/error.rs" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/Azure/iotedge/blob/master/edgelet/edgelet-utils/src/error.rs</a></li>
+<li>...</li>
+</ul>
+
+<p>現在このボイラープレートをマクロにしようという提案がされており、 1.0 では入るかもしれません。 - <a href="https://github.com/rust-lang-nursery/failure/issues/140#issuecomment-362439068" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/failure/issues/140#issuecomment-362439068</a></p>
+
+<h2>
+<span id="エラー間の変換を書く" class="fragment"></span><a href="#%E3%82%A8%E3%83%A9%E3%83%BC%E9%96%93%E3%81%AE%E5%A4%89%E6%8F%9B%E3%82%92%E6%9B%B8%E3%81%8F"><i class="fa fa-link"></i></a>エラー間の変換を書く</h2>
+
+<p>依存ライブラリのエラーを定義しようとしている自前のエラーへ変換するコードを書きます。<br>
+これを書いておくと依存ライブラリのエラーを自前のエラーへ <code>.map_err(Into::into)</code> で変換できるようになります。</p>
+
+<div class="code-frame" data-lang="rust">
+<div class="code-lang"><span class="bold">error.rs</span></div>
+<div class="highlight"><pre><span class="k">use</span> <span class="nn">failure</span><span class="p">::</span><span class="n">SyncFailure</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">hyper</span><span class="p">::</span><span class="n">Error</span> <span class="k">as</span> <span class="n">HyperError</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">askama</span><span class="p">::</span><span class="n">Error</span> <span class="k">as</span> <span class="n">AskamaError</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">io</span><span class="p">::</span><span class="n">Error</span> <span class="k">as</span> <span class="n">IOError</span><span class="p">;</span>
+
+<span class="k">impl</span> <span class="n">From</span><span class="o">&lt;</span><span class="n">IOError</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">Error</span> <span class="p">{</span>
+    <span class="k">fn</span> <span class="nf">from</span><span class="p">(</span><span class="n">error</span><span class="p">:</span> <span class="n">IOError</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Error</span> <span class="p">{</span>
+        <span class="n">Error</span> <span class="p">{</span>
+            <span class="n">inner</span><span class="p">:</span> <span class="n">error</span><span class="nf">.context</span><span class="p">(</span><span class="nn">ErrorKind</span><span class="p">::</span><span class="n">Io</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="n">From</span><span class="o">&lt;</span><span class="n">HyperError</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">Error</span> <span class="p">{</span>
+    <span class="k">fn</span> <span class="nf">from</span><span class="p">(</span><span class="n">error</span><span class="p">:</span> <span class="n">HyperError</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Error</span> <span class="p">{</span>
+        <span class="n">Error</span> <span class="p">{</span>
+            <span class="n">inner</span><span class="p">:</span> <span class="n">error</span><span class="nf">.context</span><span class="p">(</span><span class="nn">ErrorKind</span><span class="p">::</span><span class="n">Hyper</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="n">From</span><span class="o">&lt;</span><span class="n">UrlParseError</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">Error</span> <span class="p">{</span>
+    <span class="k">fn</span> <span class="nf">from</span><span class="p">(</span><span class="n">error</span><span class="p">:</span> <span class="n">UrlParseError</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Error</span> <span class="p">{</span>
+        <span class="n">Error</span> <span class="p">{</span>
+            <span class="n">inner</span><span class="p">:</span> <span class="n">error</span><span class="nf">.context</span><span class="p">(</span><span class="nn">ErrorKind</span><span class="p">::</span><span class="n">UrlParse</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="n">From</span><span class="o">&lt;</span><span class="n">SyncFailure</span><span class="o">&lt;</span><span class="n">AskamaError</span><span class="o">&gt;&gt;</span> <span class="k">for</span> <span class="n">Error</span> <span class="p">{</span>
+    <span class="k">fn</span> <span class="nf">from</span><span class="p">(</span><span class="n">error</span><span class="p">:</span> <span class="n">SyncFailure</span><span class="o">&lt;</span><span class="n">AskamaError</span><span class="o">&gt;</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Error</span> <span class="p">{</span>
+        <span class="n">Error</span> <span class="p">{</span>
+            <span class="n">inner</span><span class="p">:</span> <span class="n">error</span><span class="nf">.context</span><span class="p">(</span><span class="nn">ErrorKind</span><span class="p">::</span><span class="n">Askama</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+
+<p>現在の askama 0.5.0 のエラーには <code>error-chain</code> を利用していますが、<code>error-chain</code> が使用する std の Error トレイトは Fail トレイトが要求する <code>Sync</code> を満たしません。 - <a href="https://docs.rs/askama/0.7.0/askama/enum.Error.html#why-not-failureerror-chain" class="autolink" rel="nofollow noopener" target="_blank">https://docs.rs/askama/0.7.0/askama/enum.Error.html#why-not-failureerror-chain</a><br>
+そのような場合は <code>SyncFailure</code> で包んでやる必要があります - <a href="https://github.com/rust-lang-nursery/failure/issues/109#issuecomment-350920299" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/failure/issues/109#issuecomment-350920299</a></p>
+
+<p>※ askama 0.7.0 では <code>error-chain</code> の使用を辞めるようです - <a href="https://github.com/djc/askama/issues/92" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/djc/askama/issues/92</a></p>
+
+<h3>
+<span id="ライブラリを使用するコードを書く" class="fragment"></span><a href="#%E3%83%A9%E3%82%A4%E3%83%96%E3%83%A9%E3%83%AA%E3%82%92%E4%BD%BF%E7%94%A8%E3%81%99%E3%82%8B%E3%82%B3%E3%83%BC%E3%83%89%E3%82%92%E6%9B%B8%E3%81%8F"><i class="fa fa-link"></i></a>ライブラリを使用するコードを書く</h3>
+
+<p>ライブラリのエラーを↑で定義した自前の <code>struct Error</code> に変換します。</p>
+
+<p>通常は <code>.map_err(Into::into)</code> する。 以下の例は <code>impl From&lt;UrlParseError&gt; for Error</code> を実装しているので <code>.map_err(Into::into)</code> できます。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nn">serde_urlencoded</span><span class="p">::</span><span class="nf">from_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="n">buf</span><span class="p">)</span><span class="nf">.map_err</span><span class="p">(</span><span class="nn">Into</span><span class="p">::</span><span class="n">into</span><span class="p">)</span>
+</pre></div></div>
+
+<p><code>Sync</code> を満たさないエラーは <code>.map_err(SyncFailure::new).map_err(Into::into)</code> する。<br>
+次の例は <code>impl From&lt;SyncFailure&lt;AskamaError&gt;&gt; for Error</code> を実装しているので into できます。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="n">IndexTemplate</span> <span class="p">{</span> <span class="n">entries</span> <span class="p">}</span><span class="nf">.render</span><span class="p">()</span><span class="nf">.map_err</span><span class="p">(</span><span class="nn">SyncFailure</span><span class="p">::</span><span class="n">new</span><span class="p">)</span><span class="nf">.map_err</span><span class="p">(</span><span class="nn">Into</span><span class="p">::</span><span class="n">into</span><span class="p">)</span>
+</pre></div></div>
+
+<p><code>hyper</code> で書いた Web サーバでの使用例です。</p>
+
+<div class="code-frame" data-lang="rust">
+<div class="code-lang"><span class="bold">main.rs</span></div>
+<div class="highlight"><pre><span class="k">fn</span> <span class="nf">handler</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="nn">service</span><span class="p">::</span><span class="n">Posts</span><span class="p">,</span> <span class="n">req</span><span class="p">:</span> <span class="n">Request</span><span class="o">&lt;</span><span class="n">Body</span><span class="o">&gt;</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Box</span><span class="o">&lt;</span><span class="n">Future</span><span class="o">&lt;</span><span class="n">Item</span><span class="o">=</span><span class="n">Response</span><span class="o">&lt;</span><span class="n">Body</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">Error</span><span class="o">=</span><span class="n">Error</span><span class="o">&gt;</span> <span class="o">+</span> <span class="nb">Send</span> <span class="o">+</span> <span class="nv">'static</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="k">let</span> <span class="k">mut</span> <span class="n">res</span> <span class="o">=</span> <span class="nn">Response</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">Body</span><span class="p">::</span><span class="nf">empty</span><span class="p">());</span>
+    <span class="k">match</span> <span class="p">(</span><span class="n">req</span><span class="nf">.method</span><span class="p">(),</span> <span class="n">req</span><span class="nf">.uri</span><span class="p">()</span><span class="nf">.path</span><span class="p">())</span> <span class="p">{</span>
+        <span class="p">(</span><span class="o">&amp;</span><span class="nn">Method</span><span class="p">::</span><span class="n">GET</span><span class="p">,</span> <span class="s">"/"</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="p">{</span>
+            <span class="nd">#[derive(Deserialize)]</span>
+            <span class="k">struct</span> <span class="n">Query</span> <span class="p">{</span>
+                <span class="n">offset</span><span class="p">:</span> <span class="nb">u64</span><span class="p">,</span>
+                <span class="n">limit</span><span class="p">:</span> <span class="nb">u64</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="k">let</span> <span class="n">fut</span> <span class="o">=</span> <span class="nd">mdo!</span><span class="p">{</span>
+                <span class="k">let</span> <span class="n">query</span> <span class="o">=</span> <span class="n">req</span><span class="nf">.uri</span><span class="p">()</span><span class="nf">.query</span><span class="p">()</span><span class="nf">.unwrap_or</span><span class="p">(</span><span class="s">"offset=0&amp;limit=100"</span><span class="p">);</span>
+                <span class="n">Query</span><span class="p">{</span> <span class="n">offset</span><span class="p">,</span> <span class="n">limit</span> <span class="p">}</span> <span class="o">=&lt;&lt;</span> <span class="nn">future</span><span class="p">::</span><span class="nf">result</span><span class="p">(</span><span class="nn">serde_urlencoded</span><span class="p">::</span><span class="nf">from_str</span><span class="p">(</span><span class="n">query</span><span class="p">))</span><span class="nf">.map_err</span><span class="p">(</span><span class="nn">Into</span><span class="p">::</span><span class="n">into</span><span class="p">);</span>
+                <span class="p">(</span><span class="mi">_</span><span class="n">len</span><span class="p">,</span> <span class="n">lst</span><span class="p">)</span> <span class="o">=&lt;&lt;</span> <span class="n">ctx</span><span class="nf">.list</span><span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="n">limit</span><span class="p">)</span><span class="nf">.map_err</span><span class="p">(</span><span class="nn">Into</span><span class="p">::</span><span class="n">into</span><span class="p">);</span>
+                <span class="k">let</span> <span class="n">entries</span> <span class="o">=</span> <span class="n">lst</span><span class="nf">.iter</span><span class="p">()</span><span class="nf">.map</span><span class="p">(|</span><span class="n">o</span><span class="p">|</span> <span class="n">Entry</span><span class="p">{</span>
+                    <span class="n">timestamp</span><span class="p">:</span> <span class="nn">DateTime</span><span class="p">::</span><span class="nf">from_utc</span><span class="p">(</span><span class="n">o</span><span class="py">.timestamp</span><span class="p">,</span> <span class="n">Utc</span><span class="p">),</span>
+                    <span class="n">username</span><span class="p">:</span> <span class="n">o</span><span class="py">.author</span><span class="nf">.to_string</span><span class="p">(),</span>
+                    <span class="n">message</span><span class="p">:</span> <span class="n">o</span><span class="py">.body</span><span class="nf">.to_string</span><span class="p">()</span>
+                <span class="p">})</span><span class="nf">.collect</span><span class="p">();</span>
+                <span class="n">tmp</span> <span class="o">=&lt;&lt;</span> <span class="nn">future</span><span class="p">::</span><span class="nf">result</span><span class="p">(</span><span class="n">IndexTemplate</span> <span class="p">{</span> <span class="n">entries</span> <span class="p">}</span><span class="nf">.render</span><span class="p">())</span><span class="nf">.map_err</span><span class="p">(</span><span class="nn">SyncFailure</span><span class="p">::</span><span class="n">new</span><span class="p">)</span><span class="nf">.map_err</span><span class="p">(</span><span class="nn">Into</span><span class="p">::</span><span class="n">into</span><span class="p">);</span>
+                <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="o">*</span><span class="n">res</span><span class="nf">.body_mut</span><span class="p">()</span> <span class="o">=</span> <span class="nn">Body</span><span class="p">::</span><span class="nf">from</span><span class="p">(</span><span class="n">tmp</span><span class="p">);</span>
+                <span class="n">ret</span> <span class="nn">future</span><span class="p">::</span><span class="nf">ok</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+            <span class="p">};</span>
+            <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="n">fut</span><span class="p">)</span>
+        <span class="p">},</span>
+        <span class="p">(</span><span class="o">&amp;</span><span class="nn">Method</span><span class="p">::</span><span class="n">POST</span><span class="p">,</span> <span class="s">"/"</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="p">{</span>
+            <span class="nd">#[derive(Deserialize)]</span>
+            <span class="k">struct</span> <span class="n">FormData</span> <span class="p">{</span>
+                <span class="n">username</span><span class="p">:</span> <span class="nb">String</span><span class="p">,</span>
+                <span class="n">message</span><span class="p">:</span> <span class="nb">String</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="k">let</span> <span class="n">fut</span> <span class="o">=</span> <span class="nd">mdo!</span><span class="p">{</span>
+                <span class="k">let</span> <span class="n">body</span> <span class="o">=</span> <span class="n">req</span><span class="nf">.into_body</span><span class="p">();</span>
+                <span class="n">buf</span> <span class="o">=&lt;&lt;</span> <span class="n">body</span><span class="nf">.concat2</span><span class="p">()</span><span class="nf">.map_err</span><span class="p">(</span><span class="nn">Into</span><span class="p">::</span><span class="n">into</span><span class="p">);</span>
+                <span class="n">FormData</span><span class="p">{</span> <span class="n">username</span><span class="p">,</span> <span class="n">message</span> <span class="p">}</span> <span class="o">=&lt;&lt;</span> <span class="nn">future</span><span class="p">::</span><span class="nf">result</span><span class="p">(</span><span class="nn">serde_urlencoded</span><span class="p">::</span><span class="nf">from_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="n">buf</span><span class="p">))</span><span class="nf">.map_err</span><span class="p">(</span><span class="nn">Into</span><span class="p">::</span><span class="n">into</span><span class="p">);</span>
+                <span class="mi">_</span> <span class="o">=&lt;&lt;</span> <span class="n">ctx</span><span class="nf">.create</span><span class="p">(</span><span class="o">&amp;</span><span class="n">username</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">message</span><span class="p">)</span><span class="nf">.map_err</span><span class="p">(</span><span class="nn">Into</span><span class="p">::</span><span class="n">into</span><span class="p">);</span>
+                <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="n">res</span><span class="nf">.headers_mut</span><span class="p">()</span><span class="nf">.insert</span><span class="p">(</span><span class="n">LOCATION</span><span class="p">,</span> <span class="nn">HeaderValue</span><span class="p">::</span><span class="nf">from_static</span><span class="p">(</span><span class="s">"/"</span><span class="p">));</span>
+                <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="o">*</span><span class="n">res</span><span class="nf">.status_mut</span><span class="p">()</span> <span class="o">=</span> <span class="nn">StatusCode</span><span class="p">::</span><span class="n">SEE_OTHER</span><span class="p">;</span>
+                <span class="n">ret</span> <span class="nn">future</span><span class="p">::</span><span class="nf">ok</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+            <span class="p">};</span>
+            <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="n">fut</span><span class="p">)</span>
+        <span class="p">},</span>
+        <span class="mi">_</span> <span class="k">=&gt;</span> <span class="p">{</span>
+            <span class="o">*</span><span class="n">res</span><span class="nf">.status_mut</span><span class="p">()</span> <span class="o">=</span> <span class="nn">StatusCode</span><span class="p">::</span><span class="n">NOT_FOUND</span><span class="p">;</span>
+            <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">future</span><span class="p">::</span><span class="nf">ok</span><span class="p">(</span><span class="n">res</span><span class="p">))</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+
+<h4>
+<span id="補足1-mdo-future-について" class="fragment"></span><a href="#%E8%A3%9C%E8%B6%B31-mdo-future-%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6"><i class="fa fa-link"></i></a>補足1 <code>mdo-future</code> について</h4>
+
+<p><code>future::result(serde_urlencoded::from_bytes(&amp;buf)).map_err(Into::into)</code> としているのは <code>mdo-future</code> - <a href="https://github.com/danslapman/rust-mdo-future" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/danslapman/rust-mdo-future</a> - を使って非同期エラーと混ぜて使いたいからです。実際便利。</p>
+
+<h4>
+<span id="補足2-fail-と-future" class="fragment"></span><a href="#%E8%A3%9C%E8%B6%B32-fail-%E3%81%A8-future"><i class="fa fa-link"></i></a>補足2 <code>Fail</code> と <code>Future</code>
+</h4>
+
+<p>最新の tokio runtime は work stealing アルゴリズムでタスクキューに溜まった future をスレッドプールで処理します。<br>
+そのため future がどのスレッドで実行されるのかは実行時に決まります。<br>
+なので <code>Box&lt;Future&lt;Item=Response&lt;Body&gt;, Error=Error&gt; + Send + 'static&gt;</code> のように <code>Send</code> をつけてやる必要があります。<br>
+<code>Fail</code> トレイトは <code>Display + Debug + Send + Sync + 'static</code> を要求するのでスレッドセーフです - <a href="https://docs.rs/failure/0.1.1/failure/trait.Fail.html" class="autolink" rel="nofollow noopener" target="_blank">https://docs.rs/failure/0.1.1/failure/trait.Fail.html</a></p>
+
+<h3>
+<span id="エラーハンドリングを書く" class="fragment"></span><a href="#%E3%82%A8%E3%83%A9%E3%83%BC%E3%83%8F%E3%83%B3%E3%83%89%E3%83%AA%E3%83%B3%E3%82%B0%E3%82%92%E6%9B%B8%E3%81%8F"><i class="fa fa-link"></i></a>エラーハンドリングを書く</h3>
+
+<p>Web サーバを書いているとエラーに応じてレスポンスのステータスコードを変えたくなります。<br>
+以下の例は <code>hyper</code> で書いた Web サーバでエラーハンドリングをする例です。</p>
+
+<p><code>handler(srv.clone(), req).then(error_handler)</code> のように <code>.then</code> でつなげて書くことを意図しています。</p>
+
+<div class="code-frame" data-lang="rust">
+<div class="code-lang"><span class="bold">main.rs</span></div>
+<div class="highlight"><pre><span class="k">fn</span> <span class="nf">error_handler</span><span class="p">(</span><span class="n">ret</span><span class="p">:</span> <span class="n">Result</span><span class="o">&lt;</span><span class="n">Response</span><span class="o">&lt;</span><span class="n">Body</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">Error</span><span class="o">&gt;</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Box</span><span class="o">&lt;</span><span class="n">Future</span><span class="o">&lt;</span><span class="n">Item</span><span class="o">=</span><span class="n">Response</span><span class="o">&lt;</span><span class="n">Body</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">Error</span><span class="o">=</span><span class="nn">hyper</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span> <span class="o">+</span> <span class="nb">Send</span> <span class="o">+</span> <span class="nv">'static</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="k">match</span> <span class="n">ret</span> <span class="p">{</span>
+        <span class="nf">Ok</span><span class="p">(</span><span class="n">res</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">future</span><span class="p">::</span><span class="nf">ok</span><span class="p">(</span><span class="n">res</span><span class="p">)),</span>
+        <span class="nf">Err</span><span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="k">=&gt;</span><span class="p">{</span>
+            <span class="k">let</span> <span class="k">mut</span> <span class="k">fail</span><span class="p">:</span> <span class="o">&amp;</span><span class="n">Fail</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">err</span><span class="p">;</span>
+            <span class="k">let</span> <span class="k">mut</span> <span class="n">message</span> <span class="o">=</span> <span class="n">err</span><span class="nf">.to_string</span><span class="p">();</span>
+
+            <span class="k">while</span> <span class="k">let</span> <span class="nf">Some</span><span class="p">(</span><span class="n">cause</span><span class="p">)</span> <span class="o">=</span> <span class="k">fail</span><span class="nf">.cause</span><span class="p">()</span> <span class="p">{</span>
+                <span class="n">message</span><span class="nf">.push_str</span><span class="p">(</span><span class="o">&amp;</span><span class="nd">format!</span><span class="p">(</span><span class="s">"</span><span class="se">\n\t</span><span class="s">caused by: {}"</span><span class="p">,</span> <span class="n">cause</span><span class="nf">.to_string</span><span class="p">()));</span>
+                <span class="k">fail</span> <span class="o">=</span> <span class="n">cause</span><span class="p">;</span>
+            <span class="p">}</span>
+            <span class="k">let</span> <span class="n">status_code</span> <span class="o">=</span> <span class="k">match</span> <span class="o">*</span><span class="n">err</span><span class="nf">.kind</span><span class="p">()</span> <span class="p">{</span>
+                <span class="nn">ErrorKind</span><span class="p">::</span><span class="n">UrlParse</span> <span class="p">|</span> <span class="nn">ErrorKind</span><span class="p">::</span><span class="n">Hyper</span> <span class="k">=&gt;</span> <span class="nn">StatusCode</span><span class="p">::</span><span class="n">BAD_REQUEST</span><span class="p">,</span>
+                <span class="mi">_</span> <span class="k">=&gt;</span> <span class="nn">StatusCode</span><span class="p">::</span><span class="n">INTERNAL_SERVER_ERROR</span><span class="p">,</span>
+            <span class="p">};</span>
+
+            <span class="k">let</span> <span class="n">body</span> <span class="o">=</span> <span class="nd">json!</span><span class="p">({</span>
+                <span class="s">"message"</span><span class="p">:</span> <span class="n">message</span><span class="p">,</span>
+            <span class="p">})</span><span class="nf">.to_string</span><span class="p">();</span>
+
+            <span class="k">let</span> <span class="n">res</span><span class="p">:</span> <span class="n">Response</span><span class="o">&lt;</span><span class="n">Body</span><span class="o">&gt;</span> <span class="o">=</span> <span class="nn">Response</span><span class="p">::</span><span class="nf">builder</span><span class="p">()</span>
+                <span class="nf">.status</span><span class="p">(</span><span class="n">status_code</span><span class="p">)</span>
+                <span class="nf">.header</span><span class="p">(</span><span class="n">CONTENT_TYPE</span><span class="p">,</span> <span class="s">"application/json"</span><span class="p">)</span>
+                <span class="nf">.header</span><span class="p">(</span><span class="n">CONTENT_LENGTH</span><span class="p">,</span> <span class="n">body</span><span class="nf">.len</span><span class="p">()</span><span class="nf">.to_string</span><span class="p">()</span><span class="nf">.as_str</span><span class="p">())</span>
+                <span class="nf">.body</span><span class="p">(</span><span class="n">body</span><span class="nf">.into</span><span class="p">())</span>
+                <span class="nf">.expect</span><span class="p">(</span><span class="s">"response builder failure"</span><span class="p">);</span>
+
+            <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">future</span><span class="p">::</span><span class="nf">ok</span><span class="p">(</span><span class="n">res</span><span class="nf">.map</span><span class="p">(</span><span class="nn">Into</span><span class="p">::</span><span class="n">into</span><span class="p">)))</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+
+<p>このようにエラーの原因を遡って表示できます。</p>
+
+<div class="code-frame" data-lang="json"><div class="highlight"><pre><span class="p">{</span><span class="nl">"message"</span><span class="p">:</span><span class="s2">"service error</span><span class="se">\n\t</span><span class="s2">caused by: db error</span><span class="se">\n\t</span><span class="s2">caused by: diesel query result error</span><span class="se">\n\t</span><span class="s2">caused by: attempt to write a readonly database"</span><span class="p">}</span><span class="w">
+</span></pre></div></div>
+
+<p>このWebサーバはビジネスロジックを記述した <code>service</code> クレートを使用していますが、その中で DB アクセスを抽象化した DB クレートでエラーが起きており、 さらにその中の diesel を使っている部分がエラーを返していることがこのエラーからわかります。これらはすべて failure を使っているので統一的に扱えています。</p>
+
+<p>このエラーの原因を遡る方法はこの部分で実現されています。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">let</span> <span class="k">mut</span> <span class="k">fail</span><span class="p">:</span> <span class="o">&amp;</span><span class="n">Fail</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">err</span><span class="p">;</span>
+<span class="k">let</span> <span class="k">mut</span> <span class="n">message</span> <span class="o">=</span> <span class="n">err</span><span class="nf">.to_string</span><span class="p">();</span>
+
+<span class="k">while</span> <span class="k">let</span> <span class="nf">Some</span><span class="p">(</span><span class="n">cause</span><span class="p">)</span> <span class="o">=</span> <span class="k">fail</span><span class="nf">.cause</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">message</span><span class="nf">.push_str</span><span class="p">(</span><span class="o">&amp;</span><span class="nd">format!</span><span class="p">(</span><span class="s">"</span><span class="se">\n\t</span><span class="s">caused by: {}"</span><span class="p">,</span> <span class="n">cause</span><span class="nf">.to_string</span><span class="p">()));</span>
+    <span class="k">fail</span> <span class="o">=</span> <span class="n">cause</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p><code>fail.cause()</code> はそのエラーの根本原因を返します。<br>
+それを <code>fail = cause;</code> で代入してループすることでより深い原因を探っています。</p>
+
+<p><code>fail.causes()</code> はイテレータを返すので、人によってはそれを <code>fold</code> したほうがわかりやすいかもしれません - <a href="https://docs.rs/failure/0.1.1/failure/trait.Fail.html#method.causes" class="autolink" rel="nofollow noopener" target="_blank">https://docs.rs/failure/0.1.1/failure/trait.Fail.html#method.causes</a></p>
+
+<p>バックトレースがほしい場合は この <code>cause</code> に対して <code>backtrace()</code> してやると、そのエラーが <code>backtrace</code> を持ってい場合は <code>Option&lt;&amp;Backtrace&gt;</code> の <code>Some</code> が返ります。 - <a href="https://docs.rs/failure/0.1.1/failure/trait.Fail.html#method.backtrace" class="autolink" rel="nofollow noopener" target="_blank">https://docs.rs/failure/0.1.1/failure/trait.Fail.html#method.backtrace</a></p>
+
+<h2>
+<span id="ドキュメントのわかりくさについて" class="fragment"></span><a href="#%E3%83%89%E3%82%AD%E3%83%A5%E3%83%A1%E3%83%B3%E3%83%88%E3%81%AE%E3%82%8F%E3%81%8B%E3%82%8A%E3%81%8F%E3%81%95%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6"><i class="fa fa-link"></i></a>ドキュメントのわかりくさについて</h2>
+
+<p>公式のドキュメント - <a href="https://boats.gitlab.io/failure/" class="autolink" rel="nofollow noopener" target="_blank">https://boats.gitlab.io/failure/</a> - がわかりにくいという issue - <a href="https://github.com/rust-lang-nursery/failure/issues/140#issuecomment-369963154" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/failure/issues/140#issuecomment-369963154</a> - が立っており、現在ここ - <a href="https://github.com/rust-lang-nursery/failure/issues/209#issuecomment-394914709" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/failure/issues/209#issuecomment-394914709</a> - で新しいドキュメントの草稿が練られています。</p>
+
+<h2>
+<span id="感想" class="fragment"></span><a href="#%E6%84%9F%E6%83%B3"><i class="fa fa-link"></i></a>感想</h2>
+
+<ul>
+<li>正直マイクロソフトの <a href="https://github.com/Azure/iotedge/blob/master/edgelet" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/Azure/iotedge/blob/master/edgelet</a> のコード例見るまでなんもわからんかった</li>
+<li>futures も failure も 0.1 で基礎的なライブラリが安定してないので厳しい</li>
+<li>ここで使ったサンプルコードは <a href="https://github.com/legokichi/rust-sandbox/tree/89c01aa583f785efa4205c07b6410664b8336bec/diesel-server" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/legokichi/rust-sandbox/tree/89c01aa583f785efa4205c07b6410664b8336bec/diesel-server</a> にあります</li>
+</ul>
+
+<h2>
+<span id="バージョン情報" class="fragment"></span><a href="#%E3%83%90%E3%83%BC%E3%82%B8%E3%83%A7%E3%83%B3%E6%83%85%E5%A0%B1"><i class="fa fa-link"></i></a>バージョン情報</h2>
+
+<ul>
+<li>serde_urlencoded 0.5.2</li>
+<li>failure 0.1.1</li>
+<li>failure_derive 0.1.1</li>
+<li>askama 0.5.0</li>
+<li>futures 0.1.21 </li>
+<li>hyper 0.12.3</li>
+<li>rustc 1.27.0 (3eda71b00 2018-06-19)</li>
+</ul>
+
+<hr>
+
+<p>最新情報への誘導リンク</p>
+
+<ul>
+<li>Rustでエラーを合成する - <a href="https://qiita.com/termoshtt/items/8c015d9289613ec640f1" class="autolink" id="reference-567e2b44982b395243c2">https://qiita.com/termoshtt/items/8c015d9289613ec640f1</a>
+</li>
+<li>Rust: failureを用いたエラー型定義 -<a href="https://qiita.com/OvQ/items/cb866c04196dc59fe847" class="autolink" id="reference-de33a33f7be28e7a6bbf">https://qiita.com/OvQ/items/cb866c04196dc59fe847</a>
+</li>
+</ul>

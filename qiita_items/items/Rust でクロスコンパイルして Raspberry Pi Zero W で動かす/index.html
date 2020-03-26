@@ -1,0 +1,699 @@
+<p>このスライドは <a href="https://rust.connpass.com/event/91177/" rel="nofollow noopener" target="_blank">Rust LT #2 〜いま使う！Rust〜</a> で発表した内容です</p>
+
+<hr>
+
+<h2>
+<span id="自己紹介" class="fragment"></span><a href="#%E8%87%AA%E5%B7%B1%E7%B4%B9%E4%BB%8B"><i class="fa fa-link"></i></a>自己紹介</h2>
+
+<p>某社でサーバサイド Rust 書いてる</p>
+
+<hr>
+
+<h2>
+<span id="いま使うrust" class="fragment"></span><a href="#%E3%81%84%E3%81%BE%E4%BD%BF%E3%81%86rust"><i class="fa fa-link"></i></a>いま使う！Rust</h2>
+
+<hr>
+
+<h2>
+<span id="どこで使うrust" class="fragment"></span><a href="#%E3%81%A9%E3%81%93%E3%81%A7%E4%BD%BF%E3%81%86rust"><i class="fa fa-link"></i></a>どこで使う？Rust</h2>
+
+<hr>
+
+<h2>
+<span id="rust-は-iot-と相性が良い" class="fragment"></span><a href="#rust-%E3%81%AF-iot-%E3%81%A8%E7%9B%B8%E6%80%A7%E3%81%8C%E8%89%AF%E3%81%84"><i class="fa fa-link"></i></a>Rust は IoT と相性が良い</h2>
+
+<ul>
+<li>ネイティブバイナリなので省リソース</li>
+<li>クロスコンパイル可能</li>
+<li>言語機能がセキュア</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="最近の-iot-実行環境" class="fragment"></span><a href="#%E6%9C%80%E8%BF%91%E3%81%AE-iot-%E5%AE%9F%E8%A1%8C%E7%92%B0%E5%A2%83"><i class="fa fa-link"></i></a>最近の IoT 実行環境</h2>
+
+<ul>
+<li>コンテナでデプロイ (<a href="https://docs.microsoft.com/ja-jp/azure/iot-edge/about-iot-edge" rel="nofollow noopener" target="_blank">Azure IoTEdge</a>)</li>
+<li>Kubernetes で管理 (<a href="https://github.com/Azure/iot-edge-virtual-kubelet-provider" rel="nofollow noopener" target="_blank">virtual-kubelet</a>)</li>
+<li>省リソースなコンテナ実行環境 (<a href="https://resin.io/how-it-works/" rel="nofollow noopener" target="_blank">resion.io</a>)</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="今回の話題" class="fragment"></span><a href="#%E4%BB%8A%E5%9B%9E%E3%81%AE%E8%A9%B1%E9%A1%8C"><i class="fa fa-link"></i></a>今回の話題</h2>
+
+<ul>
+<li>RaspberryPi で IoT</li>
+<li>Rust でクロスコンパイル</li>
+<li>コンテナで DevOps</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="もくじ" class="fragment"></span><a href="#%E3%82%82%E3%81%8F%E3%81%98"><i class="fa fa-link"></i></a>もくじ</h2>
+
+<ol>
+<li>クロスコンパイル入門</li>
+<li>Dockernize 入門</li>
+<li>RaspberryPi Zero で動かす</li>
+</ol>
+
+<hr>
+
+<h1>
+<span id="1-クロスコンパイル入門" class="fragment"></span><a href="#1-%E3%82%AF%E3%83%AD%E3%82%B9%E3%82%B3%E3%83%B3%E3%83%91%E3%82%A4%E3%83%AB%E5%85%A5%E9%96%80"><i class="fa fa-link"></i></a>1. クロスコンパイル入門</h1>
+
+<hr>
+
+<h2>
+<span id="クロスコンパイルで考えること" class="fragment"></span><a href="#%E3%82%AF%E3%83%AD%E3%82%B9%E3%82%B3%E3%83%B3%E3%83%91%E3%82%A4%E3%83%AB%E3%81%A7%E8%80%83%E3%81%88%E3%82%8B%E3%81%93%E3%81%A8"><i class="fa fa-link"></i></a>クロスコンパイルで考えること</h2>
+
+<ol>
+<li>ターゲットトリプル</li>
+<li>クロスコンパイラ</li>
+<li>標準 C ライブラリ</li>
+<li>Rust の対応状況</li>
+</ol>
+
+<hr>
+
+<h2>
+<span id="1-ターゲットトリプル" class="fragment"></span><a href="#1-%E3%82%BF%E3%83%BC%E3%82%B2%E3%83%83%E3%83%88%E3%83%88%E3%83%AA%E3%83%97%E3%83%AB"><i class="fa fa-link"></i></a>1. ターゲットトリプル</h2>
+
+<hr>
+
+<h3>
+<span id="ターゲットとは" class="fragment"></span><a href="#%E3%82%BF%E3%83%BC%E3%82%B2%E3%83%83%E3%83%88%E3%81%A8%E3%81%AF"><i class="fa fa-link"></i></a>ターゲットとは</h3>
+
+<ul>
+<li>ホスト: プログラムをコンパイルする環境</li>
+<li>
+<strong>ターゲット</strong>: プログラムを実行する環境</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="トリプルtripletとは" class="fragment"></span><a href="#%E3%83%88%E3%83%AA%E3%83%97%E3%83%ABtriplet%E3%81%A8%E3%81%AF"><i class="fa fa-link"></i></a>トリプル(triplet)とは</h3>
+
+<ul>
+<li>コンパイルで必要なシステムを表す</li>
+<li><a href="http://archive.linux.or.jp/JF/JFdocs/LFS-BOOK/chapter05/toolchaintechnotes.html" rel="nofollow noopener" target="_blank"><code>{arch}-{vendor}-{sys}-{abi}</code></a></li>
+<li>ABI は省略してトリプル</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="ターゲットトリプルの例" class="fragment"></span><a href="#%E3%82%BF%E3%83%BC%E3%82%B2%E3%83%83%E3%83%88%E3%83%88%E3%83%AA%E3%83%97%E3%83%AB%E3%81%AE%E4%BE%8B"><i class="fa fa-link"></i></a>ターゲットトリプルの例</h3>
+
+<ul>
+<li>x86_64-pc-windows-msvc</li>
+<li>x86_64-apple-darwin</li>
+<li>x86_64-unknown-linux-gnu</li>
+<li><a href="https://wiki.debian.org/Multiarch/Tuples" rel="nofollow noopener" target="_blank">(gcc と rust では一致しない場合もある)</a></li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="2-クロスコンパイラ" class="fragment"></span><a href="#2-%E3%82%AF%E3%83%AD%E3%82%B9%E3%82%B3%E3%83%B3%E3%83%91%E3%82%A4%E3%83%A9"><i class="fa fa-link"></i></a>2. クロスコンパイラ</h2>
+
+<hr>
+
+<h3>
+<span id="クロスコンパイラとは" class="fragment"></span><a href="#%E3%82%AF%E3%83%AD%E3%82%B9%E3%82%B3%E3%83%B3%E3%83%91%E3%82%A4%E3%83%A9%E3%81%A8%E3%81%AF"><i class="fa fa-link"></i></a>クロスコンパイラとは</h3>
+
+<ul>
+<li>ターゲット向けのバイナリを作るコンパイラ、リンカ...etc</li>
+<li>
+<code>rustc</code> はリンカに <code>gcc</code> を使っている</li>
+<li>対応したリンカが必要</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="リンカの例" class="fragment"></span><a href="#%E3%83%AA%E3%83%B3%E3%82%AB%E3%81%AE%E4%BE%8B"><i class="fa fa-link"></i></a>リンカの例</h3>
+
+<ul>
+<li>debian の <a href="https://wiki.debian.org/CrossToolchains" rel="nofollow noopener" target="_blank">cross-toolchain</a>
+</li>
+<li>armhf(ARMv6) 向け: <a href="https://github.com/raspberrypi/tools" rel="nofollow noopener" target="_blank">raspberrypi/tools</a>
+</li>
+<li>コンパイル済みツールチェーン全部盛り: <a href="http://crosstool-ng.github.io/" rel="nofollow noopener" target="_blank">crosstool-ng</a>
+</li>
+<li>
+<a href="https://github.com/japaric/cross" rel="nofollow noopener" target="_blank">japaric/cross</a>: docker + qemu (仮想マシン) を使った環境全部載せ</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="リンカ等の指定方法" class="fragment"></span><a href="#%E3%83%AA%E3%83%B3%E3%82%AB%E7%AD%89%E3%81%AE%E6%8C%87%E5%AE%9A%E6%96%B9%E6%B3%95"><i class="fa fa-link"></i></a>リンカ等の指定方法</h3>
+
+<ul>
+<li>
+<a href="https://doc.rust-lang.org/cargo/reference/build-scripts.html" rel="nofollow noopener" target="_blank"><code>build.rs</code></a> を使ってコンパイラに渡す文字列を構築する</li>
+<li>
+<a href="https://doc.rust-lang.org/cargo/reference/config.html" rel="nofollow noopener" target="_blank"><code>.cargo/config</code></a> を使って特定のターゲット向けにコンパイラ設定を書く</li>
+</ul>
+
+<hr>
+
+<div class="code-frame" data-lang="rust">
+<div class="code-lang"><span class="bold">build.rs</span></div>
+<div class="highlight"><pre><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nd">println!</span><span class="p">(</span><span class="s">"cargo:rustc-linker=arm-linux-gnueabihf-gcc"</span><span class="p">);</span>
+    <span class="nd">println!</span><span class="p">(</span><span class="s">"cargo:rustc-flags=static=link-arg=-march=armv6"</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+
+<hr>
+
+<div class="code-frame" data-lang="toml">
+<div class="code-lang"><span class="bold">.cargo/config</span></div>
+<div class="highlight"><pre><span class="nn">[target.arm-unknown-linux-gnueabihf]</span>
+<span class="py">linker</span> <span class="p">=</span> <span class="s">"arm-linux-gnueabihf-gcc"</span>
+<span class="py">rustflags</span> <span class="p">=</span> <span class="p">[</span>
+  <span class="s">"-C"</span><span class="p">,</span> <span class="s">"link-arg=-march=armv6"</span><span class="p">,</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+
+<hr>
+
+<h2>
+<span id="3-標準-c-ライブラリ" class="fragment"></span><a href="#3-%E6%A8%99%E6%BA%96-c-%E3%83%A9%E3%82%A4%E3%83%96%E3%83%A9%E3%83%AA"><i class="fa fa-link"></i></a>3. 標準 C ライブラリ</h2>
+
+<hr>
+
+<h3>
+<span id="標準-c-ライブラリとは" class="fragment"></span><a href="#%E6%A8%99%E6%BA%96-c-%E3%83%A9%E3%82%A4%E3%83%96%E3%83%A9%E3%83%AA%E3%81%A8%E3%81%AF"><i class="fa fa-link"></i></a>標準 C ライブラリとは</h3>
+
+<ul>
+<li>システムコールを C 言語でラップしたもの</li>
+<li>いわわゆる libc</li>
+<li>POSIX: libc の API など OS が満たすべき仕様</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="glibc-と-musl" class="fragment"></span><a href="#glibc-%E3%81%A8-musl"><i class="fa fa-link"></i></a>glibc と musl</h3>
+
+<ul>
+<li>
+<a href="https://www.gnu.org/software/libc/" rel="nofollow noopener" target="_blank">glibc</a>: GNU が作った Linux(POSIX) 向けの libc</li>
+<li>
+<a href="https://wiki.musl-libc.org/projects-using-musl.html" rel="nofollow noopener" target="_blank">musl</a>: 静的リンクされることにに特化した POSIX 互換 libc</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="4-rust-の対応状況" class="fragment"></span><a href="#4-rust-%E3%81%AE%E5%AF%BE%E5%BF%9C%E7%8A%B6%E6%B3%81"><i class="fa fa-link"></i></a>4. Rust の対応状況</h2>
+
+<hr>
+
+<h3>
+<span id="rust-ツールチェーンの対応状況" class="fragment"></span><a href="#rust-%E3%83%84%E3%83%BC%E3%83%AB%E3%83%81%E3%82%A7%E3%83%BC%E3%83%B3%E3%81%AE%E5%AF%BE%E5%BF%9C%E7%8A%B6%E6%B3%81"><i class="fa fa-link"></i></a>rust ツールチェーンの対応状況</h3>
+
+<ul>
+<li>ターゲット向けのコンパイル済み <code>std</code> crate はあるか</li>
+<li>
+<a href="https://forge.rust-lang.org/platform-support.html" rel="nofollow noopener" target="_blank">platform-support</a> に一覧がある</li>
+<li>
+<a href="https://blog.rust-lang.org/2016/05/13/rustup.html" rel="nofollow noopener" target="_blank"><code>rustup target add [target_triple]</code></a> などでターゲットを指定できる</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="依存クレートの対応状況" class="fragment"></span><a href="#%E4%BE%9D%E5%AD%98%E3%82%AF%E3%83%AC%E3%83%BC%E3%83%88%E3%81%AE%E5%AF%BE%E5%BF%9C%E7%8A%B6%E6%B3%81"><i class="fa fa-link"></i></a>依存クレートの対応状況</h3>
+
+<ul>
+<li>libc だけでなく依存クレート毎の共有ライブラにも注意</li>
+<li>SQLite, openssl, etc...</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="例-raspberrypi-zero-w-の場合" class="fragment"></span><a href="#%E4%BE%8B-raspberrypi-zero-w-%E3%81%AE%E5%A0%B4%E5%90%88"><i class="fa fa-link"></i></a>例: RaspberryPi Zero W の場合</h2>
+
+<hr>
+
+<h3>
+<span id="ハードウェア" class="fragment"></span><a href="#%E3%83%8F%E3%83%BC%E3%83%89%E3%82%A6%E3%82%A7%E3%82%A2"><i class="fa fa-link"></i></a>ハードウェア</h3>
+
+<ul>
+<li>SoC: <a href="https://raspberrypi.stackexchange.com/questions/840/why-is-the-cpu-sometimes-referred-to-as-bcm2708-sometimes-bcm2835" rel="nofollow noopener" target="_blank">BCM2835(BCM2708)</a>
+</li>
+<li>CPU: <a href="https://www.aps-web.jp/academy/ca/" rel="nofollow noopener" target="_blank">ARM1176JZF-S</a>
+</li>
+<li>命令セット: <strong>ARMv6</strong>
+</li>
+<li>メモリ: 512MB</li>
+<li>
+<a href="http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0205ij/CJAGBDFI.html" rel="nofollow noopener" target="_blank"><strong>Vector Floating Point</strong></a>: ハードウェア浮動小数演算)</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="os-とトリプル" class="fragment"></span><a href="#os-%E3%81%A8%E3%83%88%E3%83%AA%E3%83%97%E3%83%AB"><i class="fa fa-link"></i></a>OS とトリプル</h3>
+
+<ul>
+<li>OS: Raspbian Stretch Lite
+
+<ul>
+<li>Raspbian はハードウェア浮動小数点演算(HF) に対応した debian</li>
+</ul>
+</li>
+<li>トリプル: <code>arm-unknown-linux-gnueabihf</code>
+
+<ul>
+<li>
+<em>gnueabihf</em>: glibc + HF <a href="https://ja.wikipedia.org/wiki/Application_Binary_Interface#EABI" rel="nofollow noopener" target="_blank">EABI</a>
+</li>
+</ul>
+</li>
+</ul>
+
+<hr>
+
+<ol>
+<li>トリプル は <code>arm-unknown-linux-gnueabihf</code> (ARMv6 HF)</li>
+<li>リンカは <a href="https://github.com/raspberrypi/tools" rel="nofollow noopener" target="_blank">raspberrypi/tools</a>
+</li>
+<li>標準 C ライブラリは raspbian の glibc でよさそう</li>
+<li>sqlite とか使う場合は debian の <a href="https://debian-handbook.info/browse/ja-JP/stable/sect.manipulating-packages-with-dpkg.html" rel="nofollow noopener" target="_blank">マルチアーキテクチャ</a> でを使ってクロスコンパイル用の依存ライブラリを raspbian のリポジトリとかから用意する</li>
+</ol>
+
+<hr>
+
+<h3>
+<span id="依存ライブラリをもってくる" class="fragment"></span><a href="#%E4%BE%9D%E5%AD%98%E3%83%A9%E3%82%A4%E3%83%96%E3%83%A9%E3%83%AA%E3%82%92%E3%82%82%E3%81%A3%E3%81%A6%E3%81%8F%E3%82%8B"><i class="fa fa-link"></i></a>依存ライブラリをもってくる</h3>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nb">echo</span> <span class="s2">"deb [arch=armhf] http://archive.raspbian.org/raspbian jessie main contrib non-free"</span>
+  | <span class="nb">tee</span> <span class="nt">-a</span> /etc/apt/sources.list
+wget https://archive.raspbian.org/raspbian.public.key <span class="nt">-O</span> - | apt-key add -
+dpkg <span class="nt">--add-architecture</span> armhf
+apt-get update
+apt-get <span class="nb">install </span>libsqlite3-dev:armhf
+</pre></div></div>
+
+<hr>
+
+<h4>
+<span id="arm-unknown-linux-gnueabihf-って" class="fragment"></span><a href="#arm-unknown-linux-gnueabihf-%E3%81%A3%E3%81%A6"><i class="fa fa-link"></i></a><code>arm-unknown-linux-gnueabihf</code> って？</h4>
+
+<ul>
+<li>
+<code>arm-unknown-linux-gnueabihf</code>: ARMv6+VFP (Pi,PiZ) </li>
+<li>
+<code>armv7-unknown-linux-gnueabihf</code>: ARMv7+NEON (Pi2,Pi3)</li>
+<li>ARNv7 は ARMv6 互換</li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="armhf-って" class="fragment"></span><a href="#armhf-%E3%81%A3%E3%81%A6"><i class="fa fa-link"></i></a><code>armhf</code> って?</h4>
+
+<ul>
+<li>
+<code>arm-unknown-linux-gnueabihf</code> または <code>armv7-unknown-linux-gnueabihf</code> の debian 上での呼称</li>
+<li><a href="http://asobibalinux.hateblo.jp/entry/2013/01/08/021119" rel="nofollow noopener" target="_blank">debian の armhf は ARMv7向け</a></li>
+<li><a href="http://www.raspbian.org/RaspbianAbout" rel="nofollow noopener" target="_blank">raspbian の armhf は ARMv6 向け</a></li>
+</ul>
+
+<hr>
+
+<h1>
+<span id="2-dockernize" class="fragment"></span><a href="#2-dockernize"><i class="fa fa-link"></i></a>2. Dockernize</h1>
+
+<hr>
+
+<h2>
+<span id="docker--raspberry-pi" class="fragment"></span><a href="#docker--raspberry-pi"><i class="fa fa-link"></i></a>Docker + Raspberry Pi</h2>
+
+<ul>
+<li><a href="https://www.raspberrypi.org/blog/docker-comes-to-raspberry-pi/" rel="nofollow noopener" target="_blank">Raspberry Pi でも Docker が動くようになった</a></li>
+</ul>
+
+<h2>
+<span id="-arm-向け-docker-イメージをコンテナのベースに使う必要あり" class="fragment"></span><a href="#-arm-%E5%90%91%E3%81%91-docker-%E3%82%A4%E3%83%A1%E3%83%BC%E3%82%B8%E3%82%92%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E3%81%AE%E3%83%99%E3%83%BC%E3%82%B9%E3%81%AB%E4%BD%BF%E3%81%86%E5%BF%85%E8%A6%81%E3%81%82%E3%82%8A"><i class="fa fa-link"></i></a>* ARM 向け Docker イメージをコンテナのベースに使う必要あり</h2>
+
+<h3>
+<span id="インストール方法" class="fragment"></span><a href="#%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB%E6%96%B9%E6%B3%95"><i class="fa fa-link"></i></a><a href="https://docs.docker.com/install/linux/docker-ce/debian/" rel="nofollow noopener" target="_blank">インストール方法</a>
+</h3>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>curl <span class="nt">-fsSL</span> https://download.docker.com/linux/debian/gpg | <span class="nb">sudo </span>apt-key add -
+<span class="nb">echo</span> <span class="s2">"deb [arch=armhf] https://download.docker.com/linux/debian </span><span class="se">\</span><span class="s2">
+     </span><span class="si">$(</span>lsb_release <span class="nt">-cs</span><span class="si">)</span><span class="s2"> stable"</span> | <span class="se">\</span>
+    <span class="nb">sudo tee</span> /etc/apt/sources.list.d/docker.list
+<span class="nb">sudo </span>apt-get update
+<span class="nb">sudo </span>apt-get <span class="nb">install </span>docker-ce
+<span class="nb">sudo </span>docker run armhf/hello-world
+</pre></div></div>
+
+<hr>
+
+<h2>
+<span id="arm-向け-docker-リポジトリとイメージ" class="fragment"></span><a href="#arm-%E5%90%91%E3%81%91-docker-%E3%83%AA%E3%83%9D%E3%82%B8%E3%83%88%E3%83%AA%E3%81%A8%E3%82%A4%E3%83%A1%E3%83%BC%E3%82%B8"><i class="fa fa-link"></i></a>ARM 向け Docker リポジトリとイメージ</h2>
+
+<ul>
+<li>
+<a href="https://github.com/docker-library/official-images" rel="nofollow noopener" target="_blank">docker-library/official-images</a> にある</li>
+<li><a href="https://hub.docker.com/r/arm32v6/alpine/" rel="nofollow noopener" target="_blank">arm32v6/alpine</a></li>
+<li><a href="https://hub.docker.com/r/arm32v7/debian" rel="nofollow noopener" target="_blank">arm32v7/debian</a></li>
+<li><a href="https://hub.docker.com/r/resin/rpi-raspbian/" rel="nofollow noopener" target="_blank">resin/rpi-raspbian</a></li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="理想の-docker-イメージ" class="fragment"></span><a href="#%E7%90%86%E6%83%B3%E3%81%AE-docker-%E3%82%A4%E3%83%A1%E3%83%BC%E3%82%B8"><i class="fa fa-link"></i></a>理想の Docker イメージ</h2>
+
+<ul>
+<li>デプロイ時間の短縮のためにコンテナは薄く軽くしたい</li>
+<li>Image がでかいとダウンロード時間かかる</li>
+<li>非力な CPU だと解凍時間も長くなる</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="イメージサイズ" class="fragment"></span><a href="#%E3%82%A4%E3%83%A1%E3%83%BC%E3%82%B8%E3%82%B5%E3%82%A4%E3%82%BA"><i class="fa fa-link"></i></a>イメージサイズ</h2>
+
+<ul>
+<li>
+<a href="https://hub.docker.com/r/arm32v6/alpine/tags/" rel="nofollow noopener" target="_blank">arm32v6/alpine:latest</a> - 2MB</li>
+<li>
+<a href="https://hub.docker.com/r/arm32v7/debian/tags/" rel="nofollow noopener" target="_blank">arm32v7/debian:stretch</a> - 42MB</li>
+<li>
+<a href="https://hub.docker.com/r/arm32v7/debian/tags/" rel="nofollow noopener" target="_blank">arm32v7/debian:stretch</a> - 42MB</li>
+<li>
+<a href="https://hub.docker.com/r/arm32v7/debian/tags/" rel="nofollow noopener" target="_blank">arm32v7/debian:stretch-slim</a> - 19MB</li>
+<li>
+<a href="https://hub.docker.com/r/resin/rpi-raspbian/tags/" rel="nofollow noopener" target="_blank">resin/rpi-raspbian:stretch</a> - 53MB</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="arm32v6alpinelatest" class="fragment"></span><a href="#arm32v6alpinelatest"><i class="fa fa-link"></i></a><code>arm32v6/alpine:latest</code>
+</h3>
+
+<ul>
+<li>軽い (2MB)</li>
+<li>そのままでは glibc がないので使うなら <a href="https://qiita.com/skame/items/12d12fef0902d162279e" id="reference-84df07534cbff2832662">musl</a> か <a href="https://github.com/sgerrand/alpine-pkg-glibc" rel="nofollow noopener" target="_blank">glibc の</a> <a href="https://wiki.alpinelinux.org/wiki/Running_glibc_programs" rel="nofollow noopener" target="_blank">インストールが必要</a>
+</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="arm32v7debianstretch-slim" class="fragment"></span><a href="#arm32v7debianstretch-slim"><i class="fa fa-link"></i></a><code>arm32v7/debian:stretch-slim</code>
+</h3>
+
+<ul>
+<li>比較的軽い (19MB)</li>
+<li>ARMv6 ダメ</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="resinrpi-raspbianstretch" class="fragment"></span><a href="#resinrpi-raspbianstretch"><i class="fa fa-link"></i></a><code>resin/rpi-raspbian:stretch</code>
+</h3>
+
+<ul>
+<li>やや重い (53MB)</li>
+<li>ARMv6 + HF が使える</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="例-raspberrypi-zero-w-の場合-1" class="fragment"></span><a href="#%E4%BE%8B-raspberrypi-zero-w-%E3%81%AE%E5%A0%B4%E5%90%88-1"><i class="fa fa-link"></i></a>例: RaspberryPi Zero W の場合</h2>
+
+<ul>
+<li>ARMv6 なので <code>arm32v6/alpine</code> か <code>resin/rpi-raspbian</code>
+</li>
+<li>共有ライブラリ使わないなら musl を静的リンクして <code>alpine</code>
+</li>
+<li>使うならとりあえず <code>raspbian</code> で始めて徐々に <code>alpine</code>
+</li>
+</ul>
+
+<hr>
+
+<h1>
+<span id="3-raspberrypi-zero-w-で動かす" class="fragment"></span><a href="#3-raspberrypi-zero-w-%E3%81%A7%E5%8B%95%E3%81%8B%E3%81%99"><i class="fa fa-link"></i></a>3. RaspberryPi Zero W で動かす</h1>
+
+<hr>
+
+<h2>
+<span id="おひとりさまミニブログ" class="fragment"></span><a href="#%E3%81%8A%E3%81%B2%E3%81%A8%E3%82%8A%E3%81%95%E3%81%BE%E3%83%9F%E3%83%8B%E3%83%96%E3%83%AD%E3%82%B0"><i class="fa fa-link"></i></a>おひとりさまミニブログ</h2>
+
+<ul>
+<li>ツイ禁のために自作</li>
+<li>衝動買いした RaspberryPi Zero W を使う</li>
+<li>
+<a href="https://blog.torproject.org/quick-simple-guide-tor-and-internet-things-so-far" rel="nofollow noopener" target="_blank">Tor Onion Service + IoT</a> でセキュアでグローバルIP＆ドメインいらずの自宅サーバ</li>
+<li><del>自宅サーバは IoT か？</del></li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="devops-とか" class="fragment"></span><a href="#devops-%E3%81%A8%E3%81%8B"><i class="fa fa-link"></i></a>DevOps とか</h2>
+
+<ul>
+<li>actix-web + askama + diesel (sqlite)</li>
+<li>開発マシン(ubuntu) 上の debian コンテナでクロスビルド</li>
+<li>rpi-raspbian でパッケージして Docker Hub に push </li>
+<li>PiZ の Raspbian 上の docker で pull して実行</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="クロスコンパイルテクニック" class="fragment"></span><a href="#%E3%82%AF%E3%83%AD%E3%82%B9%E3%82%B3%E3%83%B3%E3%83%91%E3%82%A4%E3%83%AB%E3%83%86%E3%82%AF%E3%83%8B%E3%83%83%E3%82%AF"><i class="fa fa-link"></i></a>クロスコンパイルテクニック</h2>
+
+<ol>
+<li>docker multistage-build を使う</li>
+<li>SQLite を静的リンクする</li>
+<li>
+<code>.cargo/config</code> で linker を指定する</li>
+<li>
+<code>readelf</code> でターゲットを確認する</li>
+</ol>
+
+<hr>
+
+<h3>
+<span id="1-docker-multistage-build" class="fragment"></span><a href="#1-docker-multistage-build"><i class="fa fa-link"></i></a>1. docker <a href="https://docs.docker.com/develop/develop-images/multistage-build/" rel="nofollow noopener" target="_blank">multistage-build</a>
+</h3>
+
+<hr>
+
+<div class="code-frame" data-lang="Dockerfile">
+<div class="code-lang"><span class="bold">Dockerfile</span></div>
+<div class="highlight"><pre><span class="k">FROM</span><span class="s"> debian:jessie as builder</span>
+<span class="k">WORKDIR</span><span class="s"> /source</span>
+<span class="k">ADD</span><span class="s"> . /source</span>
+<span class="k">RUN </span>cargo build <span class="nt">--target</span><span class="o">=</span>arm-unknown-linux-gnueabihf <span class="nt">-p</span> server <span class="nt">--release</span>
+
+<span class="k">FROM</span><span class="s"> resin/rpi-raspbian</span>
+<span class="k">COPY</span><span class="s"> --from=builder /source/target/arm-unknown-linux-gnueabihf/release/server /opt/server</span>
+<span class="k">CMD</span><span class="s"> ["/opt/server"]</span>
+</pre></div>
+</div>
+
+<hr>
+
+<ul>
+<li>ひとつの Dockerfile だけでビルドして成果物の別のコンテナに入れる機能</li>
+<li>debian でビルドしたバイナリを alpine に入れてパッケージ化とかできる</li>
+<li>
+<a href="https://github.com/GoogleContainerTools/skaffold/" rel="nofollow noopener" target="_blank">GoogleContainerTools/skaffold</a> 使うとデプロイまで自動化できる</li>
+</ul>
+
+<hr>
+
+<ul>
+<li>今回は debian でビルドして raspbian でパッケージ化</li>
+<li>alpine 使いたかったが libsqlite3 も含めて musl にするのは面倒</li>
+<li>まずはとりあえず raspbian</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="2-sqlite-を静的リンクする" class="fragment"></span><a href="#2-sqlite-%E3%82%92%E9%9D%99%E7%9A%84%E3%83%AA%E3%83%B3%E3%82%AF%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>2. SQLite を静的リンクする</h3>
+
+<hr>
+
+<h4>
+<span id="静的リンクする動機" class="fragment"></span><a href="#%E9%9D%99%E7%9A%84%E3%83%AA%E3%83%B3%E3%82%AF%E3%81%99%E3%82%8B%E5%8B%95%E6%A9%9F"><i class="fa fa-link"></i></a>静的リンクする動機</h4>
+
+<ul>
+<li>開発マシンでは rpi-raspbian ステージの apt は動かない(armhf なので)</li>
+<li>multi-stage build でクロスコンパイルする場合特有の問題</li>
+<li>なるべく debian 側でリンクしてしまいたい</li>
+</ul>
+
+<hr>
+
+<ul>
+<li>raspbian の <code>libsqlite3-dev:armhf</code> を静的リンクする</li>
+<li><a href="https://github.com/diesel-rs/diesel/issues/1461" rel="nofollow noopener" target="_blank">deisel を使う側の <code>Cargo.toml</code> で <code>libsqlite3-sys</code> クレートの bundled feature を使う</a></li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="libsqlite3-sys-の-bundled-を使う" class="fragment"></span><a href="#libsqlite3-sys-%E3%81%AE-bundled-%E3%82%92%E4%BD%BF%E3%81%86"><i class="fa fa-link"></i></a>libsqlite3-sys の bundled を使う</h4>
+
+<div class="code-frame" data-lang="toml">
+<div class="code-lang"><span class="bold">Cargo.toml</span></div>
+<div class="highlight"><pre><span class="nn">[dependencies]</span>
+<span class="nn">diesel</span> <span class="o">=</span> <span class="p">{</span> <span class="py">version</span> <span class="p">=</span> <span class="s">"1.3"</span><span class="p">,</span> <span class="py">features</span> <span class="p">=</span> <span class="nn">["sqlite"]</span> <span class="p">}</span>
+<span class="nn">libsqlite3-sys</span> <span class="o">=</span> <span class="p">{</span> <span class="py">version</span> <span class="p">=</span> <span class="s">"0.9"</span><span class="p">,</span> <span class="py">features</span> <span class="p">=</span> <span class="nn">["bundled"]</span> <span class="p">}</span>
+</pre></div>
+</div>
+
+<hr>
+
+<h3>
+<span id="3-cargoconfig-でリンカを指定する" class="fragment"></span><a href="#3-cargoconfig-%E3%81%A7%E3%83%AA%E3%83%B3%E3%82%AB%E3%82%92%E6%8C%87%E5%AE%9A%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>3. <code>.cargo/config</code> でリンカを指定する</h3>
+
+<ul>
+<li>
+<code>raspberrypi/tools</code> の <code>arm-linux-gnueabihf-gcc</code> にパスを通しておく</li>
+<li>
+<code>/usr/lib/arm-linux-gnueabihf</code> に <code>libsqlite3</code> があるので linker にパスを渡しておく</li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="リンカオプションてんこもり" class="fragment"></span><a href="#%E3%83%AA%E3%83%B3%E3%82%AB%E3%82%AA%E3%83%97%E3%82%B7%E3%83%A7%E3%83%B3%E3%81%A6%E3%82%93%E3%81%93%E3%82%82%E3%82%8A"><i class="fa fa-link"></i></a>リンカオプションてんこもり</h4>
+
+<div class="code-frame" data-lang="toml">
+<div class="code-lang"><span class="bold">Cargo.toml</span></div>
+<div class="highlight"><pre><span class="nn">[target.arm-unknown-linux-gnueabihf]</span>
+<span class="py">linker</span> <span class="p">=</span> <span class="s">"arm-linux-gnueabihf-gcc"</span>
+<span class="py">rustflags</span> <span class="p">=</span> <span class="p">[</span>
+  <span class="s">"-C"</span><span class="p">,</span> <span class="s">"link-arg=-march=armv6"</span><span class="p">,</span>
+  <span class="s">"-C"</span><span class="p">,</span> <span class="s">"link-arg=-mfpu=vfp"</span><span class="p">,</span>
+  <span class="s">"-C"</span><span class="p">,</span> <span class="s">"link-arg=-mfloat-abi=hard"</span><span class="p">,</span>
+  <span class="s">"-C"</span><span class="p">,</span> <span class="s">"link-arg=-L/opt/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/arm-linux-gnueabihf/libc/usr/lib/arm-linux-gnueabihf/"</span><span class="p">,</span><span class="se">\n\
+</span>  <span class="s">"-Z"</span><span class="p">,</span> <span class="s">"print-link-args"</span><span class="p">,</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+
+<hr>
+
+<h3>
+<span id="4-readelf-で細かくバイナリを確認する" class="fragment"></span><a href="#4-readelf-%E3%81%A7%E7%B4%B0%E3%81%8B%E3%81%8F%E3%83%90%E3%82%A4%E3%83%8A%E3%83%AA%E3%82%92%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>4. <code>readelf</code> で細かくバイナリを確認する</h3>
+
+<hr>
+
+<h4>
+<span id="怪奇現象" class="fragment"></span><a href="#%E6%80%AA%E5%A5%87%E7%8F%BE%E8%B1%A1"><i class="fa fa-link"></i></a>怪奇現象</h4>
+
+<hr>
+
+<p>ARMv6 向け設定でビルドしたのに結果は ARMv7 になる現象</p>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>readelf <span class="nt">--arch-specific</span> ./target/arm-unknown-linux-gnueabihf/debug/server
+<span class="go">Attribute Section: aeabi
+File Attributes
+  Tag_CPU_name: "7-A"
+  Tag_CPU_arch: v7
+</span><span class="c">...
+</span></pre></div></div>
+
+<hr>
+
+<p>期待する結果 (ARMv6) だとこう表示されるはず</p>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>readelf <span class="nt">--arch-specific</span> ./target/arm-unknown-linux-gnueabihf/debug/server
+<span class="go">Attribute Section: aeabi
+File Attributes
+  Tag_CPU_name: "6"
+  Tag_CPU_arch: v6
+</span><span class="c">...
+</span></pre></div></div>
+
+<hr>
+
+<h4>
+<span id="原因を探る" class="fragment"></span><a href="#%E5%8E%9F%E5%9B%A0%E3%82%92%E6%8E%A2%E3%82%8B"><i class="fa fa-link"></i></a>原因を探る</h4>
+
+<ol>
+<li>
+<code>Tag_CPU_arch: v6</code> になるまでソースコードをコメントアウトする</li>
+<li>
+<code>Tag_CPU_arch: v7</code> の原因となるライブラリの Cargo.toml の features を調べる</li>
+</ol>
+
+<hr>
+
+<h4>
+<span id="原因の特定" class="fragment"></span><a href="#%E5%8E%9F%E5%9B%A0%E3%81%AE%E7%89%B9%E5%AE%9A"><i class="fa fa-link"></i></a>原因の特定</h4>
+
+<ol>
+<li>actix-web のコードをコメントアウトすると <code>Tag_CPU_arch: v6</code> に戻ることが判明</li>
+<li>
+<code>actix-web</code> が依存していた <code>cookie-rs</code> の <code>secure</code> featrue が <code>ring</code> crate に依存していたのが原因だと分かる</li>
+<li><a href="https://github.com/actix/actix-web/blob/2071ea053293e1f1bfde4e43bfab9137ac62ba48/Cargo.toml#L43-L44" rel="nofollow noopener" target="_blank"><code>ring</code> crate が c コンパイラに依存していたのが原因</a></li>
+</ol>
+
+<hr>
+
+<h2>
+<span id="感想" class="fragment"></span><a href="#%E6%84%9F%E6%83%B3"><i class="fa fa-link"></i></a>感想</h2>
+
+<hr>
+
+<h2>
+<span id="感想-1" class="fragment"></span><a href="#%E6%84%9F%E6%83%B3-1"><i class="fa fa-link"></i></a>感想</h2>
+
+<ul>
+<li>クロスコンパイルは難しい</li>
+<li>alpine linux は不便なのでそのうち廃れそう</li>
+<li>ビルド＆パッケージ化を Dockerfile で管理できて便利</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="クロスコンパイルは難しい" class="fragment"></span><a href="#%E3%82%AF%E3%83%AD%E3%82%B9%E3%82%B3%E3%83%B3%E3%83%91%E3%82%A4%E3%83%AB%E3%81%AF%E9%9B%A3%E3%81%97%E3%81%84"><i class="fa fa-link"></i></a>クロスコンパイルは難しい</h3>
+
+<ul>
+<li>Linux の基礎知識が必要</li>
+<li>オススメの情報源
+
+<ul>
+<li><a href="https://www.oreilly.co.jp/books/9784873115856/" rel="nofollow noopener" target="_blank">Linuxプログラミングインターフェース</a></li>
+<li><a href="https://www.shoeisha.co.jp/book/detail/9784798155036" rel="nofollow noopener" target="_blank">低レベルプログラミング</a></li>
+<li><a href="https://github.com/japaric/rust-cross" rel="nofollow noopener" target="_blank">japaric/rust-cross</a></li>
+</ul>
+</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="おわり" class="fragment"></span><a href="#%E3%81%8A%E3%82%8F%E3%82%8A"><i class="fa fa-link"></i></a>おわり</h2>

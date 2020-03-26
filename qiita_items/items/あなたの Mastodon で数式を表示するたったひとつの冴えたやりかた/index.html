@@ -1,0 +1,80 @@
+
+<h1>
+<span id="あなたの-mastodon-で数式を表示するたったひとつの冴えたやりかた" class="fragment"></span><a href="#%E3%81%82%E3%81%AA%E3%81%9F%E3%81%AE-mastodon-%E3%81%A7%E6%95%B0%E5%BC%8F%E3%82%92%E8%A1%A8%E7%A4%BA%E3%81%99%E3%82%8B%E3%81%9F%E3%81%A3%E3%81%9F%E3%81%B2%E3%81%A8%E3%81%A4%E3%81%AE%E5%86%B4%E3%81%88%E3%81%9F%E3%82%84%E3%82%8A%E3%81%8B%E3%81%9F"><i class="fa fa-link"></i></a>あなたの Mastodon で数式を表示するたったひとつの冴えたやりかた</h1>
+
+<p>react で差分管理されている Mastodon の新着ツイートのみ Mathjax でレンダリングする方法です。</p>
+
+<p>react による DOM の追加を <code>MutationObserver</code> を使ってフックします。</p>
+
+<h2>
+<span id="1csp-を設定する" class="fragment"></span><a href="#1csp-%E3%82%92%E8%A8%AD%E5%AE%9A%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>1.CSP を設定する</h2>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>Content-Security-Policy: script-src https://cdnjs.cloudflare.com;
+</pre></div></div>
+
+<h2>
+<span id="2以下の-javascript-を-home-のページ末尾に読み込ませる" class="fragment"></span><a href="#2%E4%BB%A5%E4%B8%8B%E3%81%AE-javascript-%E3%82%92-home-%E3%81%AE%E3%83%9A%E3%83%BC%E3%82%B8%E6%9C%AB%E5%B0%BE%E3%81%AB%E8%AA%AD%E3%81%BF%E8%BE%BC%E3%81%BE%E3%81%9B%E3%82%8B"><i class="fa fa-link"></i></a>2.以下の JavaScript を home のページ末尾に読み込ませる</h2>
+
+<div class="code-frame" data-lang="html"><div class="highlight"><pre><span class="nt">&lt;script&gt;</span>
+<span class="p">(()</span><span class="o">=&gt;</span><span class="p">{</span>
+  <span class="nb">window</span><span class="p">.</span><span class="nx">MathJax</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="na">showProcessingMessages</span><span class="p">:</span><span class="kc">false</span><span class="p">,</span>
+    <span class="na">messageStyle</span><span class="p">:</span><span class="dl">"</span><span class="s2">none</span><span class="dl">"</span><span class="p">,</span>
+    <span class="na">showMathMenu</span><span class="p">:</span><span class="kc">false</span><span class="p">,</span>
+    <span class="na">skipStartupTypeset</span><span class="p">:</span><span class="kc">true</span><span class="p">,</span>
+    <span class="na">texHints</span><span class="p">:</span><span class="kc">false</span><span class="p">,</span>
+    <span class="na">extensions</span><span class="p">:[</span><span class="dl">"</span><span class="s2">tex2jax.js</span><span class="dl">"</span><span class="p">],</span>
+    <span class="na">jax</span><span class="p">:[</span><span class="dl">"</span><span class="s2">input/TeX</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="s2">output/CommonHTML</span><span class="dl">"</span><span class="p">],</span>
+    <span class="na">tex2jax</span><span class="p">:{</span>
+      <span class="na">inlineMath</span><span class="p">:[[</span><span class="dl">"</span><span class="s2">$</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="s2">$</span><span class="dl">"</span><span class="p">],[</span><span class="dl">"</span><span class="se">\\</span><span class="s2">(</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="se">\\</span><span class="s2">)</span><span class="dl">"</span><span class="p">]],</span>
+      <span class="na">displayMath</span><span class="p">:[[</span><span class="dl">"</span><span class="s2">$$</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="s2">$$</span><span class="dl">"</span><span class="p">],[</span><span class="dl">"</span><span class="se">\\</span><span class="s2">[</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="se">\\</span><span class="s2">]</span><span class="dl">"</span><span class="p">]],</span>
+      <span class="na">processEscapes</span><span class="p">:</span><span class="kc">true</span>
+    <span class="p">},</span>
+    <span class="dl">"</span><span class="s2">HTML-CSS</span><span class="dl">"</span><span class="p">:{</span><span class="na">availableFonts</span><span class="p">:[</span><span class="dl">"</span><span class="s2">TeX</span><span class="dl">"</span><span class="p">]},</span>
+    <span class="na">TeX</span><span class="p">:{</span><span class="na">extensions</span><span class="p">:[</span><span class="dl">"</span><span class="s2">AMSmath.js</span><span class="dl">"</span><span class="p">,</span><span class="dl">"</span><span class="s2">AMSsymbols.js</span><span class="dl">"</span><span class="p">]}</span>
+  <span class="p">};</span>
+  <span class="kd">const</span> <span class="nx">urls</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="dl">"</span><span class="s2">https://cdnjs.cloudflare.com/ajax/libs/zepto/1.2.0/zepto.min.js</span><span class="dl">"</span><span class="p">,</span>
+    <span class="dl">"</span><span class="s2">https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML</span><span class="dl">"</span>
+  <span class="p">];</span>
+  <span class="nx">urls</span><span class="p">.</span><span class="nx">reduce</span><span class="p">((</span><span class="nx">next</span><span class="p">,</span> <span class="nx">url</span><span class="p">)</span><span class="o">=&gt;</span> <span class="p">()</span><span class="o">=&gt;</span> <span class="nx">loadScript</span><span class="p">(</span><span class="nx">url</span><span class="p">,</span> <span class="nx">next</span><span class="p">),</span> <span class="p">()</span><span class="o">=&gt;</span> <span class="nx">$</span><span class="p">(</span><span class="nx">loaded</span><span class="p">))();</span>
+  <span class="kd">function</span> <span class="nx">loaded</span><span class="p">(){</span>
+    <span class="nx">MathJax</span><span class="p">.</span><span class="nx">Hub</span><span class="p">.</span><span class="nx">Queue</span><span class="p">([</span><span class="dl">"</span><span class="s2">Typeset</span><span class="dl">"</span><span class="p">,</span> <span class="nx">MathJax</span><span class="p">.</span><span class="nx">Hub</span><span class="p">,</span> <span class="dl">"</span><span class="s2">.status</span><span class="dl">"</span><span class="p">]);</span>
+    <span class="nx">MathJax</span><span class="p">.</span><span class="nx">Hub</span><span class="p">.</span><span class="nx">Queue</span><span class="p">([</span><span class="dl">"</span><span class="s2">Typeset</span><span class="dl">"</span><span class="p">,</span> <span class="nx">MathJax</span><span class="p">.</span><span class="nx">Hub</span><span class="p">,</span> <span class="dl">"</span><span class="s2">.status__content</span><span class="dl">"</span><span class="p">]);</span>
+    <span class="nx">MathJax</span><span class="p">.</span><span class="nx">Hub</span><span class="p">.</span><span class="nx">Queue</span><span class="p">([()</span><span class="o">=&gt;</span> <span class="k">new</span> <span class="nx">MutationObserver</span><span class="p">(</span><span class="nx">changed</span><span class="p">).</span><span class="nx">observe</span><span class="p">(</span><span class="nb">document</span><span class="p">.</span><span class="nx">body</span><span class="p">,{</span><span class="na">childList</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="na">subtree</span><span class="p">:</span><span class="mi">1</span><span class="p">})</span> <span class="p">]);</span>
+  <span class="p">}</span>
+  <span class="kd">let</span> <span class="nx">rendering</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+  <span class="kd">function</span> <span class="nx">changed</span><span class="p">(</span><span class="nx">diffs</span><span class="p">){</span>
+    <span class="k">if</span><span class="p">(</span><span class="nx">rendering</span><span class="p">){</span> <span class="k">return</span><span class="p">;</span> <span class="p">}</span>
+    <span class="nx">MathJax</span><span class="p">.</span><span class="nx">Hub</span><span class="p">.</span><span class="nx">Queue</span><span class="p">([()</span><span class="o">=&gt;</span><span class="p">{</span> <span class="nx">rendering</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span> <span class="p">}]);</span>
+    <span class="nx">diffs</span><span class="p">.</span><span class="nx">forEach</span><span class="p">(</span><span class="nx">diff</span> <span class="o">=&gt;</span><span class="p">{</span>
+      <span class="nb">Array</span><span class="p">.</span><span class="k">from</span><span class="p">(</span><span class="nx">diff</span><span class="p">.</span><span class="nx">addedNodes</span><span class="p">).</span><span class="nx">forEach</span><span class="p">(</span><span class="nx">elm</span> <span class="o">=&gt;</span><span class="p">{</span>
+        <span class="k">if</span><span class="p">(</span><span class="nx">$</span><span class="p">(</span><span class="nx">elm</span><span class="p">).</span><span class="nx">hasClass</span><span class="p">(</span><span class="dl">"</span><span class="s2">status</span><span class="dl">"</span><span class="p">)</span> <span class="o">||</span> <span class="nx">elm</span> <span class="k">instanceof</span> <span class="nx">HTMLParagraphElement</span><span class="p">){</span>
+          <span class="nx">MathJax</span><span class="p">.</span><span class="nx">Hub</span><span class="p">.</span><span class="nx">Queue</span><span class="p">([</span><span class="dl">"</span><span class="s2">Typeset</span><span class="dl">"</span><span class="p">,</span> <span class="nx">MathJax</span><span class="p">.</span><span class="nx">Hub</span><span class="p">,</span> <span class="nx">elm</span><span class="p">]);</span>
+        <span class="p">}</span><span class="k">else</span> <span class="k">if</span><span class="p">(</span><span class="nx">elm</span> <span class="k">instanceof</span> <span class="nx">Text</span><span class="p">){</span>
+          <span class="nx">MathJax</span><span class="p">.</span><span class="nx">Hub</span><span class="p">.</span><span class="nx">Queue</span><span class="p">([</span><span class="dl">"</span><span class="s2">Typeset</span><span class="dl">"</span><span class="p">,</span> <span class="nx">MathJax</span><span class="p">.</span><span class="nx">Hub</span><span class="p">,</span> <span class="nx">diff</span><span class="p">.</span><span class="nx">target</span><span class="p">]);</span>
+        <span class="p">}</span><span class="k">else</span> <span class="k">if</span><span class="p">(</span><span class="nx">$</span><span class="p">(</span><span class="nx">elm</span><span class="p">).</span><span class="nx">hasClass</span><span class="p">(</span><span class="dl">"</span><span class="s2">column</span><span class="dl">"</span><span class="p">)){</span>
+          <span class="nx">$</span><span class="p">(</span><span class="nx">elm</span><span class="p">).</span><span class="nx">find</span><span class="p">(</span><span class="dl">"</span><span class="s2">.status__content</span><span class="dl">"</span><span class="p">).</span><span class="nx">each</span><span class="p">((</span><span class="nx">i</span><span class="p">,</span> <span class="nx">elm</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span>
+            <span class="nx">MathJax</span><span class="p">.</span><span class="nx">Hub</span><span class="p">.</span><span class="nx">Queue</span><span class="p">([</span><span class="dl">"</span><span class="s2">Typeset</span><span class="dl">"</span><span class="p">,</span> <span class="nx">MathJax</span><span class="p">.</span><span class="nx">Hub</span><span class="p">,</span> <span class="nx">elm</span><span class="p">]);</span>  
+          <span class="p">});</span>
+        <span class="p">}</span>
+      <span class="p">});</span>
+    <span class="p">});</span>
+    <span class="nx">MathJax</span><span class="p">.</span><span class="nx">Hub</span><span class="p">.</span><span class="nx">Queue</span><span class="p">([()</span><span class="o">=&gt;</span><span class="p">{</span> <span class="nx">rendering</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span> <span class="p">}]);</span>
+  <span class="p">}</span>
+  <span class="kd">function</span> <span class="nx">loadScript</span><span class="p">(</span><span class="nx">url</span><span class="p">,</span> <span class="nx">callback</span><span class="p">){</span>
+    <span class="kd">let</span> <span class="nx">script</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">createElement</span><span class="p">(</span><span class="dl">"</span><span class="s2">script</span><span class="dl">"</span><span class="p">);</span>
+    <span class="nx">script</span><span class="p">.</span><span class="nx">src</span> <span class="o">=</span> <span class="nx">url</span><span class="p">;</span>
+    <span class="nx">script</span><span class="p">.</span><span class="nx">onload</span> <span class="o">=</span> <span class="nx">callback</span><span class="p">;</span>
+    <span class="nb">document</span><span class="p">.</span><span class="nx">head</span><span class="p">.</span><span class="nx">appendChild</span><span class="p">(</span><span class="nx">script</span><span class="p">)</span>
+  <span class="p">}</span>
+<span class="p">})();</span>
+<span class="nt">&lt;/script&gt;</span>
+</pre></div></div>
+
+<p>Mathjax の設定はお好みで。</p>
+
+<h2>
+<span id="appendix-mathjax-で-xy-pic-のような可換図を書く" class="fragment"></span><a href="#appendix-mathjax-%E3%81%A7-xy-pic-%E3%81%AE%E3%82%88%E3%81%86%E3%81%AA%E5%8F%AF%E6%8F%9B%E5%9B%B3%E3%82%92%E6%9B%B8%E3%81%8F"><i class="fa fa-link"></i></a>Appendix. Mathjax で xy-pic のような可換図を書く</h2>
+
+<p>AmS ではかけない複雑な可換図は <a href="https://github.com/sonoisa/XyJax" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/sonoisa/XyJax</a> を使ってください。</p>

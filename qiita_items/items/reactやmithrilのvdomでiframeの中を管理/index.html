@@ -1,0 +1,102 @@
+<p><a href="https://qiita-user-contents.imgix.net/https%3A%2F%2Fi.gyazo.com%2F29d9a92413fc5fd8f4e94306488288de.gif?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=23ed8afbe27c5f83b475900dee199950" target="_blank" rel="nofollow noopener"><img src="https://qiita-user-contents.imgix.net/https%3A%2F%2Fi.gyazo.com%2F29d9a92413fc5fd8f4e94306488288de.gif?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=23ed8afbe27c5f83b475900dee199950" alt="iframe" data-canonical-src="https://i.gyazo.com/29d9a92413fc5fd8f4e94306488288de.gif" srcset="https://qiita-user-contents.imgix.net/https%3A%2F%2Fi.gyazo.com%2F29d9a92413fc5fd8f4e94306488288de.gif?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;w=1400&amp;fit=max&amp;s=17639c7186af76ab56276b33874a5898 1x" loading="lazy"></a></p>
+
+<p>こんなことがしたい。</p>
+
+<h1>
+<span id="react-の場合" class="fragment"></span><a href="#react-%E3%81%AE%E5%A0%B4%E5%90%88"><i class="fa fa-link"></i></a>react の場合</h1>
+
+<div class="code-frame" data-lang="html"><div class="highlight"><pre><span class="nt">&lt;body&gt;</span>
+  <span class="nt">&lt;iframe</span> <span class="na">id=</span><span class="s">"box-preview-iframe"</span><span class="nt">&gt;&lt;/iframe&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+</pre></div></div>
+
+<div class="code-frame" data-lang="coffeescript"><div class="highlight"><pre><span class="nx">$</span> <span class="o">-&gt;</span>
+  <span class="nx">iframeBody</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="na">getElementById</span><span class="p">(</span><span class="s">"box-preview-iframe"</span><span class="p">).</span><span class="na">contentDocument</span><span class="p">.</span><span class="na">body</span>
+  <span class="nx">comp</span> <span class="o">=</span> <span class="nx">React</span><span class="p">.</span><span class="na">render</span><span class="p">(</span><span class="nx">React</span><span class="p">.</span><span class="na">createElement</span><span class="p">(</span><span class="nx">Preview</span><span class="p">,</span> <span class="p">{}),</span> <span class="nx">iframeBody</span><span class="p">)</span>
+  <span class="nx">setInterval</span><span class="p">((()</span><span class="o">-&gt;</span>
+    <span class="nx">date</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Date</span>
+    <span class="nx">console</span><span class="p">.</span><span class="na">log</span> <span class="nx">body</span> <span class="o">=</span> <span class="s">"""&lt;div&gt;
+    &lt;span&gt;</span><span class="si">#{</span><span class="nx">date</span><span class="p">.</span><span class="na">getHours</span><span class="p">()</span><span class="si">}</span><span class="s">&lt;/span&gt;:
+    &lt;span&gt;</span><span class="si">#{</span><span class="nx">date</span><span class="p">.</span><span class="na">getMinutes</span><span class="p">()</span><span class="si">}</span><span class="s">&lt;/span&gt;:
+    &lt;span&gt;</span><span class="si">#{</span><span class="nx">date</span><span class="p">.</span><span class="na">getSeconds</span><span class="p">()</span><span class="si">}</span><span class="s">&lt;/span&gt;
+    &lt;/div&gt;"""</span>
+    <span class="nx">React</span><span class="p">.</span><span class="na">render</span><span class="p">(</span><span class="nx">React</span><span class="p">.</span><span class="na">createElement</span><span class="p">(</span><span class="nx">Preview</span><span class="p">,</span> <span class="p">{</span><span class="nx">body</span><span class="p">}),</span> <span class="nx">iframeBody</span><span class="p">)</span>
+  <span class="p">),</span><span class="mi">1000</span><span class="p">)</span>
+
+<span class="nx">Preview</span> <span class="o">=</span> <span class="nx">React</span><span class="p">.</span><span class="na">createClass</span>
+  <span class="na">render</span><span class="o">:</span> <span class="o">-&gt;</span>
+    <span class="nx">JSXTransformer</span><span class="p">.</span><span class="na">exec</span><span class="p">(</span><span class="vi">@</span><span class="na">props</span><span class="p">.</span><span class="na">body</span> <span class="o">||</span> <span class="s">"&lt;div&gt;&lt;/div&gt;"</span><span class="p">)</span>
+</pre></div></div>
+
+<h2>
+<span id="追記-mithril-の場合" class="fragment"></span><a href="#%E8%BF%BD%E8%A8%98-mithril-%E3%81%AE%E5%A0%B4%E5%90%88"><i class="fa fa-link"></i></a>[追記] Mithril の場合</h2>
+
+<ul>
+<li><a href="https://github.com/lhorie/mithril.js/issues/67" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/lhorie/mithril.js/issues/67</a></li>
+<li><a href="https://lhorie.github.io/mithril/tools.html" class="autolink" rel="nofollow noopener" target="_blank">https://lhorie.github.io/mithril/tools.html</a></li>
+<li><a href="https://lhorie.github.io/mithril/tools/template-converter.html" class="autolink" rel="nofollow noopener" target="_blank">https://lhorie.github.io/mithril/tools/template-converter.html</a></li>
+</ul>
+
+<p>を読む限り</p>
+
+<ul>
+<li><a href="http://lhorie.github.io/mithril/tools/template-converter.js" class="autolink" rel="nofollow noopener" target="_blank">http://lhorie.github.io/mithril/tools/template-converter.js</a></li>
+</ul>
+
+<p>これを使えばよさそう。component含んでるけど。</p>
+
+<div class="code-frame" data-lang="html"><div class="highlight"><pre><span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"template-converter.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="nt">&lt;body&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+</pre></div></div>
+
+<div class="code-frame" data-lang="coffeescript"><div class="highlight"><pre><span class="nx">$</span> <span class="o">-&gt;</span>
+  <span class="nx">m</span><span class="p">.</span><span class="na">mount</span><span class="p">(</span><span class="nb">document</span><span class="p">.</span><span class="na">body</span><span class="p">,</span> <span class="nx">RootComponent</span><span class="p">)</span>
+
+<span class="nx">RootComponent</span> <span class="o">=</span>
+  <span class="na">controller</span><span class="o">:</span> <span class="p">(</span><span class="nx">data</span><span class="p">)</span><span class="o">-&gt;</span> <span class="p">{}</span>
+  <span class="na">view</span><span class="o">:</span> <span class="p">(</span><span class="nx">ctrl</span><span class="p">)</span><span class="o">-&gt;</span>
+    <span class="nx">m</span><span class="p">(</span><span class="s">"div"</span><span class="p">,</span> <span class="p">{</span><span class="na">id</span><span class="o">:</span> <span class="s">"box"</span><span class="p">},</span> <span class="p">[</span>
+      <span class="nx">m</span><span class="p">(</span><span class="s">"section"</span><span class="p">,</span> <span class="p">{</span><span class="na">id</span><span class="o">:</span> <span class="s">"box-box-preview"</span><span class="p">},</span> <span class="p">[</span>
+        <span class="nx">m</span><span class="p">.</span><span class="na">component</span><span class="p">(</span><span class="nx">PreviewComponent</span><span class="p">,</span> <span class="nx">ctrl</span><span class="p">.</span><span class="na">PreviewController</span><span class="p">)</span>
+      <span class="p">])</span>
+    <span class="p">])</span>
+
+
+<span class="nx">PreviewComponent</span> <span class="o">=</span>
+  <span class="na">controller</span><span class="o">:</span> <span class="p">(</span><span class="nx">attrs</span><span class="p">)</span><span class="o">-&gt;</span>
+    <span class="nx">setInterval</span><span class="p">((()</span><span class="o">-&gt;</span>
+      <span class="nx">console</span><span class="p">.</span><span class="na">log</span> <span class="nx">date</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Date</span>
+      <span class="nx">model</span><span class="p">.</span><span class="na">body</span><span class="p">(</span><span class="s">"""&lt;div&gt;
+      &lt;span&gt;</span><span class="si">#{</span><span class="nx">date</span><span class="p">.</span><span class="na">getHours</span><span class="p">()</span><span class="si">}</span><span class="s">&lt;/span&gt;:
+      &lt;span&gt;</span><span class="si">#{</span><span class="nx">date</span><span class="p">.</span><span class="na">getMinutes</span><span class="p">()</span><span class="si">}</span><span class="s">&lt;/span&gt;:
+      &lt;span&gt;</span><span class="si">#{</span><span class="nx">date</span><span class="p">.</span><span class="na">getSeconds</span><span class="p">()</span><span class="si">}</span><span class="s">&lt;/span&gt;
+      &lt;/div&gt;"""</span><span class="p">)</span>
+      <span class="nx">m</span><span class="p">.</span><span class="na">redraw</span><span class="p">(</span><span class="no">true</span><span class="p">)</span>
+    <span class="p">),</span><span class="mi">1000</span><span class="p">)</span>
+    <span class="nx">model</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="na">head</span><span class="o">:</span> <span class="nx">m</span><span class="p">.</span><span class="na">prop</span><span class="p">(</span><span class="s">""</span><span class="p">)</span>
+      <span class="na">body</span><span class="o">:</span> <span class="nx">m</span><span class="p">.</span><span class="na">prop</span><span class="p">(</span><span class="s">""</span><span class="p">)</span>
+    <span class="p">}</span>
+  <span class="na">view</span><span class="o">:</span> <span class="p">(</span><span class="nx">ctrl</span><span class="p">,</span> <span class="nx">attrs</span><span class="p">)</span><span class="o">-&gt;</span>
+    <span class="nx">m</span><span class="p">(</span><span class="s">"iframe"</span><span class="p">,</span> <span class="p">{</span>
+      <span class="na">id</span><span class="o">:</span> <span class="s">"box-preview-iframe"</span><span class="p">,</span>
+      <span class="na">config</span><span class="o">:</span> <span class="nx">PreviewComponent</span><span class="p">.</span><span class="na">config</span><span class="p">(</span><span class="nx">ctrl</span><span class="p">,</span> <span class="nx">attrs</span><span class="p">)</span>
+    <span class="p">},</span> <span class="p">[])</span>
+  <span class="na">config</span><span class="o">:</span> <span class="p">(</span><span class="nx">ctrl</span><span class="p">,</span> <span class="nx">attrs</span><span class="p">)</span><span class="o">-&gt;</span> <span class="p">(</span><span class="nx">elm</span><span class="p">,</span> <span class="nx">isInitialized</span><span class="p">,</span> <span class="nx">ctx</span><span class="p">,</span> <span class="nx">vdom</span><span class="p">)</span><span class="o">=&gt;</span>
+    <span class="k">if</span> <span class="o">!</span><span class="nx">isInitialized</span>
+      <span class="nx">console</span><span class="p">.</span><span class="na">log</span> <span class="nx">ctrl</span>
+      <span class="nx">m</span><span class="p">.</span><span class="na">mount</span><span class="p">(</span><span class="nx">elm</span><span class="p">.</span><span class="na">contentDocument</span><span class="p">.</span><span class="na">head</span><span class="p">,</span> <span class="p">{</span>
+        <span class="na">view</span><span class="o">:</span> <span class="p">(</span><span class="nx">_ctrl</span><span class="p">,</span> <span class="nx">_attrs</span><span class="p">)</span><span class="o">-&gt;</span>
+          <span class="nx">code</span> <span class="o">=</span> <span class="nx">templateConverter</span><span class="p">.</span><span class="na">Template</span><span class="p">(</span><span class="nx">ctrl</span><span class="p">.</span><span class="na">head</span><span class="p">())</span>
+          <span class="k">new</span> <span class="nb">Function</span><span class="p">(</span><span class="s">"ctrl"</span><span class="p">,</span> <span class="s">"attrs"</span><span class="p">,</span> <span class="s">"return </span><span class="si">#{</span><span class="nx">code</span><span class="si">}</span><span class="s">"</span><span class="p">)(</span><span class="nx">_ctrl</span><span class="p">,</span> <span class="nx">_attrs</span><span class="p">)</span>
+      <span class="p">})</span>
+      <span class="nx">m</span><span class="p">.</span><span class="na">mount</span><span class="p">(</span><span class="nx">elm</span><span class="p">.</span><span class="na">contentDocument</span><span class="p">.</span><span class="na">body</span><span class="p">,</span> <span class="p">{</span>
+        <span class="na">view</span><span class="o">:</span> <span class="p">(</span><span class="nx">_ctrl</span><span class="p">,</span> <span class="nx">_attrs</span><span class="p">)</span><span class="o">-&gt;</span>
+          <span class="nx">code</span> <span class="o">=</span> <span class="nx">templateConverter</span><span class="p">.</span><span class="na">Template</span><span class="p">(</span><span class="nx">ctrl</span><span class="p">.</span><span class="na">body</span><span class="p">())</span>
+          <span class="k">new</span> <span class="nb">Function</span><span class="p">(</span><span class="s">"ctrl"</span><span class="p">,</span> <span class="s">"attrs"</span><span class="p">,</span> <span class="s">"return </span><span class="si">#{</span><span class="nx">code</span><span class="si">}</span><span class="s">"</span><span class="p">)(</span><span class="nx">_ctrl</span><span class="p">,</span> <span class="nx">_attrs</span><span class="p">)</span>
+      <span class="p">})</span>
+
+</pre></div></div>
+
+<p><a href="https://qiita-user-contents.imgix.net/https%3A%2F%2Fi.gyazo.com%2Ff36bd8f6dc645997b136fd6ed99e5b44.gif?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=05a209bdad55c0b33cea35f4c80cfbe6" target="_blank" rel="nofollow noopener"><img src="https://qiita-user-contents.imgix.net/https%3A%2F%2Fi.gyazo.com%2Ff36bd8f6dc645997b136fd6ed99e5b44.gif?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=05a209bdad55c0b33cea35f4c80cfbe6" alt="mithril" data-canonical-src="https://i.gyazo.com/f36bd8f6dc645997b136fd6ed99e5b44.gif" srcset="https://qiita-user-contents.imgix.net/https%3A%2F%2Fi.gyazo.com%2Ff36bd8f6dc645997b136fd6ed99e5b44.gif?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;w=1400&amp;fit=max&amp;s=5aa22a73d84571ef22846ee6f9283d10 1x" loading="lazy"></a></p>

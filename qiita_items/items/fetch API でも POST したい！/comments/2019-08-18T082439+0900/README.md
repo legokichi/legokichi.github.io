@@ -1,0 +1,1 @@
+application/x-www-form-urlencodedの組み立ては、現在であればURLSearchParamsを使うと良いのではないでしょうか？

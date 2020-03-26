@@ -1,0 +1,87 @@
+
+<h2>
+<span id="centos" class="fragment"></span><a href="#centos"><i class="fa fa-link"></i></a>centos</h2>
+
+<p><a href="https://www.torproject.org/docs/rpms.html.en" class="autolink" rel="nofollow noopener" target="_blank">https://www.torproject.org/docs/rpms.html.en</a><br>
+ここを読みながら。</p>
+
+<p><code>/etc/yum.repos.d/torproject.repo</code>というファイルを作って以下の内容を書き込みます。</p>
+
+<div class="code-frame" data-lang="text">
+<div class="code-lang"><span class="bold">/etc/yum.repos.d/torproject.repo</span></div>
+<div class="highlight"><pre>[tor]
+name=Tor repo
+enabled=1
+baseurl=https://deb.torproject.org/torproject.org/rpm/el/6/$basearch/
+gpgcheck=1
+gpgkey=https://deb.torproject.org/torproject.org/rpm/RPM-GPG-KEY-torproject.org.asc
+repo_gpgcheck=1
+
+[tor-source]
+name=Tor source repo
+enabled=1
+autorefresh=0
+baseurl=https://deb.torproject.org/torproject.org/rpm/el/6/SRPMS
+gpgcheck=1
+gpgkey=https://deb.torproject.org/torproject.org/rpm/RPM-GPG-KEY-torproject.org.asc
+repo_gpgcheck=1
+</pre></div>
+</div>
+
+<p><code>yum install tor</code>します。</p>
+
+<h2>
+<span id="ubuntu" class="fragment"></span><a href="#ubuntu"><i class="fa fa-link"></i></a>ubuntu</h2>
+
+<p><code>apt-get install tor</code>します。</p>
+
+<h2>
+<span id="以後共通" class="fragment"></span><a href="#%E4%BB%A5%E5%BE%8C%E5%85%B1%E9%80%9A"><i class="fa fa-link"></i></a>以後共通</h2>
+
+<p><code>service tor start</code> します。</p>
+
+<p><code>/etc/tor/torrc</code> 以下の設定になるよう編集します。</p>
+
+<div class="code-frame" data-lang="/etc/tor/torrc"><div class="highlight"><pre>Nickname hogehoge
+ORPort 9001
+BandwidthRate 20 KB
+BandwidthBurst 50 KB
+ExitPolicy reject *:*
+</pre></div></div>
+
+<p>その他 <code>iptables</code> などのファイアウォールを設定します。</p>
+
+<p><code>service tor restart</code> します。</p>
+
+<p><a href="https://atlas.torproject.org/" class="autolink" rel="nofollow noopener" target="_blank">https://atlas.torproject.org/</a><br>
+で 自分のNicknameを検索して動いているか確認します。</p>
+
+<h2>
+<span id="鍵ファイルのバックアップ" class="fragment"></span><a href="#%E9%8D%B5%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%81%AE%E3%83%90%E3%83%83%E3%82%AF%E3%82%A2%E3%83%83%E3%83%97"><i class="fa fa-link"></i></a>鍵ファイルのバックアップ</h2>
+
+<ul>
+<li><a href="https://www.torproject.org/docs/faq.html.en#UpgradeOrMove" class="autolink" rel="nofollow noopener" target="_blank">https://www.torproject.org/docs/faq.html.en#UpgradeOrMove</a></li>
+</ul>
+
+<p><code>/var/lib/tor/keys/secret_id_key</code> </p>
+
+<p>リレーサーバーのIPなどを移動するときは鍵のバックアップを取っておきましょう</p>
+
+<h2>
+<span id="ログの確認" class="fragment"></span><a href="#%E3%83%AD%E3%82%B0%E3%81%AE%E7%A2%BA%E8%AA%8D"><i class="fa fa-link"></i></a>ログの確認</h2>
+
+<ul>
+<li><a href="https://www.torproject.org/docs/faq.html.en#Logs" class="autolink" rel="nofollow noopener" target="_blank">https://www.torproject.org/docs/faq.html.en#Logs</a></li>
+</ul>
+
+<p><code>cat /var/log/tor/log</code></p>
+
+<h2>
+<span id="参考" class="fragment"></span><a href="#%E5%8F%82%E8%80%83"><i class="fa fa-link"></i></a>参考</h2>
+
+<ul>
+<li><a href="https://wiki.archlinuxjp.org/index.php/Tor" class="autolink" rel="nofollow noopener" target="_blank">https://wiki.archlinuxjp.org/index.php/Tor</a></li>
+<li><a href="https://www.torproject.org/" class="autolink" rel="nofollow noopener" target="_blank">https://www.torproject.org/</a></li>
+<li><a href="https://www.torproject.org/docs/tor-doc-relay.html.en" class="autolink" rel="nofollow noopener" target="_blank">https://www.torproject.org/docs/tor-doc-relay.html.en</a></li>
+<li><a href="https://www.torproject.org/docs/tor-relay-debian.html.en" class="autolink" rel="nofollow noopener" target="_blank">https://www.torproject.org/docs/tor-relay-debian.html.en</a></li>
+</ul>

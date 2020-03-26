@@ -1,0 +1,409 @@
+<p>この記事はきっと <a href="https://qiita.com/advent-calendar/2017/cpp">C++ Advent Calendar 2017</a> の 12/13 の記事です。</p>
+
+<h1>
+<span id="boostasio-で-callback--coroutine--future-による非同期io" class="fragment"></span><a href="#boostasio-%E3%81%A7-callback--coroutine--future-%E3%81%AB%E3%82%88%E3%82%8B%E9%9D%9E%E5%90%8C%E6%9C%9Fio"><i class="fa fa-link"></i></a>Boost.ASIO で callback | coroutine | future による非同期IO</h1>
+
+<p>とっちらかった記事です。表題の他に最近 Boost に入った Boost.Beast や Boost.Fiber と ASIO の関係についても少し書きます。</p>
+
+<h2>
+<span id="boostasio--boostcoroutine-について" class="fragment"></span><a href="#boostasio--boostcoroutine-%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6"><i class="fa fa-link"></i></a>Boost.ASIO + Boost.Coroutine について</h2>
+
+<p><code>boost::asio::spawn</code> を使うと非同期IOにありがちなコールバック地獄を避けて書けるようになります。<br>
+C#、　F#、 TypeScript などの async のようなものです。</p>
+
+<p>以下のデモコードは JS の setTimeout のようにスレッドをスリープさせることなく非同期コールバックタイマで非同期逐次処理を行っています。5秒おきに数字が一文字出力されます。</p>
+
+<div class="code-frame" data-lang="c++"><div class="highlight"><pre><span class="cp">#include &lt;iostream&gt;
+#include &lt;boost/asio.hpp&gt;
+#include &lt;boost/asio/spawn.hpp&gt;
+</span>
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">using</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="o">::</span><span class="n">io_service</span><span class="p">;</span>
+  <span class="k">using</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="o">::</span><span class="n">deadline_timer</span><span class="p">;</span>
+  <span class="k">namespace</span> <span class="n">asio</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="p">;</span>
+  <span class="k">namespace</span> <span class="n">ptime</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">posix_time</span><span class="p">;</span>
+  <span class="k">auto</span> <span class="k">const</span> <span class="n">ios</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">io_service</span><span class="o">&gt;</span><span class="p">();</span>
+  <span class="n">asio</span><span class="o">::</span><span class="n">spawn</span><span class="p">(</span><span class="o">*</span><span class="n">ios</span><span class="p">,</span> <span class="p">[</span><span class="n">ios</span><span class="p">](</span><span class="k">auto</span> <span class="n">yield</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"0"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="k">auto</span> <span class="n">timer1</span> <span class="o">=</span> <span class="n">deadline_timer</span><span class="p">{</span><span class="o">*</span><span class="n">ios</span><span class="p">};</span>
+    <span class="n">timer1</span><span class="p">.</span><span class="n">expires_from_now</span><span class="p">(</span><span class="n">ptime</span><span class="o">::</span><span class="n">seconds</span><span class="p">(</span><span class="mi">5</span><span class="p">));</span>
+    <span class="n">timer1</span><span class="p">.</span><span class="n">async_wait</span><span class="p">(</span><span class="n">yield</span><span class="p">);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"1"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="k">auto</span> <span class="n">timer2</span> <span class="o">=</span> <span class="n">deadline_timer</span><span class="p">{</span><span class="o">*</span><span class="n">ios</span><span class="p">};</span>
+    <span class="n">timer2</span><span class="p">.</span><span class="n">expires_from_now</span><span class="p">(</span><span class="n">ptime</span><span class="o">::</span><span class="n">seconds</span><span class="p">(</span><span class="mi">5</span><span class="p">));</span>
+    <span class="n">timer2</span><span class="p">.</span><span class="n">async_wait</span><span class="p">(</span><span class="n">yield</span><span class="p">);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"2"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+  <span class="p">});</span>
+  <span class="n">ios</span><span class="o">-&gt;</span><span class="n">run</span><span class="p">();</span>
+  <span class="k">return</span> <span class="n">EXIT_SUCCESS</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>上の async_wait のラッパ関数 wait を作ってみます。</p>
+
+<div class="code-frame" data-lang="c++"><div class="highlight"><pre><span class="cp">#include &lt;iostream&gt;
+#include &lt;utility&gt;
+#include &lt;boost/asio.hpp&gt;
+#include &lt;boost/asio/spawn.hpp&gt;
+</span><span class="k">using</span> <span class="n">std</span><span class="o">::</span><span class="n">shared_ptr</span><span class="p">;</span>
+<span class="k">namespace</span> <span class="n">asio</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="p">;</span>
+<span class="k">using</span> <span class="n">boost</span><span class="o">::</span><span class="n">system</span><span class="o">::</span><span class="n">error_code</span><span class="p">;</span>
+
+<span class="k">template</span><span class="o">&lt;</span><span class="k">class</span> <span class="nc">CompletionToken</span><span class="p">,</span> <span class="k">class</span> <span class="nc">ReturnType</span><span class="o">&gt;</span>
+<span class="k">using</span> <span class="n">HandlerType</span> <span class="o">=</span> <span class="k">typename</span> <span class="n">asio</span><span class="o">::</span><span class="n">handler_type</span><span class="o">&lt;</span><span class="n">CompletionToken</span><span class="p">,</span> <span class="kt">void</span><span class="p">(</span><span class="n">ReturnType</span><span class="p">)</span><span class="o">&gt;::</span><span class="n">type</span><span class="p">;</span>
+
+<span class="k">template</span><span class="o">&lt;</span><span class="k">class</span> <span class="nc">CompletionToken</span><span class="p">,</span> <span class="k">class</span> <span class="nc">ReturnType</span><span class="o">&gt;</span>
+<span class="k">using</span> <span class="n">AsyncResult</span> <span class="o">=</span> <span class="k">typename</span> <span class="n">asio</span><span class="o">::</span><span class="n">async_result</span><span class="o">&lt;</span><span class="n">HandlerType</span><span class="o">&lt;</span><span class="n">CompletionToken</span><span class="p">,</span> <span class="n">ReturnType</span><span class="o">&gt;&gt;::</span><span class="n">type</span><span class="p">;</span>
+
+<span class="k">template</span><span class="o">&lt;</span><span class="k">class</span> <span class="nc">CompletionToken</span><span class="o">&gt;</span>
+<span class="k">auto</span> <span class="n">wait</span><span class="p">(</span>
+  <span class="k">const</span> <span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">asio</span><span class="o">::</span><span class="n">io_service</span><span class="o">&gt;</span> <span class="n">ios</span><span class="p">,</span>
+  <span class="k">const</span> <span class="n">boost</span><span class="o">::</span><span class="n">posix_time</span><span class="o">::</span><span class="n">time_duration</span> <span class="n">time</span><span class="p">,</span>
+  <span class="n">CompletionToken</span><span class="o">&amp;&amp;</span> <span class="n">token</span>
+<span class="p">)</span><span class="o">-&gt;</span> <span class="n">AsyncResult</span><span class="o">&lt;</span><span class="n">CompletionToken</span><span class="p">,</span> <span class="n">error_code</span><span class="o">&gt;</span> <span class="p">{</span>
+  <span class="k">using</span> <span class="n">handler_t</span> <span class="o">=</span> <span class="n">HandlerType</span><span class="o">&lt;</span><span class="n">CompletionToken</span><span class="p">,</span> <span class="n">error_code</span><span class="o">&gt;</span><span class="p">;</span>
+  <span class="k">auto</span> <span class="n">handler</span> <span class="o">=</span> <span class="n">handler_t</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">forward</span><span class="o">&lt;</span><span class="n">CompletionToken</span><span class="o">&gt;</span><span class="p">(</span><span class="n">token</span><span class="p">)};</span>
+  <span class="k">auto</span> <span class="n">result</span> <span class="o">=</span> <span class="n">asio</span><span class="o">::</span><span class="n">async_result</span><span class="o">&lt;</span><span class="n">handler_t</span><span class="o">&gt;</span><span class="p">{</span><span class="n">handler</span><span class="p">};</span>
+  <span class="n">asio</span><span class="o">::</span><span class="n">spawn</span><span class="p">(</span><span class="o">*</span><span class="n">ios</span><span class="p">,</span> <span class="p">[</span><span class="o">=</span><span class="p">](</span><span class="k">auto</span> <span class="n">yield</span><span class="p">)</span> <span class="k">mutable</span> <span class="p">{</span>
+    <span class="k">auto</span> <span class="n">ec</span> <span class="o">=</span> <span class="n">error_code</span><span class="p">{};</span>
+    <span class="k">auto</span> <span class="n">timer</span> <span class="o">=</span> <span class="n">asio</span><span class="o">::</span><span class="n">deadline_timer</span><span class="p">{</span><span class="o">*</span><span class="n">ios</span><span class="p">};</span>
+    <span class="n">timer</span><span class="p">.</span><span class="n">expires_from_now</span><span class="p">(</span><span class="n">time</span><span class="p">);</span>
+    <span class="n">timer</span><span class="p">.</span><span class="n">async_wait</span><span class="p">(</span><span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+    <span class="n">handler</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">ec</span><span class="p">));</span>
+  <span class="p">});</span>
+  <span class="k">return</span> <span class="n">result</span><span class="p">.</span><span class="n">get</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>こう型定義しておくと、この非同期 wait 関数は callback形式、coroutine形式、future形式のいずれの記法でも使えるようになります。</p>
+
+<h3>
+<span id="callback-形式" class="fragment"></span><a href="#callback-%E5%BD%A2%E5%BC%8F"><i class="fa fa-link"></i></a>callback 形式</h3>
+
+<p>コールバックネストが発生しています。たくさんの非同期処理を書くのは大変そうです。</p>
+
+<div class="code-frame" data-lang="c++"><div class="highlight"><pre><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">using</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="o">::</span><span class="n">io_service</span><span class="p">;</span>
+  <span class="k">using</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="o">::</span><span class="n">deadline_timer</span><span class="p">;</span>
+  <span class="k">namespace</span> <span class="n">asio</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="p">;</span>
+  <span class="k">namespace</span> <span class="n">ptime</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">posix_time</span><span class="p">;</span>
+  <span class="k">auto</span> <span class="k">const</span> <span class="n">ios</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">io_service</span><span class="o">&gt;</span><span class="p">();</span>
+  <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"0"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+  <span class="n">wait</span><span class="p">(</span><span class="n">ios</span><span class="p">,</span> <span class="n">ptime</span><span class="o">::</span><span class="n">milliseconds</span><span class="p">(</span><span class="mi">5000</span><span class="p">),</span> <span class="p">[</span><span class="o">=</span><span class="p">](</span><span class="k">auto</span> <span class="n">ec</span><span class="p">){</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"1"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="n">wait</span><span class="p">(</span><span class="n">ios</span><span class="p">,</span> <span class="n">ptime</span><span class="o">::</span><span class="n">milliseconds</span><span class="p">(</span><span class="mi">5000</span><span class="p">),</span> <span class="p">[</span><span class="o">=</span><span class="p">](</span><span class="k">auto</span> <span class="n">ec</span><span class="p">){</span>
+      <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"2"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="p">});</span>
+  <span class="p">});</span>
+  <span class="n">ios</span><span class="o">-&gt;</span><span class="n">run</span><span class="p">();</span>
+  <span class="k">return</span> <span class="n">EXIT_SUCCESS</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h3>
+<span id="coroutine-形式" class="fragment"></span><a href="#coroutine-%E5%BD%A2%E5%BC%8F"><i class="fa fa-link"></i></a>coroutine 形式</h3>
+
+<p>Boost.Coroutine を使って擬似的にコルーチンを実現しています。</p>
+
+<div class="code-frame" data-lang="c++"><div class="highlight"><pre><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">using</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="o">::</span><span class="n">io_service</span><span class="p">;</span>
+  <span class="k">using</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="o">::</span><span class="n">deadline_timer</span><span class="p">;</span>
+  <span class="k">namespace</span> <span class="n">asio</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="p">;</span>
+  <span class="k">namespace</span> <span class="n">ptime</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">posix_time</span><span class="p">;</span>
+  <span class="k">auto</span> <span class="k">const</span> <span class="n">ios</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">io_service</span><span class="o">&gt;</span><span class="p">();</span>
+  <span class="n">asio</span><span class="o">::</span><span class="n">spawn</span><span class="p">(</span><span class="o">*</span><span class="n">ios</span><span class="p">,</span> <span class="p">[</span><span class="n">ios</span><span class="p">](</span><span class="k">auto</span> <span class="n">yield</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">auto</span> <span class="n">ec</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">system</span><span class="o">::</span><span class="n">error_code</span><span class="p">{};</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"0"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="n">wait</span><span class="p">(</span><span class="n">ios</span><span class="p">,</span> <span class="n">ptime</span><span class="o">::</span><span class="n">milliseconds</span><span class="p">(</span><span class="mi">5000</span><span class="p">),</span> <span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"1"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="n">wait</span><span class="p">(</span><span class="n">ios</span><span class="p">,</span> <span class="n">ptime</span><span class="o">::</span><span class="n">milliseconds</span><span class="p">(</span><span class="mi">5000</span><span class="p">),</span> <span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"2"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+  <span class="p">});</span>
+  <span class="n">ios</span><span class="o">-&gt;</span><span class="n">run</span><span class="p">();</span>
+  <span class="k">return</span> <span class="n">EXIT_SUCCESS</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h3>
+<span id="future-形式" class="fragment"></span><a href="#future-%E5%BD%A2%E5%BC%8F"><i class="fa fa-link"></i></a>future 形式</h3>
+
+<p>C++14 で入った Promise-Future パターンを使うことができます。<br>
+ただしFutureパターンはFutureの返す値をgetしたときに待受が発生し同期処理になるため、イベントループはgetするスレッドとは別のスレッドで動かしておく必要があります。</p>
+
+<div class="code-frame" data-lang="c++"><div class="highlight"><pre><span class="cp">#include &lt;thread&gt;
+#include &lt;boost/asio/use_future.hpp&gt;
+</span>
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">using</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="o">::</span><span class="n">io_service</span><span class="p">;</span>
+  <span class="k">using</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="o">::</span><span class="n">deadline_timer</span><span class="p">;</span>
+  <span class="k">namespace</span> <span class="n">asio</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="p">;</span>
+  <span class="k">namespace</span> <span class="n">ptime</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">posix_time</span><span class="p">;</span>
+  <span class="k">auto</span> <span class="k">const</span> <span class="n">ios</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">io_service</span><span class="o">&gt;</span><span class="p">();</span>
+  <span class="k">auto</span> <span class="n">io_thread</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="kr">thread</span><span class="p">{[</span><span class="o">=</span><span class="p">]()</span> <span class="p">{</span> <span class="n">ios</span><span class="o">-&gt;</span><span class="n">run</span><span class="p">();</span> <span class="p">}};</span>
+  <span class="k">auto</span> <span class="n">work</span> <span class="o">=</span> <span class="n">asio</span><span class="o">::</span><span class="n">io_service</span><span class="o">::</span><span class="n">work</span><span class="p">{</span><span class="o">*</span><span class="n">ios</span><span class="p">};</span>
+  <span class="k">try</span> <span class="p">{</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"0"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="n">wait</span><span class="p">(</span><span class="n">ios</span><span class="p">,</span> <span class="n">ptime</span><span class="o">::</span><span class="n">milliseconds</span><span class="p">(</span><span class="mi">5000</span><span class="p">),</span> <span class="n">asio</span><span class="o">::</span><span class="n">use_future</span><span class="p">).</span><span class="n">get</span><span class="p">();</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"1"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="n">wait</span><span class="p">(</span><span class="n">ios</span><span class="p">,</span> <span class="n">ptime</span><span class="o">::</span><span class="n">milliseconds</span><span class="p">(</span><span class="mi">5000</span><span class="p">),</span> <span class="n">asio</span><span class="o">::</span><span class="n">use_future</span><span class="p">).</span><span class="n">get</span><span class="p">();</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"2"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+  <span class="p">}</span><span class="k">catch</span> <span class="p">(</span><span class="n">boost</span><span class="o">::</span><span class="n">system</span><span class="o">::</span><span class="n">system_error</span> <span class="n">error</span><span class="p">){</span>
+    <span class="c1">// ...</span>
+  <span class="p">}</span>
+  <span class="n">ios</span><span class="o">-&gt;</span><span class="n">stop</span><span class="p">();</span>
+  <span class="n">io_thread</span><span class="p">.</span><span class="n">join</span><span class="p">();</span>
+  <span class="k">return</span> <span class="n">EXIT_SUCCESS</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h3>
+<span id="うまくいくわけ" class="fragment"></span><a href="#%E3%81%86%E3%81%BE%E3%81%8F%E3%81%84%E3%81%8F%E3%82%8F%E3%81%91"><i class="fa fa-link"></i></a>うまくいくわけ</h3>
+
+<p>このテクニックのキモは <code>CompletionToken&amp;&amp; token</code> という右辺値参照を <code>std::forward&lt;CompletionToken&gt;(token)</code> で <code>boost::asio::handler_type</code> コンストラクタの引数としての右辺値にキャストしているところです。 <code>boost::asio::handler_type</code> コンストラクタは引数の型によって挙動が変わります。</p>
+
+<ul>
+<li>特殊化なし。コールバックで使用 - <a href="https://github.com/boostorg/asio/blob/9bfe806fc1d2a51c97b433571f42b83606a28b05/include/boost/asio/handler_type.hpp#L34" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/boostorg/asio/blob/9bfe806fc1d2a51c97b433571f42b83606a28b05/include/boost/asio/handler_type.hpp#L34</a>
+</li>
+<li>futureで特殊化 - <a href="https://github.com/boostorg/asio/blob/9bfe806fc1d2a51c97b433571f42b83606a28b05/include/boost/asio/impl/use_future.hpp" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/boostorg/asio/blob/9bfe806fc1d2a51c97b433571f42b83606a28b05/include/boost/asio/impl/use_future.hpp</a>
+</li>
+<li>spawn の yield で特殊化 - <a href="https://github.com/boostorg/asio/blob/9bfe806fc1d2a51c97b433571f42b83606a28b05/include/boost/asio/impl/spawn.hpp" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/boostorg/asio/blob/9bfe806fc1d2a51c97b433571f42b83606a28b05/include/boost/asio/impl/spawn.hpp</a>
+</li>
+</ul>
+
+<h2>
+<span id="boostbeast-で使ってみる" class="fragment"></span><a href="#boostbeast-%E3%81%A7%E4%BD%BF%E3%81%A3%E3%81%A6%E3%81%BF%E3%82%8B"><i class="fa fa-link"></i></a>Boost.Beast で使ってみる</h2>
+
+<p>Boost 1.66.0 から新しいライブラリ Boost Beast が入りました。<br>
+Boost.ASIO 上に構築されたネットワークライブラリです。<br>
+HTTP, WebSocket などを Boost.ASIO よりも楽に使うことができます。<br>
+cpp-netlib や websocketpp を統合したような立ち位置のようです。<br>
+現時点では URL パーサがライブラリについていませんが、近いうちに追加されるようです。</p>
+
+<h3>
+<span id="http--https-クライアント" class="fragment"></span><a href="#http--https-%E3%82%AF%E3%83%A9%E3%82%A4%E3%82%A2%E3%83%B3%E3%83%88"><i class="fa fa-link"></i></a>HTTP | HTTPS クライアント</h3>
+
+<div class="code-frame" data-lang="c++"><div class="highlight"><pre><span class="cp">#include &lt;cstdlib&gt;
+#include &lt;string&gt;
+#include &lt;memory&gt;
+#include &lt;optional&gt;
+#include &lt;variant&gt;
+#include &lt;utility&gt;
+#include &lt;tuple&gt;
+#include &lt;boost/asio.hpp&gt;
+#include &lt;boost/asio/spawn.hpp&gt;
+#include &lt;boost/asio/ssl.hpp&gt;
+#include &lt;boost/asio/connect.hpp&gt;
+#include &lt;boost/asio/ip/tcp.hpp&gt;
+#include &lt;boost/asio/ssl/stream.hpp&gt;
+#include &lt;boost/beast/core.hpp&gt;
+#include &lt;boost/beast/version.hpp&gt;
+#include &lt;boost/beast/http.hpp&gt;
+#include &lt;boost/beast/websocket.hpp&gt;
+</span>
+<span class="k">using</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">;</span>
+<span class="k">using</span> <span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="p">;</span>
+<span class="k">using</span> <span class="n">std</span><span class="o">::</span><span class="n">tuple</span><span class="p">;</span>
+<span class="k">using</span> <span class="n">std</span><span class="o">::</span><span class="n">variant</span><span class="p">;</span>
+<span class="k">using</span> <span class="n">std</span><span class="o">::</span><span class="n">optional</span><span class="p">;</span>
+<span class="k">using</span> <span class="n">std</span><span class="o">::</span><span class="n">shared_ptr</span><span class="p">;</span>
+
+<span class="k">namespace</span> <span class="n">asio</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="p">;</span>
+<span class="k">namespace</span> <span class="n">beast</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">beast</span><span class="p">;</span>
+<span class="k">using</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="o">::</span><span class="n">ip</span><span class="o">::</span><span class="n">tcp</span><span class="p">;</span>
+<span class="k">namespace</span> <span class="n">ssl</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="o">::</span><span class="n">ssl</span><span class="p">;</span>
+<span class="k">namespace</span> <span class="n">http</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">beast</span><span class="o">::</span><span class="n">http</span><span class="p">;</span>
+<span class="k">using</span> <span class="n">boost</span><span class="o">::</span><span class="n">system</span><span class="o">::</span><span class="n">error_code</span><span class="p">;</span>
+
+<span class="k">template</span><span class="o">&lt;</span><span class="k">class</span> <span class="nc">CompletionToken</span><span class="p">,</span> <span class="k">class</span> <span class="nc">ReturnType</span><span class="o">&gt;</span>
+<span class="k">using</span> <span class="n">HandlerType</span> <span class="o">=</span> <span class="k">typename</span> <span class="n">asio</span><span class="o">::</span><span class="n">handler_type</span><span class="o">&lt;</span><span class="n">CompletionToken</span><span class="p">,</span> <span class="kt">void</span><span class="p">(</span><span class="n">ReturnType</span><span class="p">)</span><span class="o">&gt;::</span><span class="n">type</span><span class="p">;</span>
+
+<span class="k">template</span><span class="o">&lt;</span><span class="k">class</span> <span class="nc">CompletionToken</span><span class="p">,</span> <span class="k">class</span> <span class="nc">ReturnType</span><span class="o">&gt;</span>
+<span class="k">using</span> <span class="n">AsyncResult</span> <span class="o">=</span> <span class="k">typename</span> <span class="n">asio</span><span class="o">::</span><span class="n">async_result</span><span class="o">&lt;</span><span class="n">HandlerType</span><span class="o">&lt;</span><span class="n">CompletionToken</span><span class="p">,</span> <span class="n">ReturnType</span><span class="o">&gt;&gt;::</span><span class="n">type</span><span class="p">;</span>
+
+<span class="k">template</span><span class="o">&lt;</span><span class="k">class</span> <span class="nc">CompletionToken</span><span class="o">&gt;</span>
+<span class="k">auto</span> <span class="n">httpRequest</span><span class="p">(</span>
+  <span class="k">const</span> <span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">asio</span><span class="o">::</span><span class="n">io_service</span><span class="o">&gt;</span> <span class="n">ios</span><span class="p">,</span>
+  <span class="k">const</span> <span class="n">string</span> <span class="n">host</span><span class="p">,</span>
+  <span class="k">const</span> <span class="n">http</span><span class="o">::</span><span class="n">request</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">string_body</span><span class="o">&gt;</span> <span class="n">req</span><span class="p">,</span>
+  <span class="n">CompletionToken</span><span class="o">&amp;&amp;</span> <span class="n">token</span>
+<span class="p">)</span><span class="o">-&gt;</span> <span class="n">AsyncResult</span><span class="o">&lt;</span><span class="n">CompletionToken</span><span class="p">,</span> <span class="n">variant</span><span class="o">&lt;</span><span class="n">string</span><span class="p">,</span> <span class="n">http</span><span class="o">::</span><span class="n">response</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">string_body</span><span class="o">&gt;&gt;&gt;</span> <span class="p">{</span>
+  <span class="k">using</span> <span class="n">ret_t</span> <span class="o">=</span> <span class="n">variant</span><span class="o">&lt;</span><span class="n">string</span><span class="p">,</span> <span class="n">http</span><span class="o">::</span><span class="n">response</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">string_body</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+  <span class="k">using</span> <span class="n">handler_t</span> <span class="o">=</span> <span class="n">HandlerType</span><span class="o">&lt;</span><span class="n">CompletionToken</span><span class="p">,</span> <span class="n">ret_t</span><span class="o">&gt;</span><span class="p">;</span>
+  <span class="k">auto</span> <span class="n">handler</span> <span class="o">=</span> <span class="n">handler_t</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">forward</span><span class="o">&lt;</span><span class="n">CompletionToken</span><span class="o">&gt;</span><span class="p">(</span><span class="n">token</span><span class="p">)};</span>
+  <span class="k">auto</span> <span class="n">result</span> <span class="o">=</span> <span class="n">asio</span><span class="o">::</span><span class="n">async_result</span><span class="o">&lt;</span><span class="n">handler_t</span><span class="o">&gt;</span><span class="p">{</span><span class="n">handler</span><span class="p">};</span>
+  <span class="n">asio</span><span class="o">::</span><span class="n">spawn</span><span class="p">(</span><span class="o">*</span><span class="n">ios</span><span class="p">,</span> <span class="p">[</span><span class="o">=</span><span class="p">](</span><span class="k">auto</span> <span class="n">yield</span><span class="p">)</span> <span class="k">mutable</span> <span class="p">{</span>
+    <span class="k">auto</span> <span class="n">ec</span> <span class="o">=</span> <span class="n">error_code</span><span class="p">{};</span>
+    <span class="k">auto</span> <span class="n">query</span>  <span class="o">=</span> <span class="n">tcp</span><span class="o">::</span><span class="n">resolver</span><span class="o">::</span><span class="n">query</span><span class="p">{</span><span class="n">host</span><span class="p">,</span> <span class="s">"http"</span><span class="p">};</span>
+    <span class="k">auto</span> <span class="n">lookup</span> <span class="o">=</span> <span class="n">tcp</span><span class="o">::</span><span class="n">resolver</span><span class="p">{</span><span class="o">*</span><span class="n">ios</span><span class="p">}.</span><span class="n">async_resolve</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">ec</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">){</span> <span class="k">return</span> <span class="n">handler</span><span class="p">(</span><span class="n">ec</span><span class="p">,</span> <span class="n">ret_t</span><span class="p">{</span><span class="s">"lookup error"</span><span class="p">});</span> <span class="p">}</span>
+    <span class="k">auto</span> <span class="n">socket</span> <span class="o">=</span> <span class="n">tcp</span><span class="o">::</span><span class="n">socket</span><span class="p">{</span><span class="o">*</span><span class="n">ios</span><span class="p">};</span>
+    <span class="n">asio</span><span class="o">::</span><span class="n">async_connect</span><span class="p">(</span><span class="n">socket</span><span class="p">,</span> <span class="n">lookup</span><span class="p">,</span> <span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">ec</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">){</span> <span class="k">return</span> <span class="n">handler</span><span class="p">(</span><span class="n">ret_t</span><span class="p">{</span><span class="s">"connect error"</span><span class="p">});</span> <span class="p">}</span>
+    <span class="n">http</span><span class="o">::</span><span class="n">async_write</span><span class="p">(</span><span class="n">socket</span><span class="p">,</span> <span class="k">const_cast</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">request</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">string_body</span><span class="o">&gt;&amp;&gt;</span><span class="p">(</span><span class="n">req</span><span class="p">),</span> <span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">ec</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">){</span> <span class="k">return</span> <span class="n">handler</span><span class="p">(</span><span class="n">ret_t</span><span class="p">{</span><span class="s">"write error"</span><span class="p">});</span> <span class="p">}</span>
+    <span class="k">auto</span> <span class="n">buffer</span> <span class="o">=</span> <span class="n">beast</span><span class="o">::</span><span class="n">flat_buffer</span><span class="p">{};</span>
+    <span class="k">auto</span> <span class="n">res</span> <span class="o">=</span> <span class="n">http</span><span class="o">::</span><span class="n">response</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">string_body</span><span class="o">&gt;</span><span class="p">{};</span>
+    <span class="n">http</span><span class="o">::</span><span class="n">async_read</span><span class="p">(</span><span class="n">socket</span><span class="p">,</span> <span class="n">buffer</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">ec</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">){</span> <span class="k">return</span> <span class="n">handler</span><span class="p">(</span><span class="n">ret_t</span><span class="p">{</span><span class="s">"read error"</span><span class="p">});</span> <span class="p">}</span>
+    <span class="n">socket</span><span class="p">.</span><span class="n">shutdown</span><span class="p">(</span><span class="n">tcp</span><span class="o">::</span><span class="n">socket</span><span class="o">::</span><span class="n">shutdown_both</span><span class="p">,</span> <span class="n">ec</span><span class="p">);</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">ec</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">){</span> <span class="k">return</span> <span class="n">handler</span><span class="p">(</span><span class="n">ret_t</span><span class="p">{</span><span class="s">"shutdown error"</span><span class="p">});</span> <span class="p">}</span>
+    <span class="n">handler</span><span class="p">(</span><span class="n">ret_t</span><span class="p">{</span><span class="n">res</span><span class="p">});</span>
+  <span class="p">});</span>
+  <span class="k">return</span> <span class="n">result</span><span class="p">.</span><span class="n">get</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="k">template</span><span class="o">&lt;</span><span class="k">class</span> <span class="nc">CompletionToken</span><span class="o">&gt;</span>
+<span class="k">auto</span> <span class="n">httpsRequest</span><span class="p">(</span>
+  <span class="k">const</span> <span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">asio</span><span class="o">::</span><span class="n">io_service</span><span class="o">&gt;</span> <span class="n">ios</span><span class="p">,</span>
+  <span class="k">const</span> <span class="n">string</span> <span class="n">host</span><span class="p">,</span>
+  <span class="k">const</span> <span class="n">http</span><span class="o">::</span><span class="n">request</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">string_body</span><span class="o">&gt;</span> <span class="n">req</span><span class="p">,</span>
+  <span class="n">CompletionToken</span><span class="o">&amp;&amp;</span> <span class="n">token</span>
+<span class="p">)</span><span class="o">-&gt;</span> <span class="n">AsyncResult</span><span class="o">&lt;</span><span class="n">CompletionToken</span><span class="p">,</span> <span class="n">variant</span><span class="o">&lt;</span><span class="n">string</span><span class="p">,</span> <span class="n">http</span><span class="o">::</span><span class="n">response</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">string_body</span><span class="o">&gt;&gt;&gt;</span> <span class="p">{</span>
+  <span class="k">using</span> <span class="n">ret_t</span> <span class="o">=</span> <span class="n">variant</span><span class="o">&lt;</span><span class="n">string</span><span class="p">,</span> <span class="n">http</span><span class="o">::</span><span class="n">response</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">string_body</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+  <span class="k">using</span> <span class="n">handler_t</span> <span class="o">=</span> <span class="n">HandlerType</span><span class="o">&lt;</span><span class="n">CompletionToken</span><span class="p">,</span> <span class="n">ret_t</span><span class="o">&gt;</span><span class="p">;</span>
+  <span class="k">auto</span> <span class="n">handler</span> <span class="o">=</span> <span class="n">handler_t</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">forward</span><span class="o">&lt;</span><span class="n">CompletionToken</span><span class="o">&gt;</span><span class="p">(</span><span class="n">token</span><span class="p">)};</span>
+  <span class="k">auto</span> <span class="n">result</span> <span class="o">=</span> <span class="n">asio</span><span class="o">::</span><span class="n">async_result</span><span class="o">&lt;</span><span class="n">handler_t</span><span class="o">&gt;</span><span class="p">{</span><span class="n">handler</span><span class="p">};</span>
+  <span class="n">asio</span><span class="o">::</span><span class="n">spawn</span><span class="p">(</span><span class="o">*</span><span class="n">ios</span><span class="p">,</span> <span class="p">[</span><span class="o">=</span><span class="p">](</span><span class="k">auto</span> <span class="n">yield</span><span class="p">)</span> <span class="k">mutable</span> <span class="p">{</span>
+    <span class="k">auto</span> <span class="n">ec</span> <span class="o">=</span> <span class="n">error_code</span><span class="p">{};</span>
+
+    <span class="k">auto</span> <span class="n">query</span> <span class="o">=</span> <span class="n">tcp</span><span class="o">::</span><span class="n">resolver</span><span class="o">::</span><span class="n">query</span><span class="p">{</span><span class="n">host</span><span class="p">,</span> <span class="s">"https"</span><span class="p">};</span>
+    <span class="k">auto</span> <span class="n">lookup</span> <span class="o">=</span> <span class="n">tcp</span><span class="o">::</span><span class="n">resolver</span><span class="p">{</span><span class="o">*</span><span class="n">ios</span><span class="p">}.</span><span class="n">async_resolve</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"dns lookup:"</span> <span class="o">&lt;&lt;</span> <span class="n">ec</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">ec</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">){</span> <span class="k">return</span> <span class="n">handler</span><span class="p">(</span><span class="n">ec</span><span class="p">,</span> <span class="n">ret_t</span><span class="p">{</span><span class="s">"lookup error"</span><span class="p">});</span> <span class="p">}</span>
+
+    <span class="k">auto</span> <span class="n">ctx</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">::</span><span class="n">context</span><span class="p">{</span><span class="n">ssl</span><span class="o">::</span><span class="n">context</span><span class="o">::</span><span class="n">sslv23</span><span class="p">};</span>
+    <span class="k">auto</span> <span class="n">ssl_socket</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">::</span><span class="n">stream</span><span class="o">&lt;</span><span class="n">tcp</span><span class="o">::</span><span class="n">socket</span><span class="o">&gt;</span><span class="p">{</span><span class="o">*</span><span class="n">ios</span><span class="p">,</span> <span class="n">ctx</span><span class="p">};</span>
+    <span class="n">asio</span><span class="o">::</span><span class="n">async_connect</span><span class="p">(</span><span class="n">ssl_socket</span><span class="p">.</span><span class="n">lowest_layer</span><span class="p">(),</span> <span class="n">lookup</span><span class="p">,</span> <span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"tcp connect:"</span> <span class="o">&lt;&lt;</span> <span class="n">ec</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">ec</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">){</span> <span class="k">return</span> <span class="n">handler</span><span class="p">(</span><span class="n">ec</span><span class="p">,</span> <span class="n">ret_t</span><span class="p">{</span><span class="s">"connection error"</span><span class="p">});</span> <span class="p">}</span>
+
+    <span class="n">ssl_socket</span><span class="p">.</span><span class="n">async_handshake</span><span class="p">(</span><span class="n">ssl</span><span class="o">::</span><span class="n">stream_base</span><span class="o">::</span><span class="n">client</span><span class="p">,</span> <span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"ssl handshake:"</span> <span class="o">&lt;&lt;</span> <span class="n">ec</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">ec</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">){</span> <span class="k">return</span> <span class="n">handler</span><span class="p">(</span><span class="n">ec</span><span class="p">,</span> <span class="n">ret_t</span><span class="p">{</span><span class="s">"handshake error"</span><span class="p">});</span> <span class="p">}</span>
+
+    <span class="n">http</span><span class="o">::</span><span class="n">async_write</span><span class="p">(</span><span class="n">ssl_socket</span><span class="p">,</span> <span class="k">const_cast</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">request</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">string_body</span><span class="o">&gt;&amp;&gt;</span><span class="p">(</span><span class="n">req</span><span class="p">),</span> <span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"http write:"</span> <span class="o">&lt;&lt;</span> <span class="n">ec</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+
+    <span class="k">auto</span> <span class="n">res</span> <span class="o">=</span> <span class="n">http</span><span class="o">::</span><span class="n">response</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">string_body</span><span class="o">&gt;</span><span class="p">{};</span>
+    <span class="k">auto</span> <span class="n">buffer</span> <span class="o">=</span> <span class="n">beast</span><span class="o">::</span><span class="n">flat_buffer</span><span class="p">{};</span>
+    <span class="n">http</span><span class="o">::</span><span class="n">async_read</span><span class="p">(</span><span class="n">ssl_socket</span><span class="p">,</span> <span class="n">buffer</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"http read:"</span> <span class="o">&lt;&lt;</span> <span class="n">ec</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+
+    <span class="n">ssl_socket</span><span class="p">.</span><span class="n">lowest_layer</span><span class="p">().</span><span class="n">cancel</span><span class="p">(</span><span class="n">ec</span><span class="p">);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"tcp cancel:"</span> <span class="o">&lt;&lt;</span> <span class="n">ec</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+
+    <span class="n">ssl_socket</span><span class="p">.</span><span class="n">async_shutdown</span><span class="p">(</span><span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"ssl shutdown:"</span> <span class="o">&lt;&lt;</span> <span class="n">ec</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+
+    <span class="n">ssl_socket</span><span class="p">.</span><span class="n">lowest_layer</span><span class="p">().</span><span class="n">shutdown</span><span class="p">(</span><span class="n">tcp</span><span class="o">::</span><span class="n">socket</span><span class="o">::</span><span class="n">shutdown_both</span><span class="p">,</span> <span class="n">ec</span><span class="p">);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"tcp shutdown:"</span> <span class="o">&lt;&lt;</span> <span class="n">ec</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+
+    <span class="n">ssl_socket</span><span class="p">.</span><span class="n">lowest_layer</span><span class="p">().</span><span class="n">close</span><span class="p">(</span><span class="n">ec</span><span class="p">);</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"tcp close:"</span> <span class="o">&lt;&lt;</span> <span class="n">ec</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">handler</span><span class="p">(</span><span class="n">ret_t</span><span class="p">{</span><span class="n">res</span><span class="p">});</span>
+  <span class="p">});</span>
+  <span class="k">return</span> <span class="n">result</span><span class="p">.</span><span class="n">get</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="k">auto</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span><span class="o">*</span> <span class="n">argv</span><span class="p">[])</span><span class="o">-&gt;</span> <span class="kt">int</span> <span class="p">{</span>
+  <span class="k">auto</span> <span class="n">ios</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="o">::</span><span class="n">io_service</span><span class="o">&gt;</span><span class="p">();</span>
+  <span class="n">boost</span><span class="o">::</span><span class="n">asio</span><span class="o">::</span><span class="n">spawn</span><span class="p">(</span><span class="o">*</span><span class="n">ios</span><span class="p">,</span> <span class="p">[</span><span class="o">=</span><span class="p">](</span><span class="k">auto</span> <span class="n">yield</span><span class="p">)</span> <span class="k">mutable</span> <span class="p">{</span>
+    <span class="k">auto</span> <span class="n">ec</span> <span class="o">=</span> <span class="n">boost</span><span class="o">::</span><span class="n">system</span><span class="o">::</span><span class="n">error_code</span><span class="p">{};</span>
+    <span class="k">auto</span> <span class="n">host</span> <span class="o">=</span> <span class="s">"google.com"</span><span class="p">;</span>
+    <span class="k">auto</span> <span class="n">req</span> <span class="o">=</span> <span class="n">http</span><span class="o">::</span><span class="n">request</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">string_body</span><span class="o">&gt;</span><span class="p">{</span><span class="n">http</span><span class="o">::</span><span class="n">verb</span><span class="o">::</span><span class="n">get</span><span class="p">,</span> <span class="s">"/"</span><span class="p">,</span> <span class="mi">11</span><span class="p">};</span>
+    <span class="p">{</span>
+      <span class="k">auto</span> <span class="n">ret</span> <span class="o">=</span> <span class="n">httpRequest</span><span class="p">(</span><span class="n">ios</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+      <span class="k">if</span><span class="p">(</span><span class="k">auto</span> <span class="n">res_ptr</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">get_if</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">response</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">string_body</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ret</span><span class="p">)){</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="o">*</span><span class="n">res_ptr</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+      <span class="p">}</span><span class="k">else</span> <span class="k">if</span><span class="p">(</span><span class="k">auto</span> <span class="n">err_ptr</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">get_if</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ret</span><span class="p">)){</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="o">*</span><span class="n">err_ptr</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="p">{</span>
+      <span class="k">auto</span> <span class="n">ret</span> <span class="o">=</span> <span class="n">httpsRequest</span><span class="p">(</span><span class="n">ios</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">yield</span><span class="p">[</span><span class="n">ec</span><span class="p">]);</span>
+      <span class="k">if</span><span class="p">(</span><span class="k">auto</span> <span class="n">res_ptr</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">get_if</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">response</span><span class="o">&lt;</span><span class="n">http</span><span class="o">::</span><span class="n">string_body</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ret</span><span class="p">)){</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="o">*</span><span class="n">res_ptr</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+      <span class="p">}</span><span class="k">else</span> <span class="k">if</span><span class="p">(</span><span class="k">auto</span> <span class="n">err_ptr</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">get_if</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ret</span><span class="p">)){</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="o">*</span><span class="n">err_ptr</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">});</span>
+  <span class="n">ios</span><span class="o">-&gt;</span><span class="n">run</span><span class="p">();</span>
+  <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"end"</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+  <span class="k">return</span> <span class="n">EXIT_SUCCESS</span><span class="p">;</span>
+<span class="err">}</span>
+</pre></div></div>
+
+<p>HTTP を書きやすくなったとはいえ、 HTTP GET をひとつ投げるのも一苦労ですね。</p>
+
+<h3>
+<span id="ws--wss-クライアント" class="fragment"></span><a href="#ws--wss-%E3%82%AF%E3%83%A9%E3%82%A4%E3%82%A2%E3%83%B3%E3%83%88"><i class="fa fa-link"></i></a>WS | WSS クライアント</h3>
+
+<p>Boost.Beast の目玉機能はこっちなのですが、自前でサンプルコードを用意する時間がとれなかったので以下のリンクを読んでください。</p>
+
+<ul>
+<li>
+<a href="http://www.boost.org/doc/libs/develop/libs/beast/doc/html/beast/quick_start.html" class="autolink" rel="nofollow noopener" target="_blank">http://www.boost.org/doc/libs/develop/libs/beast/doc/html/beast/quick_start.html</a> </li>
+<li><a href="https://github.com/boostorg/beast/blob/develop/example/websocket/client/async-ssl/websocket_client_async_ssl.cpp" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/boostorg/beast/blob/develop/example/websocket/client/async-ssl/websocket_client_async_ssl.cpp</a></li>
+</ul>
+
+<h2>
+<span id="boostfiber" class="fragment"></span><a href="#boostfiber"><i class="fa fa-link"></i></a>Boost.Fiber</h2>
+
+<p>Boost としては非推奨となった Boost.Coroutine を使った実装よりも Boost.Context によるコンテキストスイッチを使った Boost.Coroutine2 、そしてその上位互換である Boost.Fiber という goroutine ライクの軽量スレッドを押しているようです。<br>
+しかし既存の ASIO のスケジューラと Fiber のスケジューラがそれぞれイベントループを持っているため、Boost.Fiber と ASIO を統合するのは一筋縄ではいかないようです。</p>
+
+<ul>
+<li>
+Then There’s Boost.Asio -  <a href="http://www.boost.org/doc/libs/develop/libs/fiber/doc/html/fiber/callbacks/then_there_s____boost_asio__.html" class="autolink" rel="nofollow noopener" target="_blank">http://www.boost.org/doc/libs/develop/libs/fiber/doc/html/fiber/callbacks/then_there_s____boost_asio__.html</a>
+</li>
+<li>Deeper Dive into Boost.Asio -
+<a href="http://www.boost.org/doc/libs/develop/libs/fiber/doc/html/fiber/integration/deeper_dive_into___boost_asio__.html" class="autolink" rel="nofollow noopener" target="_blank">http://www.boost.org/doc/libs/develop/libs/fiber/doc/html/fiber/integration/deeper_dive_into___boost_asio__.html</a>
+</li>
+</ul>
+
+<h2>
+<span id="参考" class="fragment"></span><a href="#%E5%8F%82%E8%80%83"><i class="fa fa-link"></i></a>参考</h2>
+
+<ul>
+<li>Boost 1.66.0 のアナウンス - <a href="http://www.boost.org/users/history/version_1_66_0.html" class="autolink" rel="nofollow noopener" target="_blank">http://www.boost.org/users/history/version_1_66_0.html</a>
+</li>
+<li>Boost Beast のドキュメント <a href="http://www.boost.org/doc/libs/develop/libs/beast/doc/html/" class="autolink" rel="nofollow noopener" target="_blank">http://www.boost.org/doc/libs/develop/libs/beast/doc/html/</a>
+</li>
+<li>Boost Beast のシンボル一覧 - <a href="http://www.boost.org/doc/libs/develop/libs/beast/doc/html/beast/" class="autolink" rel="nofollow noopener" target="_blank">http://www.boost.org/doc/libs/develop/libs/beast/doc/html/beast/</a>
+</li>
+<li>Boost ASIO のシンボル一覧 - <a href="http://www.boost.org/doc/libs/develop/doc/html/boost_asio/reference.html" class="autolink" rel="nofollow noopener" target="_blank">http://www.boost.org/doc/libs/develop/doc/html/boost_asio/reference.html</a>
+</li>
+<li>Boost Beast のリポジトリ - <a href="https://github.com/boostorg/beast" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/boostorg/beast</a>
+</li>
+<li>LAST CALL FOR CHANGES BEFORE BOOST 1.66.0 !!!! - <a href="https://github.com/boostorg/beast/issues/812" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/boostorg/beast/issues/812</a>
+</li>
+<li>[Feature Request] URI parser - <a href="https://github.com/boostorg/beast/issues/787" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/boostorg/beast/issues/787</a>
+</li>
+<li>Future of Beast  - <a href="https://github.com/boostorg/beast/issues/343" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/boostorg/beast/issues/343</a>
+</li>
+<li>callback, future, coroutine のいずれの形式でも呼び出せる asio 関数のレシピ -  <a href="https://gist.github.com/inetic/dc9081baf45ec4b60037" class="autolink" rel="nofollow noopener" target="_blank">https://gist.github.com/inetic/dc9081baf45ec4b60037</a>
+</li>
+<li>CompletionToken について - <a href="https://stackoverflow.com/questions/24497881/boostasiospawn-yield-as-callback" class="autolink" rel="nofollow noopener" target="_blank">https://stackoverflow.com/questions/24497881/boostasiospawn-yield-as-callback</a>
+</li>
+<li>CompletionToken について(pdf) - <a href="http://www.open-std.org/Jtc1/sc22/wg21/docs/papers/2014/n4045.pdf" class="autolink" rel="nofollow noopener" target="_blank">http://www.open-std.org/Jtc1/sc22/wg21/docs/papers/2014/n4045.pdf</a>
+</li>
+<li>Boost.Fiber - <a href="http://www.boost.org/doc/libs/develop/libs/fiber/doc/html/index.html" class="autolink" rel="nofollow noopener" target="_blank">http://www.boost.org/doc/libs/develop/libs/fiber/doc/html/index.html</a>
+</li>
+<li>Boost.Fiber のリポジトリ - <a href="https://github.com/boostorg/fiber/" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/boostorg/fiber/</a>
+</li>
+</ul>
+
+<h2>
+<span id="付録" class="fragment"></span><a href="#%E4%BB%98%E9%8C%B2"><i class="fa fa-link"></i></a>付録</h2>
+
+<h3>
+<span id="最新の-boost-ビルド方法" class="fragment"></span><a href="#%E6%9C%80%E6%96%B0%E3%81%AE-boost-%E3%83%93%E3%83%AB%E3%83%89%E6%96%B9%E6%B3%95"><i class="fa fa-link"></i></a>最新の boost ビルド方法</h3>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>git clone <span class="nt">--recursive</span> <span class="nt">--depth</span> 1 https://github.com/boostorg/boost.git
+<span class="nb">cd </span>boost
+./bootstrap.sh
+./b2 headers
+./b2 <span class="nb">install</span> <span class="nt">-j4</span> <span class="nt">--prefix</span><span class="o">=</span>../../local
+</pre></div></div>

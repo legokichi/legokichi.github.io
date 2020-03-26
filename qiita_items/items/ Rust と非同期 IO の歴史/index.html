@@ -1,0 +1,344 @@
+<ul>
+<li>この記事は <a href="https://rust.connpass.com/event/88656/" rel="nofollow noopener" target="_blank">Rust LT #1</a> で発表したものです</li>
+</ul>
+
+<h2>
+<span id="自己紹介" class="fragment"></span><a href="#%E8%87%AA%E5%B7%B1%E7%B4%B9%E4%BB%8B"><i class="fa fa-link"></i></a>自己紹介</h2>
+
+<p>某社でサーバサイド Rust 書いてる</p>
+
+<hr>
+
+<h2>
+<span id="最近のサーバサイド-rust-の話題" class="fragment"></span><a href="#%E6%9C%80%E8%BF%91%E3%81%AE%E3%82%B5%E3%83%BC%E3%83%90%E3%82%B5%E3%82%A4%E3%83%89-rust-%E3%81%AE%E8%A9%B1%E9%A1%8C"><i class="fa fa-link"></i></a>最近のサーバサイド Rust の話題</h2>
+
+<hr>
+
+<ul>
+<li>iron, <del><a href="https://gotham.rs/blog/2018/05/31/the-state-of-gotham.html" rel="nofollow noopener" target="_blank">gotham</a></del> が開発停止</li>
+<li>tokio-core が tokio runtime になった</li>
+<li>RFCS に async-await が入った</li>
+<li>futures 0.2 が yank <del>されそう</del> <a href="https://crates.io/crates/futures/versions" rel="nofollow noopener" target="_blank">された</a>
+</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="疑問" class="fragment"></span><a href="#%E7%96%91%E5%95%8F"><i class="fa fa-link"></i></a>疑問</h2>
+
+<hr>
+
+<ul>
+<li>2018 年にもなって非同期 IO で疲弊している</li>
+<li>Rust は 2006 年に開発が始まった</li>
+<li>node.js も go も 2009 年には存在していた</li>
+<li><strong>今まで Rust は何をやっていたのか？</strong></li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="今まで-rust-は非同期-io-で何をやっていたのか" class="fragment"></span><a href="#%E4%BB%8A%E3%81%BE%E3%81%A7-rust-%E3%81%AF%E9%9D%9E%E5%90%8C%E6%9C%9F-io-%E3%81%A7%E4%BD%95%E3%82%92%E3%82%84%E3%81%A3%E3%81%A6%E3%81%84%E3%81%9F%E3%81%AE%E3%81%8B"><i class="fa fa-link"></i></a>今まで Rust は(非同期 IO で)何をやっていたのか？</h2>
+
+<hr>
+
+<h3>
+<span id="20062010" class="fragment"></span><a href="#20062010"><i class="fa fa-link"></i></a>2006~2010</h3>
+
+<hr>
+
+<h4>
+<span id="この頃の-rust" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E9%A0%83%E3%81%AE-rust"><i class="fa fa-link"></i></a>この頃の Rust</h4>
+
+<ul>
+<li><strong>Graydon Hoare が Rust を開発開始</strong></li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="この時代" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E6%99%82%E4%BB%A3"><i class="fa fa-link"></i></a>この時代</h4>
+
+<ul>
+<li>2006: Firefox2.0, jQuery, Twitter, AWS</li>
+<li>2007: <strong>Clojure</strong>, Clang, Silverlight</li>
+<li>2008: <strong>epoll</strong>, <strong>Boost ASIO</strong> , <strong>node.js</strong>, Chrome</li>
+<li>2009: <strong>Go</strong>, CoffeeScript, iPhone3GS, Android</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="2010" class="fragment"></span><a href="#2010"><i class="fa fa-link"></i></a>2010</h3>
+
+<hr>
+
+<h4>
+<span id="この頃の-rust-1" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E9%A0%83%E3%81%AE-rust-1"><i class="fa fa-link"></i></a>この頃の Rust</h4>
+
+<ul>
+<li><strong>Graydon の個人プロジェクトが Mozilla のプロジェクトになる</strong></li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="この時代-1" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E6%99%82%E4%BB%A3-1"><i class="fa fa-link"></i></a>この時代</h4>
+
+<ul>
+<li>async-await(C#5.0), NaCL</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="2011" class="fragment"></span><a href="#2011"><i class="fa fa-link"></i></a>2011</h3>
+
+<hr>
+
+<h4>
+<span id="この頃の-rust-2" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E9%A0%83%E3%81%AE-rust-2"><i class="fa fa-link"></i></a>この頃の Rust</h4>
+
+<ul>
+<li>Brendan Eich(JSの開発者)のServoの紹介スライドに出てくる程度</li>
+<li>空白の時代</li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="この時代-2" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E6%99%82%E4%BB%A3-2"><i class="fa fa-link"></i></a>この時代</h4>
+
+<ul>
+<li>JAVA nio(jdk1.7), Kotlin, React, jQuery Deferred, Boost Context はてなブログ</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="2012" class="fragment"></span><a href="#2012"><i class="fa fa-link"></i></a>2012</h3>
+
+<hr>
+
+<h4>
+<span id="この頃の-rust-3" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E9%A0%83%E3%81%AE-rust-3"><i class="fa fa-link"></i></a>この頃の Rust</h4>
+
+<ul>
+<li>インタプリタ、GC</li>
+<li>libuv で作られたランタイム</li>
+<li>グリーンスレッド、コルーチン、 work stealing スケジューラ</li>
+<li>チャンネル、アクター</li>
+<li><strong>Servo の開発がスタート</strong></li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="この時代-3" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E6%99%82%E4%BB%A3-3"><i class="fa fa-link"></i></a>この時代</h4>
+
+<ul>
+<li>Elixir, TypeScript, Unity 4</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="2013" class="fragment"></span><a href="#2013"><i class="fa fa-link"></i></a>2013</h3>
+
+<hr>
+
+<h4>
+<span id="この頃の-rust-4" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E9%A0%83%E3%81%AE-rust-4"><i class="fa fa-link"></i></a>この頃の Rust</h4>
+
+<ul>
+<li><strong>Graydon が Mozilla を辞める</strong></li>
+<li>Rust コミュニティが C++er, Script言語er, 関数型言語er に別れ始める</li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="この時代-4" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E6%99%82%E4%BB%A3-4"><i class="fa fa-link"></i></a>この時代</h4>
+
+<ul>
+<li> ES6Promise, Raspberry Pi, Docker</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="2014" class="fragment"></span><a href="#2014"><i class="fa fa-link"></i></a>2014</h3>
+
+<hr>
+
+<h4>
+<span id="この頃の-rust-5" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E9%A0%83%E3%81%AE-rust-5"><i class="fa fa-link"></i></a>この頃の Rust</h4>
+
+<ul>
+<li>グリーンスレッドからネイティブスレッドモデルへと変更された</li>
+<li>グリーンスレッドやランタイムは削除された</li>
+<li>mio 開発開始</li>
+<li>rusti インタプリタが消えた</li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="この時代-5" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E6%99%82%E4%BB%A3-5"><i class="fa fa-link"></i></a>この時代</h4>
+
+<ul>
+<li>Swift, Flux, asyncio(Python3.4), asm.js, Emscripten, AWS Lambda, Kubernetes</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="2015" class="fragment"></span><a href="#2015"><i class="fa fa-link"></i></a>2015</h3>
+
+<hr>
+
+<h4>
+<span id="この頃の-rust-6" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E9%A0%83%E3%81%AE-rust-6"><i class="fa fa-link"></i></a>この頃の Rust</h4>
+
+<ul>
+<li>Rust 1.0 が出た</li>
+<li>hyper や iron、 nickel が利用されはじめる</li>
+<li>コンテキストスイッチライブラリ context-rs と mio を使った rotor, mioco, coio-rs などが試みられる</li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="この時代-6" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E6%99%82%E4%BB%A3-6"><i class="fa fa-link"></i></a>この時代</h4>
+
+<ul>
+<li>WebAssembly, AlphaGo, ResNet, R-CNN, Raspberry Pi 2, Raspberry Pi Zero, TypeScript(async-await)</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="2016" class="fragment"></span><a href="#2016"><i class="fa fa-link"></i></a>2016</h3>
+
+<hr>
+
+<h4>
+<span id="この頃の-rust-7" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E9%A0%83%E3%81%AE-rust-7"><i class="fa fa-link"></i></a>この頃の Rust</h4>
+
+<ul>
+<li>ライブラリレベルのコンテキストスイッチは危険だとの議論</li>
+<li>mio ベースのゼロコスト futures-rs と tokio-core の開発が始まる</li>
+<li>rotor, mioco などのそれ以前の非同期IOライブラリが開発終了</li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="この時代-7" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E6%99%82%E4%BB%A3-7"><i class="fa fa-link"></i></a>この時代</h4>
+
+<ul>
+<li>Raspberry Pi 3</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="2017" class="fragment"></span><a href="#2017"><i class="fa fa-link"></i></a>2017</h3>
+
+<hr>
+
+<h4>
+<span id="この頃の-rust-8" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E9%A0%83%E3%81%AE-rust-8"><i class="fa fa-link"></i></a>この頃の Rust</h4>
+
+<ul>
+<li>hyper が tokio_core + futures-rs に対応</li>
+<li>actix-web, Gotham の開発が始まる</li>
+<li>coroutines が nightly に入る</li>
+<li>mdo-future, futures-await がリリース</li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="この時代-8" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E6%99%82%E4%BB%A3-8"><i class="fa fa-link"></i></a>この時代</h4>
+
+<ul>
+<li>ES2017 に async-await が入る</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="2018" class="fragment"></span><a href="#2018"><i class="fa fa-link"></i></a>2018</h3>
+
+<hr>
+
+<h4>
+<span id="この頃の-rust-9" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E9%A0%83%E3%81%AE-rust-9"><i class="fa fa-link"></i></a>この頃の Rust</h4>
+
+<ul>
+<li>tokio-core が tokio になった</li>
+<li>iron, gotham が開発停止</li>
+<li>futures0.2 が yank された</li>
+<li>async-await が RFCS に入った</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="今まで-rust-は非同期-io-で何をやっていたのか-1" class="fragment"></span><a href="#%E4%BB%8A%E3%81%BE%E3%81%A7-rust-%E3%81%AF%E9%9D%9E%E5%90%8C%E6%9C%9F-io-%E3%81%A7%E4%BD%95%E3%82%92%E3%82%84%E3%81%A3%E3%81%A6%E3%81%84%E3%81%9F%E3%81%AE%E3%81%8B-1"><i class="fa fa-link"></i></a>今まで Rust は(非同期 IO で)何をやっていたのか？</h2>
+
+<hr>
+
+<h3>
+<span id="2013-年以前" class="fragment"></span><a href="#2013-%E5%B9%B4%E4%BB%A5%E5%89%8D"><i class="fa fa-link"></i></a>2013 年以前</h3>
+
+<p>非同期IOのランタイムサポートがあったが、 Rust 1.0 で消えた</p>
+
+<hr>
+
+<h3>
+<span id="2015-年" class="fragment"></span><a href="#2015-%E5%B9%B4"><i class="fa fa-link"></i></a>2015 年</h3>
+
+<p>mio + coroutine の非同期 IO があったが、 futures + tokio が出て消えた</p>
+
+<hr>
+
+<h3>
+<span id="2017-年" class="fragment"></span><a href="#2017-%E5%B9%B4"><i class="fa fa-link"></i></a>2017 年</h3>
+
+<p>tokio-core が主流になったが、 tokio runtime + async-await で混沌としている</p>
+
+<hr>
+
+<h2>
+<span id="所感" class="fragment"></span><a href="#%E6%89%80%E6%84%9F"><i class="fa fa-link"></i></a>所感</h2>
+
+<ul>
+<li>環境変わりすぎ</li>
+<li>ライブラリが根付かない</li>
+<li>賽の河原</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="とはいえ" class="fragment"></span><a href="#%E3%81%A8%E3%81%AF%E3%81%84%E3%81%88"><i class="fa fa-link"></i></a>とはいえ</h2>
+
+<p>tokio runtime + async-await でようやく Rust 本来の仕事ができそう</p>
+
+<hr>
+
+<h2>
+<span id="おわり" class="fragment"></span><a href="#%E3%81%8A%E3%82%8F%E3%82%8A"><i class="fa fa-link"></i></a>おわり</h2>
+
+<hr>
+
+<h2>
+<span id="参考資料" class="fragment"></span><a href="#%E5%8F%82%E8%80%83%E8%B3%87%E6%96%99"><i class="fa fa-link"></i></a>参考資料</h2>
+
+<ul>
+<li><a href="https://qiita.com/DUxCA/items/82140896c67da3f87a42" id="reference-b96184fcd44108608165">Rust と非同期 IO の歴史(資料編)</a></li>
+<li><a href="https://qiita.com/DUxCA/items/1f3b1bd51e206ffdd2a6" id="reference-5673daac3c9ef15daf7d">非同期 IO について</a></li>
+</ul>

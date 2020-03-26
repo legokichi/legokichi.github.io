@@ -1,0 +1,154 @@
+
+<h2>
+<span id="あらかじめ読んでおくもの" class="fragment"></span><a href="#%E3%81%82%E3%82%89%E3%81%8B%E3%81%98%E3%82%81%E8%AA%AD%E3%82%93%E3%81%A7%E3%81%8A%E3%81%8F%E3%82%82%E3%81%AE"><i class="fa fa-link"></i></a>あらかじめ読んでおくもの</h2>
+
+<ul>
+<li><a href="http://www.infoq.com/jp/news/2013/04/git-in-javascript" rel="nofollow noopener" target="_blank">JavaScriptでGitを実装するKickstarterプロジェクト、28時間で資金調達</a></li>
+<li><a href="http://koseki.hatenablog.com/entry/2014/04/22/inside-git-1" rel="nofollow noopener" target="_blank">Git の仕組み (1)</a></li>
+<li><a href="http://koseki.hatenablog.com/entry/2014/06/11/inside-git-2" rel="nofollow noopener" target="_blank">Git の仕組み (2)</a></li>
+<li><a href="http://git-scm.com/book/ja/Git%E3%81%AE%E5%86%85%E5%81%B4" rel="nofollow noopener" target="_blank">Gitの内側</a></li>
+</ul>
+
+<h2>
+<span id="js-gitとは" class="fragment"></span><a href="#js-git%E3%81%A8%E3%81%AF"><i class="fa fa-link"></i></a>js-gitとは</h2>
+
+<p>gitをjavascriptで実装しちゃった<a href="https://github.com/creationix/js-git" rel="nofollow noopener" target="_blank">js-git</a>。</p>
+
+<p>わざわざgitをjavascriptで実装したからにはブラウザで使うでしょう？</p>
+
+<p>js-gitは「なんらかの形で表現された.gitディレクトリ」の中身をあれこれするためのAPI集です。</p>
+
+<p>この「なんらかの形で表現された.gitディレクトリ」には、<a href="https://github.com/creationix/js-git/blob/master/mixins/mem-db.js" rel="nofollow noopener" target="_blank">オンメモリ</a>とか<a href="https://github.com/creationix/js-git/blob/master/mixins/fs-db.js" rel="nofollow noopener" target="_blank">nodejsのfs標準ライブラリのラッパ</a>とか<a href="https://github.com/creationix/js-git/blob/master/mixins/indexed-db.js" rel="nofollow noopener" target="_blank">indexedDB</a>とか<a href="https://github.com/creationix/js-git/blob/master/mixins/websql-db.js" rel="nofollow noopener" target="_blank">WebSQL</a>とかいろいろあります。<a href="https://developer.mozilla.org/ja/docs/DOM/Storage" rel="nofollow noopener" target="_blank">DOMStorage</a>系がないのが気になりますが<a href="http://dev-test.nemikor.com/web-storage/support-test/" rel="nofollow noopener" target="_blank">あんな容量</a>でローカルリポジトリとして使うのは難しいでしょう。localStorage使いたかったらlocalStorage-dbをご自身で書いてみるのも面白いでしょう。また、どこかのクラウドストレージのAPI叩いて保存するものも作れそうですね。</p>
+
+<p>これだけあればブラウザからでも使えそうです。</p>
+
+<h2>
+<span id="browserifyでブラウザから使う" class="fragment"></span><a href="#browserify%E3%81%A7%E3%83%96%E3%83%A9%E3%82%A6%E3%82%B6%E3%81%8B%E3%82%89%E4%BD%BF%E3%81%86"><i class="fa fa-link"></i></a>browserifyでブラウザから使う</h2>
+
+<p>requireで依存関係処理しているのでbrowserifyでサクっとまとめましょう。</p>
+
+<h3>
+<span id="mainjs" class="fragment"></span><a href="#mainjs"><i class="fa fa-link"></i></a>main.js</h3>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre>
+<span class="c1">// This provides symbolic names for the octal modes used by git trees.</span>
+<span class="nb">window</span><span class="p">.</span><span class="nx">modes</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="dl">'</span><span class="s1">./lib/modes</span><span class="dl">'</span><span class="p">);</span>
+
+<span class="c1">// Create a repo by creating a plain object.</span>
+<span class="nb">window</span><span class="p">.</span><span class="nx">repo</span> <span class="o">=</span> <span class="p">{};</span>
+
+<span class="c1">// This provides an in-memory storage backend that provides the following APIs:</span>
+<span class="c1">// - saveAs(type, value) =&gt; hash</span>
+<span class="c1">// - loadAs(type, hash) =&gt; hash</span>
+<span class="c1">// - saveRaw(hash, binary) =&gt;</span>
+<span class="c1">// - loadRaw(hash) =&gt; binary</span>
+<span class="nx">require</span><span class="p">(</span><span class="dl">'</span><span class="s1">./mixins/mem-db</span><span class="dl">'</span><span class="p">)(</span><span class="nx">repo</span><span class="p">);</span>
+
+<span class="c1">// This adds a high-level API for creating multiple git objects by path.</span>
+<span class="c1">// - createTree(entries) =&gt; hash</span>
+<span class="nx">require</span><span class="p">(</span><span class="dl">'</span><span class="s1">./mixins/create-tree</span><span class="dl">'</span><span class="p">)(</span><span class="nx">repo</span><span class="p">);</span>
+
+<span class="c1">// This provides extra methods for dealing with packfile streams.</span>
+<span class="c1">// It depends on</span>
+<span class="c1">// - unpack(packStream, opts) =&gt; hashes</span>
+<span class="c1">// - pack(hashes, opts) =&gt; packStream</span>
+<span class="nx">require</span><span class="p">(</span><span class="dl">'</span><span class="s1">./mixins/pack-ops</span><span class="dl">'</span><span class="p">)(</span><span class="nx">repo</span><span class="p">);</span>
+
+<span class="c1">// This adds in walker algorithms for quickly walking history or a tree.</span>
+<span class="c1">// - logWalk(ref|hash) =&gt; stream&lt;commit&gt;</span>
+<span class="c1">// - treeWalk(hash) =&gt; stream&lt;object&gt;</span>
+<span class="nx">require</span><span class="p">(</span><span class="dl">'</span><span class="s1">./mixins/walkers</span><span class="dl">'</span><span class="p">)(</span><span class="nx">repo</span><span class="p">);</span>
+
+<span class="c1">// This combines parallel requests for the same resource for effeciency under load.</span>
+<span class="nx">require</span><span class="p">(</span><span class="dl">'</span><span class="s1">./mixins/read-combiner</span><span class="dl">'</span><span class="p">)(</span><span class="nx">repo</span><span class="p">);</span>
+
+<span class="c1">// This makes the object interface less strict.  See it's docs for details</span>
+<span class="nx">require</span><span class="p">(</span><span class="dl">'</span><span class="s1">./mixins/formats</span><span class="dl">'</span><span class="p">)(</span><span class="nx">repo</span><span class="p">);</span>
+
+</pre></div></div>
+
+<h3>
+<span id="indexhtml" class="fragment"></span><a href="#indexhtml"><i class="fa fa-link"></i></a>index.html</h3>
+
+<div class="code-frame" data-lang="html"><div class="highlight"><pre><span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"bundle.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+</pre></div></div>
+
+<h3>
+<span id="とりあえず動かす" class="fragment"></span><a href="#%E3%81%A8%E3%82%8A%E3%81%82%E3%81%88%E3%81%9A%E5%8B%95%E3%81%8B%E3%81%99"><i class="fa fa-link"></i></a>とりあえず動かす</h3>
+
+<div class="code-frame" data-lang="bash"><div class="highlight"><pre><span class="nv">$ </span>browserify main.js <span class="nt">-o</span> bundle.js
+<span class="nv">$ </span>open index.html
+</pre></div></div>
+
+<p>Chromeが開いたと思うのでWebInspectorのコンソールからrepoの中身をのぞいてみてください。</p>
+
+<h3>
+<span id="コミットしてみる" class="fragment"></span><a href="#%E3%82%B3%E3%83%9F%E3%83%83%E3%83%88%E3%81%97%E3%81%A6%E3%81%BF%E3%82%8B"><i class="fa fa-link"></i></a>コミットしてみる</h3>
+
+<p><a href="https://github.com/creationix/js-git#basic-object-creation" rel="nofollow noopener" target="_blank">このへん</a>にコミットの仕方載ってますね。</p>
+
+<p>yieldとか恐ろしげなワードを使ってますがcallbackパターンも問題なく使えるようです。<br>
+以下はcallbackパターンでのコミットの例です</p>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre>
+<span class="c1">// First we create a blob from a string.  The `formats` mixin allows us to</span>
+<span class="c1">// use a string directly instead of having to pass in a binary buffer.</span>
+<span class="nx">repo</span><span class="p">.</span><span class="nx">saveAs</span><span class="p">(</span><span class="dl">"</span><span class="s2">blob</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">Hello World</span><span class="se">\n</span><span class="dl">"</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">blobHash</span><span class="p">){</span>
+  <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">blobHash</span><span class="p">);</span>
+
+  <span class="c1">// Now we create a tree that is a folder containing the blob as `greeting.txt`</span>
+  <span class="nx">repo</span><span class="p">.</span><span class="nx">saveAs</span><span class="p">(</span><span class="dl">"</span><span class="s2">tree</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span>
+    <span class="dl">"</span><span class="s2">greeting.txt</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span> <span class="na">mode</span><span class="p">:</span> <span class="nx">modes</span><span class="p">.</span><span class="nx">file</span><span class="p">,</span> <span class="na">hash</span><span class="p">:</span> <span class="nx">blobHash</span> <span class="p">}</span>
+  <span class="p">},</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">treeHash</span><span class="p">){</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">treeHash</span><span class="p">);</span>
+
+    <span class="c1">// With that tree, we can create a commit.</span>
+    <span class="c1">// Again the `formats` mixin allows us to omit details like committer, date,</span>
+    <span class="c1">// and parents.  It assumes sane defaults for these.</span>
+    <span class="nx">repo</span><span class="p">.</span><span class="nx">saveAs</span><span class="p">(</span><span class="dl">"</span><span class="s2">commit</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span>
+      <span class="na">author</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">name</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Tim Caswell</span><span class="dl">"</span><span class="p">,</span>
+        <span class="na">email</span><span class="p">:</span> <span class="dl">"</span><span class="s2">tim@creationix.com</span><span class="dl">"</span>
+      <span class="p">},</span>
+      <span class="na">tree</span><span class="p">:</span> <span class="nx">treeHash</span><span class="p">,</span>
+      <span class="na">message</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Test commit</span><span class="se">\n</span><span class="dl">"</span>
+    <span class="p">},</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">commitHash</span><span class="p">){</span>
+      <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">commitHash</span><span class="p">);</span>
+    <span class="p">});</span>
+  <span class="p">});</span>
+<span class="p">});</span>
+</pre></div></div>
+
+<p>ネストがえらいこっちゃ。</p>
+
+<h3>
+<span id="コミット読み込む" class="fragment"></span><a href="#%E3%82%B3%E3%83%9F%E3%83%83%E3%83%88%E8%AA%AD%E3%81%BF%E8%BE%BC%E3%82%80"><i class="fa fa-link"></i></a>コミット読み込む</h3>
+
+<p><a href="https://github.com/creationix/js-git#basic-object-loading" rel="nofollow noopener" target="_blank">このへん</a>に載ってます。</p>
+
+<p>yield使ってますが先述の通りcallback(err, result)パターンが使えます。</p>
+
+<p>気をつけるところはblobなgitオブジェクトを読み込むとbyte arrayで返ってくるところでしょうか。</p>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="nx">repo</span><span class="p">.</span><span class="nx">saveAs</span><span class="p">(</span><span class="dl">"</span><span class="s2">blob</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">Hello World</span><span class="se">\n</span><span class="dl">"</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">blobHash</span><span class="p">){</span>
+  <span class="nx">console</span><span class="p">.</span><span class="nx">dir</span><span class="p">(</span><span class="nx">blobHash</span><span class="p">);</span>
+  <span class="nx">repo</span><span class="p">.</span><span class="nx">loadAs</span><span class="p">(</span><span class="dl">"</span><span class="s2">blob</span><span class="dl">"</span><span class="p">,</span> <span class="nx">blobHash</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">byteArray</span><span class="p">){</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">byteArray</span><span class="p">);</span><span class="c1">// -&gt; [72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 10]</span>
+  <span class="p">});</span>
+<span class="p">});</span>
+</pre></div></div>
+
+<p>treeなgitオブジェクトの拡張子みてバイナリの読み方判断しないといけませんね。</p>
+
+<h2>
+<span id="開発状況" class="fragment"></span><a href="#%E9%96%8B%E7%99%BA%E7%8A%B6%E6%B3%81"><i class="fa fa-link"></i></a>開発状況</h2>
+
+<p>2014-09-09現在、ごらんのありさまだよ！</p>
+
+<p><a href="https://github.com/creationix/js-git/milestones" rel="nofollow noopener" target="_blank"><img src="https://qiita-user-contents.imgix.net/http%3A%2F%2Fi.gyazo.com%2Fc2f6bf78ea17e36d7a02bc31fec7d0bf.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=28c7477c87a428d558fd64547b8192ff" alt="js-git milestone" data-canonical-src="http://i.gyazo.com/c2f6bf78ea17e36d7a02bc31fec7d0bf.png" srcset="https://qiita-user-contents.imgix.net/http%3A%2F%2Fi.gyazo.com%2Fc2f6bf78ea17e36d7a02bc31fec7d0bf.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;w=1400&amp;fit=max&amp;s=bc8c0a363ae3e0f8d847d99b0f03c084 1x" loading="lazy"></a></p>
+
+<p>２週間ほど前からようやく書き込みAPIの整備がされてきたようです。</p>
+
+<p>また、リモートリポジトリとのやりとりも実装される見込みのようです。</p>
+
+<p>熱いですね！</p>

@@ -1,0 +1,234 @@
+<p>2014/02/03現在有効な記事です</p>
+
+<p>ALSの身内のために購入したのでメモ。</p>
+
+<p><a href="https://github.com/EyeTribe/tet-csharp-samples/blob/master/TETControls/Cursor/CursorControl.cs" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/EyeTribe/tet-csharp-samples/blob/master/TETControls/Cursor/CursorControl.cs</a><br>
+公式のサンプルの改変</p>
+
+<h2>
+<span id="環境" class="fragment"></span><a href="#%E7%92%B0%E5%A2%83"><i class="fa fa-link"></i></a>環境</h2>
+
+<ul>
+<li>Windows7 x64</li>
+<li>Visual Studio 2012 Express for Desktop</li>
+<li>The Eye Tribe Tracker software (V0.9.26)</li>
+</ul>
+
+<h2>
+<span id="前準備" class="fragment"></span><a href="#%E5%89%8D%E6%BA%96%E5%82%99"><i class="fa fa-link"></i></a>前準備</h2>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>Visual Studioで作成する場合，プロジェクトに「TETCSharpClient.dll」と「Newtonsoft.Json.dll」を参照に追加しておく．
+デフォルトでは「C:\Program Files (x86)\EyeTribe\Client」の中にある．
+マウスカーソルを操作するので「System.Windows.Forms」と「System.Drawing」も必要．
+
+あとは，EyeTribe Serverを立ち上げておけばいい．
+</pre></div></div>
+
+<ul>
+<li><a href="http://romichi.ivory.ne.jp/wordpress/?p=739" class="autolink" rel="nofollow noopener" target="_blank">http://romichi.ivory.ne.jp/wordpress/?p=739</a></li>
+<li>その後Eye Tribe UIを起動して先にキャリブレーションしておいてから</li>
+<li>このコードをビルドして起動してください</li>
+</ul>
+
+<h2>
+<span id="サンプルコード" class="fragment"></span><a href="#%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%82%B3%E3%83%BC%E3%83%89"><i class="fa fa-link"></i></a>サンプルコード</h2>
+
+<ul>
+<li>右目閉じると右クリック</li>
+<li>左目閉じると左クリック</li>
+</ul>
+
+<div class="code-frame" data-lang="csharp"><div class="highlight"><pre><span class="k">using</span> <span class="nn">System</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">TETCSharpClient</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">TETCSharpClient.Data</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">System.Drawing</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">System.Windows.Forms</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">System.Runtime.InteropServices</span><span class="p">;</span>
+
+<span class="k">public</span> <span class="k">class</span> <span class="nc">CursorControl</span><span class="p">:</span><span class="n">IGazeListener</span> <span class="p">{</span>
+  <span class="k">public</span> <span class="kt">bool</span> <span class="n">Enabled</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+  <span class="k">public</span> <span class="kt">bool</span> <span class="n">Smooth</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+  <span class="k">public</span> <span class="n">Screen</span> <span class="n">ActiveScreen</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+
+  <span class="k">public</span> <span class="nf">CursorControl</span><span class="p">()</span> <span class="p">:</span> <span class="k">this</span><span class="p">(</span><span class="n">Screen</span><span class="p">.</span><span class="n">PrimaryScreen</span><span class="p">,</span> <span class="k">false</span><span class="p">,</span> <span class="k">false</span><span class="p">)</span> <span class="p">{</span> <span class="p">}</span>
+  <span class="k">public</span> <span class="nf">CursorControl</span><span class="p">(</span><span class="n">Screen</span> <span class="n">screen</span><span class="p">,</span> <span class="kt">bool</span> <span class="n">enabled</span><span class="p">,</span> <span class="kt">bool</span> <span class="n">smooth</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">GazeManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="nf">AddGazeListener</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+    <span class="n">ActiveScreen</span> <span class="p">=</span> <span class="n">screen</span><span class="p">;</span>
+    <span class="n">Enabled</span> <span class="p">=</span> <span class="n">enabled</span><span class="p">;</span>
+    <span class="n">Smooth</span> <span class="p">=</span> <span class="n">smooth</span><span class="p">;</span>
+  <span class="p">}</span>
+
+  <span class="k">public</span> <span class="k">void</span> <span class="nf">OnGazeUpdate</span><span class="p">(</span><span class="n">GazeData</span> <span class="n">gazeData</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span><span class="p">(!</span><span class="n">Enabled</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// start or stop tracking lost animation</span>
+    <span class="k">if</span><span class="p">((</span><span class="n">gazeData</span><span class="p">.</span><span class="n">State</span> <span class="p">&amp;</span> <span class="n">GazeData</span><span class="p">.</span><span class="n">STATE_TRACKING_GAZE</span><span class="p">)</span> <span class="p">==</span> <span class="m">0</span> <span class="p">&amp;&amp;</span>
+       <span class="p">(</span><span class="n">gazeData</span><span class="p">.</span><span class="n">State</span> <span class="p">&amp;</span> <span class="n">GazeData</span><span class="p">.</span><span class="n">STATE_TRACKING_PRESENCE</span><span class="p">)</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">Console</span><span class="p">.</span><span class="nf">WriteLine</span><span class="p">(</span><span class="s">"start or stop tracking lost animation"</span><span class="p">);</span>
+      <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// tracking coordinates</span>
+    <span class="kt">var</span> <span class="n">x</span> <span class="p">=</span> <span class="n">ActiveScreen</span><span class="p">.</span><span class="n">Bounds</span><span class="p">.</span><span class="n">X</span><span class="p">;</span>
+    <span class="kt">var</span> <span class="n">y</span> <span class="p">=</span> <span class="n">ActiveScreen</span><span class="p">.</span><span class="n">Bounds</span><span class="p">.</span><span class="n">Y</span><span class="p">;</span>
+    <span class="kt">var</span> <span class="n">gX</span> <span class="p">=</span> <span class="n">Smooth</span> <span class="p">?</span> <span class="n">gazeData</span><span class="p">.</span><span class="n">SmoothedCoordinates</span><span class="p">.</span><span class="n">X</span> <span class="p">:</span> <span class="n">gazeData</span><span class="p">.</span><span class="n">RawCoordinates</span><span class="p">.</span><span class="n">X</span><span class="p">;</span>
+    <span class="kt">var</span> <span class="n">gY</span> <span class="p">=</span> <span class="n">Smooth</span> <span class="p">?</span> <span class="n">gazeData</span><span class="p">.</span><span class="n">SmoothedCoordinates</span><span class="p">.</span><span class="n">Y</span> <span class="p">:</span> <span class="n">gazeData</span><span class="p">.</span><span class="n">RawCoordinates</span><span class="p">.</span><span class="n">Y</span><span class="p">;</span>
+    <span class="kt">var</span> <span class="n">screenX</span> <span class="p">=</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">Math</span><span class="p">.</span><span class="nf">Round</span><span class="p">(</span><span class="n">x</span> <span class="p">+</span> <span class="n">gX</span><span class="p">,</span> <span class="m">0</span><span class="p">);</span>
+    <span class="kt">var</span> <span class="n">screenY</span> <span class="p">=</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">Math</span><span class="p">.</span><span class="nf">Round</span><span class="p">(</span><span class="n">y</span> <span class="p">+</span> <span class="n">gY</span><span class="p">,</span> <span class="m">0</span><span class="p">);</span>
+
+    <span class="n">Console</span><span class="p">.</span><span class="nf">WriteLine</span><span class="p">(</span><span class="n">gX</span> <span class="p">+</span> <span class="s">","</span> <span class="p">+</span> <span class="n">gY</span><span class="p">);</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">gazeData</span><span class="p">.</span><span class="n">LeftEye</span><span class="p">.</span><span class="n">SmoothedCoordinates</span><span class="p">.</span><span class="n">X</span> <span class="p">==</span> <span class="m">0</span> <span class="p">&amp;&amp;</span> <span class="n">gazeData</span><span class="p">.</span><span class="n">LeftEye</span><span class="p">.</span><span class="n">SmoothedCoordinates</span><span class="p">.</span><span class="n">Y</span> <span class="p">==</span> <span class="m">0</span> <span class="p">&amp;&amp;</span>
+       <span class="n">gazeData</span><span class="p">.</span><span class="n">RightEye</span><span class="p">.</span><span class="n">SmoothedCoordinates</span><span class="p">.</span><span class="n">X</span> <span class="p">==</span> <span class="m">0</span> <span class="p">&amp;&amp;</span> <span class="n">gazeData</span><span class="p">.</span><span class="n">RightEye</span><span class="p">.</span><span class="n">SmoothedCoordinates</span><span class="p">.</span><span class="n">Y</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">Console</span><span class="p">.</span><span class="nf">WriteLine</span><span class="p">(</span><span class="s">"both eyes close"</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span><span class="p">(</span><span class="n">gazeData</span><span class="p">.</span><span class="n">LeftEye</span><span class="p">.</span><span class="n">SmoothedCoordinates</span><span class="p">.</span><span class="n">X</span> <span class="p">==</span> <span class="m">0</span> <span class="p">&amp;&amp;</span> <span class="n">gazeData</span><span class="p">.</span><span class="n">LeftEye</span><span class="p">.</span><span class="n">SmoothedCoordinates</span><span class="p">.</span><span class="n">Y</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">Console</span><span class="p">.</span><span class="nf">WriteLine</span><span class="p">(</span><span class="s">"left eye close"</span><span class="p">);</span>
+      <span class="n">NativeMethods</span><span class="p">.</span><span class="nf">LeftClick</span><span class="p">();</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span><span class="p">(</span><span class="n">gazeData</span><span class="p">.</span><span class="n">RightEye</span><span class="p">.</span><span class="n">SmoothedCoordinates</span><span class="p">.</span><span class="n">X</span> <span class="p">==</span> <span class="m">0</span> <span class="p">&amp;&amp;</span> <span class="n">gazeData</span><span class="p">.</span><span class="n">RightEye</span><span class="p">.</span><span class="n">SmoothedCoordinates</span><span class="p">.</span><span class="n">Y</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">Console</span><span class="p">.</span><span class="nf">WriteLine</span><span class="p">(</span><span class="s">"right eye close"</span><span class="p">);</span>
+      <span class="n">NativeMethods</span><span class="p">.</span><span class="nf">RightClick</span><span class="p">();</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span><span class="p">(</span><span class="n">screenX</span> <span class="p">==</span> <span class="m">0</span> <span class="p">&amp;&amp;</span> <span class="n">screenY</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">Console</span><span class="p">.</span><span class="nf">WriteLine</span><span class="p">(</span><span class="s">"return in case of 0,0"</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+      <span class="n">NativeMethods</span><span class="p">.</span><span class="nf">SetCursorPos</span><span class="p">(</span><span class="n">screenX</span><span class="p">,</span> <span class="n">screenY</span><span class="p">);</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="k">public</span> <span class="k">class</span> <span class="nc">NativeMethods</span> <span class="p">{</span>
+    <span class="p">[</span><span class="n">System</span><span class="p">.</span><span class="n">Runtime</span><span class="p">.</span><span class="n">InteropServices</span><span class="p">.</span><span class="nf">DllImportAttribute</span><span class="p">(</span><span class="s">"user32.dll"</span><span class="p">,</span> <span class="n">EntryPoint</span> <span class="p">=</span> <span class="s">"SetCursorPos"</span><span class="p">)]</span>
+    <span class="p">[</span><span class="k">return</span><span class="p">:</span> <span class="n">System</span><span class="p">.</span><span class="n">Runtime</span><span class="p">.</span><span class="n">InteropServices</span><span class="p">.</span><span class="nf">MarshalAsAttribute</span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">Runtime</span><span class="p">.</span><span class="n">InteropServices</span><span class="p">.</span><span class="n">UnmanagedType</span><span class="p">.</span><span class="n">Bool</span><span class="p">)]</span>
+    <span class="k">public</span> <span class="k">static</span> <span class="k">extern</span> <span class="kt">bool</span> <span class="nf">SetCursorPos</span><span class="p">(</span><span class="kt">int</span> <span class="n">x</span><span class="p">,</span> <span class="kt">int</span> <span class="n">y</span><span class="p">);</span>
+
+    <span class="p">[</span><span class="nf">DllImport</span><span class="p">(</span><span class="s">"user32.dll"</span><span class="p">)]</span>
+    <span class="k">private</span> <span class="k">static</span> <span class="k">extern</span> <span class="k">void</span> <span class="nf">SendInput</span><span class="p">(</span><span class="kt">int</span> <span class="n">nInputs</span><span class="p">,</span> <span class="k">ref</span> <span class="n">INPUT</span> <span class="n">pInputs</span><span class="p">,</span> <span class="kt">int</span> <span class="n">cbsize</span><span class="p">);</span>
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">void</span> <span class="nf">RightClick</span><span class="p">()</span> <span class="p">{</span>
+      <span class="k">const</span> <span class="kt">int</span> <span class="n">num</span> <span class="p">=</span> <span class="m">2</span><span class="p">;</span>
+      <span class="n">INPUT</span><span class="p">[]</span> <span class="n">inp</span> <span class="p">=</span> <span class="k">new</span> <span class="n">INPUT</span><span class="p">[</span><span class="n">num</span><span class="p">];</span>
+
+      <span class="c1">// マウスの右ボタンを押す</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">type</span> <span class="p">=</span> <span class="n">INPUT_MOUSE</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dwFlags</span> <span class="p">=</span> <span class="n">MOUSEEVENTF_RIGHTDOWN</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dx</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dy</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">mouseData</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dwExtraInfo</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">time</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+
+      <span class="c1">// マウスの右ボタンを離す</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">type</span> <span class="p">=</span> <span class="n">INPUT_MOUSE</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dwFlags</span> <span class="p">=</span> <span class="n">MOUSEEVENTF_RIGHTUP</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dx</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dy</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">mouseData</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dwExtraInfo</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">time</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+
+      <span class="nf">SendInput</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="k">ref</span> <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">],</span> <span class="n">Marshal</span><span class="p">.</span><span class="nf">SizeOf</span><span class="p">(</span><span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">]));</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">void</span> <span class="nf">LeftClick</span><span class="p">()</span> <span class="p">{</span>
+      <span class="k">const</span> <span class="kt">int</span> <span class="n">num</span> <span class="p">=</span> <span class="m">2</span><span class="p">;</span>
+      <span class="n">INPUT</span><span class="p">[]</span> <span class="n">inp</span> <span class="p">=</span> <span class="k">new</span> <span class="n">INPUT</span><span class="p">[</span><span class="n">num</span><span class="p">];</span>
+
+      <span class="c1">// マウスの左ボタンを押す</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">type</span> <span class="p">=</span> <span class="n">INPUT_MOUSE</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dwFlags</span> <span class="p">=</span> <span class="n">MOUSEEVENTF_LEFTDOWN</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dx</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dy</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">mouseData</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dwExtraInfo</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">time</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+
+      <span class="c1">// マウスの左ボタンを離す</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">type</span> <span class="p">=</span> <span class="n">INPUT_MOUSE</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dwFlags</span> <span class="p">=</span> <span class="n">MOUSEEVENTF_LEFTUP</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dx</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dy</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">mouseData</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">dwExtraInfo</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+      <span class="n">inp</span><span class="p">[</span><span class="m">1</span><span class="p">].</span><span class="n">mi</span><span class="p">.</span><span class="n">time</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+
+      <span class="nf">SendInput</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="k">ref</span> <span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">],</span> <span class="n">Marshal</span><span class="p">.</span><span class="nf">SizeOf</span><span class="p">(</span><span class="n">inp</span><span class="p">[</span><span class="m">0</span><span class="p">]));</span>
+    <span class="p">}</span>
+
+    <span class="k">private</span> <span class="k">const</span> <span class="kt">int</span> <span class="n">INPUT_MOUSE</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>                  <span class="c1">// マウスイベント</span>
+
+    <span class="k">private</span> <span class="k">const</span> <span class="kt">int</span> <span class="n">MOUSEEVENTF_MOVE</span> <span class="p">=</span> <span class="m">0x1</span><span class="p">;</span>           <span class="c1">// マウスを移動する</span>
+    <span class="k">private</span> <span class="k">const</span> <span class="kt">int</span> <span class="n">MOUSEEVENTF_ABSOLUTE</span> <span class="p">=</span> <span class="m">0x8000</span><span class="p">;</span>    <span class="c1">// 絶対座標指定</span>
+    <span class="k">private</span> <span class="k">const</span> <span class="kt">int</span> <span class="n">MOUSEEVENTF_LEFTDOWN</span> <span class="p">=</span> <span class="m">0x2</span><span class="p">;</span>       <span class="c1">// 左　ボタンを押す</span>
+    <span class="k">private</span> <span class="k">const</span> <span class="kt">int</span> <span class="n">MOUSEEVENTF_LEFTUP</span> <span class="p">=</span> <span class="m">0x4</span><span class="p">;</span>         <span class="c1">// 左　ボタンを離す</span>
+    <span class="k">private</span> <span class="k">const</span> <span class="kt">int</span> <span class="n">MOUSEEVENTF_RIGHTDOWN</span> <span class="p">=</span> <span class="m">0x8</span><span class="p">;</span>      <span class="c1">// 右　ボタンを押す</span>
+    <span class="k">private</span> <span class="k">const</span> <span class="kt">int</span> <span class="n">MOUSEEVENTF_RIGHTUP</span> <span class="p">=</span> <span class="m">0x10</span><span class="p">;</span>       <span class="c1">// 右　ボタンを離す</span>
+
+    <span class="p">[</span><span class="nf">StructLayout</span><span class="p">(</span><span class="n">LayoutKind</span><span class="p">.</span><span class="n">Explicit</span><span class="p">)]</span>
+    <span class="k">private</span> <span class="k">struct</span> <span class="nc">INPUT</span> <span class="p">{</span>
+      <span class="p">[</span><span class="nf">FieldOffset</span><span class="p">(</span><span class="m">0</span><span class="p">)]</span>
+      <span class="k">public</span> <span class="kt">int</span> <span class="n">type</span><span class="p">;</span>
+      <span class="p">[</span><span class="nf">FieldOffset</span><span class="p">(</span><span class="m">4</span><span class="p">)]</span>
+      <span class="k">public</span> <span class="n">MOUSEINPUT</span> <span class="n">mi</span><span class="p">;</span>
+    <span class="p">};</span>
+
+    <span class="c1">// マウスイベント(mouse_eventの引数と同様のデータ)</span>
+    <span class="p">[</span><span class="nf">StructLayout</span><span class="p">(</span><span class="n">LayoutKind</span><span class="p">.</span><span class="n">Sequential</span><span class="p">)]</span>
+    <span class="k">private</span> <span class="k">struct</span> <span class="nc">MOUSEINPUT</span> <span class="p">{</span>
+      <span class="k">public</span> <span class="kt">int</span> <span class="n">dx</span><span class="p">;</span>
+      <span class="k">public</span> <span class="kt">int</span> <span class="n">dy</span><span class="p">;</span>
+      <span class="k">public</span> <span class="kt">int</span> <span class="n">mouseData</span><span class="p">;</span>
+      <span class="k">public</span> <span class="kt">int</span> <span class="n">dwFlags</span><span class="p">;</span>
+      <span class="k">public</span> <span class="kt">int</span> <span class="n">time</span><span class="p">;</span>
+      <span class="k">public</span> <span class="kt">int</span> <span class="n">dwExtraInfo</span><span class="p">;</span>
+    <span class="p">};</span>
+  <span class="p">}</span>
+
+  <span class="k">static</span> <span class="k">void</span> <span class="nf">Main</span><span class="p">(</span><span class="kt">string</span><span class="p">[]</span> <span class="n">args</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">GazeManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="nf">Activate</span><span class="p">(</span><span class="n">GazeManager</span><span class="p">.</span><span class="n">ApiVersion</span><span class="p">.</span><span class="n">VERSION_1_0</span><span class="p">,</span> <span class="n">GazeManager</span><span class="p">.</span><span class="n">ClientMode</span><span class="p">.</span><span class="n">Push</span><span class="p">);</span>
+    <span class="k">if</span><span class="p">(!</span><span class="n">GazeManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">IsConnected</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">Console</span><span class="p">.</span><span class="nf">WriteLine</span><span class="p">(</span><span class="s">"EyeTribe Server has not been started"</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span><span class="p">(</span><span class="n">GazeManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">IsCalibrated</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">Console</span><span class="p">.</span><span class="nf">WriteLine</span><span class="p">(</span><span class="n">GazeManager</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">LastCalibrationResult</span><span class="p">);</span>
+      <span class="n">Console</span><span class="p">.</span><span class="nf">WriteLine</span><span class="p">(</span><span class="s">"Re-Calibrate"</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+      <span class="n">Console</span><span class="p">.</span><span class="nf">WriteLine</span><span class="p">(</span><span class="s">"Start"</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="n">CursorControl</span> <span class="n">cursor</span> <span class="p">=</span> <span class="k">new</span> <span class="nf">CursorControl</span><span class="p">(</span><span class="n">Screen</span><span class="p">.</span><span class="n">PrimaryScreen</span><span class="p">,</span> <span class="k">true</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="感想" class="fragment"></span><a href="#%E6%84%9F%E6%83%B3"><i class="fa fa-link"></i></a>感想</h2>
+
+<ul>
+<li>the eye tribe server、デバイスを認識したりしなかったり、ストリーム来なかったり。Windows再起動するしかない</li>
+<li>Soomthされててもまだまだ動き回るマウスカーソル</li>
+<li>公式では標準偏差使ってる？</li>
+<li>移動平均とかも使うべきかも</li>
+<li>マウスポインタを見つめることでキャリブレーションを取る仕組みとか導入したいところ</li>
+</ul>
+
+<h2>
+<span id="参考" class="fragment"></span><a href="#%E5%8F%82%E8%80%83"><i class="fa fa-link"></i></a>参考</h2>
+
+<p><a href="http://dev.theeyetribe.com/tutorial/" class="autolink" rel="nofollow noopener" target="_blank">http://dev.theeyetribe.com/tutorial/</a><br>
+- 公式チュートリアル<br>
+- 2013/02/03現在、C# client versionのサンプルは間違い<br>
+- IGazeUpdateListenerはIGazeListenerに変更されてる？</p>
+
+<p><a href="http://romichi.ivory.ne.jp/wordpress/?p=739" class="autolink" rel="nofollow noopener" target="_blank">http://romichi.ivory.ne.jp/wordpress/?p=739</a><br>
+- 先駆者<br>
+- C# client versionとPlain versionを混同している？</p>
+
+<p><a href="https://github.com/EyeTribe/tet-csharp-client" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/EyeTribe/tet-csharp-client</a><br>
+- 0.9.26 (2014-01-30)<br>
+- tet-csharp-client / TETCSharpClient / Data / GazeData.cs </p>
+
+<p><a href="https://github.com/EyeTribe/tet-csharp-samples" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/EyeTribe/tet-csharp-samples</a><br>
+- 0.9.26 (2014-01-30)<br>
+- tet-csharp-samples / TETControls / Cursor / CursorControl.cs</p>
+
+<p><a href="http://msdn.microsoft.com/ja-jp/library/cc411029.aspx" class="autolink" rel="nofollow noopener" target="_blank">http://msdn.microsoft.com/ja-jp/library/cc411029.aspx</a><br>
+<a href="http://msdn.microsoft.com/ja-jp/library/cc411004.aspx" class="autolink" rel="nofollow noopener" target="_blank">http://msdn.microsoft.com/ja-jp/library/cc411004.aspx</a><br>
+- Win32API</p>

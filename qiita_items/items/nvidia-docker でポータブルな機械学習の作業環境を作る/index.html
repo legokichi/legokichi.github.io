@@ -1,0 +1,1568 @@
+<ul>
+<li><strong>※ nvidia-docker2 が発表されたため以下の知識はすべて過去のものとなりました。<a href="https://github.com/NVIDIA/nvidia-docker/wiki" rel="nofollow noopener" target="_blank">公式wiki</a>が充実しているのでそちらをみたほうが良いです</strong></li>
+<li><strong>※ この記事は、この記事の古いバージョンを改定編集し 2017年10月21日 の <a href="https://techbookfest.org/event/tbf03" rel="nofollow noopener" target="_blank">技術書典3</a> にて頒布した同人誌のさらに加筆編集版です</strong></li>
+</ul>
+
+<h1>
+<span id="nvidia-docker-でポータブルな機械学習環境を作る" class="fragment"></span><a href="#nvidia-docker-%E3%81%A7%E3%83%9D%E3%83%BC%E3%82%BF%E3%83%96%E3%83%AB%E3%81%AA%E6%A9%9F%E6%A2%B0%E5%AD%A6%E7%BF%92%E7%92%B0%E5%A2%83%E3%82%92%E4%BD%9C%E3%82%8B"><i class="fa fa-link"></i></a>nvidia-docker でポータブルな機械学習環境を作る</h1>
+
+<h2>
+<span id="動機" class="fragment"></span><a href="#%E5%8B%95%E6%A9%9F"><i class="fa fa-link"></i></a>動機</h2>
+
+<p>caffe, caffe2, tensorflow, theano, mxnet, chainer, pytorch, torch などの様々な CUDA 依存のライブラリやフレームワークがある。<br>
+しかしこれらは互いに依存するubuntuやpython、CUDA等のバージョンがそれぞれ異なる。<br>
+このような状況では以下のような問題が発生する。</p>
+
+<ul>
+<li>共用 GPU マシンの場合 - ユーザがそれぞれ sudo 権限を持ち、好き勝手にライブラリをインストールしたりバージョンアップすると、すぐに環境が破綻する</li>
+<li>研究での GPU 利用の場合 - その時その時のマシンの環境依存になってしまうため、再現性が担保できない</li>
+<li>クラウドサービス利用の場合 - 仮想マシンから GPU を利用するのが（不可能ではないが）面倒くさい、計算に使いたいのに仮想化によるオーバーヘッドがある</li>
+</ul>
+
+<p>これらの問題は nvidia-docker を使うことで解決できる。</p>
+
+<ul>
+<li>共用 GPU マシンの場合 - ユーザはそれぞれ自分の docker コンテナ内で作業すればよい</li>
+<li>研究での GPU 利用の場合 - Dockerfile に再現手順を記述できるため、再現性が高い</li>
+<li>クラウドサービス利用の場合 - GPUデバイスに直接アクセスできる、コンテナ仮想化なのでオーバーヘッドが少ない</li>
+</ul>
+
+<h3>
+<span id="docker-とは" class="fragment"></span><a href="#docker-%E3%81%A8%E3%81%AF"><i class="fa fa-link"></i></a>docker とは</h3>
+
+<p>VMWare や VirtualBox に代表されるハードウェア仮想化は基本的にはハードウェアエミュレータである。<br>
+一方 Docker は Linux Container (LXC) という Linux カーネルに組み込まれたコンテナ仮想化技術を使っている。<br>
+コンテナ仮想化は、あるプロセスがカーネルを通じてアクセスできる環境を分割し、仮想化している。<br>
+通常カーネルはプロセスに対して仮想メモリアドレスを与えているが、その延長として、LXCはプロセスID、ファイルシステム、IPC、ネットワーク、CPU、デバイスなどの名前空間をプロセスごおとに分割して提供することで、プロセスをとりまく環境を仮想化している。<br>
+Docker はこの LXC を利用しつつ、これに加えてファイルシステムの差分管理、仮想ブリッジなどを提供している。</p>
+
+<p>以下参考リンク</p>
+
+<ul>
+<li>Docker を支える Linux Kernel の機能 (概要編) - <a href="http://blog.etsukata.com/2014/05/docker-linux-kernel.html" class="autolink" rel="nofollow noopener" target="_blank">http://blog.etsukata.com/2014/05/docker-linux-kernel.html</a>
+</li>
+<li>Docker内部で利用されているLinuxカーネルの機能 (namespace/cgroups) - <a href="https://qiita.com/wellflat/items/7d62f2a63e9fcddb31cc" class="autolink" id="reference-46ce9e8974cade991032">https://qiita.com/wellflat/items/7d62f2a63e9fcddb31cc</a>
+</li>
+<li>Linuxカーネル Docker関連 namespaceのメモ - <a href="http://rest-term.com/archives/3287/" class="autolink" rel="nofollow noopener" target="_blank">http://rest-term.com/archives/3287/</a>
+</li>
+</ul>
+
+<p>以後 <strong>ホスト</strong> とはdockerデーモンが動いているLinuxマシンのことを指して使う。</p>
+
+<h3>
+<span id="nvidia-docker-とは" class="fragment"></span><a href="#nvidia-docker-%E3%81%A8%E3%81%AF"><i class="fa fa-link"></i></a>nvidia-docker とは</h3>
+
+<p>Docker でそのまま NVIDIA GPU を扱おうとすると、コンテナ内に NVIDIA ドライバを完全に再インストールしてから、ホストにあるデバイスファイル（<code>/dev/nvidia0</code> など）をコンテナの起動時に渡す必要があった。<br>
+しかしこの方法ではホストのドライバとコンテナのドライバのバージョンが完全に一致していなければ動かない。一致していないと例えばこののようなエラーが出る。</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nv">$ </span>nvidia-smi 
+Failed to initialize NVML: Driver/library version mismatch
+</pre></div></div>
+
+<p>これではコンテナに合わせてホストドライバをインストールする必要があるわけで、コンテナ仮想化の意義が失われてしまう。<br>
+そこで nvidia-docker はコンテナ起動時にホストの NVIDIA ドライバとデバイスファイルを Docker volume として渡してやることで、コンテナ側のドライバインストールを不要としている。</p>
+
+<p>nvidia-docker は docker コマンドのラッパである nvidia-docker コマンドと、<br>
+ホストマシンの GPU 環境を調べ、コンテナ起動時に必要なデバイスファイルとドライバをが入った docker volume を作成する nvidia-docker-plugin デーモンから成る。<br>
+この nvidia-docker-plugin デーモンが nvidia-docker 技術のキモである。</p>
+
+<p>NVIDIA ドライバはいくつかのカーネルモジュール（例： <code>nvidia</code>）と、それを利用するための共有ライブラリ（例： <code>libcuda.so</code> 、 <code>libnvcuvid.so</code>）から成る。<br>
+しかしどのディレクトリにどのバージョンのライブラリがあって、どれをコンテナに渡すのが適切なのかの判断は、GPU、ホストOS、ドライバのバージョンなどによって異なり、難しい。<br>
+そこで、この nvidia-docker-plugin デーモンがコンテナに渡すべきファイルをリストアップし、 docker volume としてひとつのディレクトリにまとめてくれる。<br>
+docker volume とはコンテナ内からホストマシンのファイルへアクセスするための技術で、 nvidia-docker-plugin の場合は <code>/var/lib/nvidia-docker/volumes/nvidia_driver/361.48</code> あたりにドライバファイルをまとめたディレクトリを用意し、コンテナ内の <code>/usr/local/nvidia</code> にマウントする。</p>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>docker volume list
+<span class="go">DRIVER              VOLUME NAME
+nvidia-docker       nvidia_driver_375.66
+</span><span class="gp">$</span><span class="w"> </span>docker volume inspect nvidia_driver_375.66
+<span class="go">[
+    {
+        "CreatedAt": "0001-01-01T00:00:00Z",
+        "Driver": "nvidia-docker",
+        "Labels": null,
+        "Mountpoint": "/var/lib/nvidia-docker/volumes/nvidia_driver/375.66",
+        "Name": "nvidia_driver_375.66",
+        "Options": {},
+        "Scope": "local"
+    }
+]
+</span></pre></div></div>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>tree /var/lib/nvidia-docker/volumes/nvidia_driver/375.66
+<span class="go">/var/lib/nvidia-docker/volumes/nvidia_driver/375.66
+├── bin
+│   ├── nvidia-cuda-mps-control
+│   ├── nvidia-cuda-mps-server
+│   ├── nvidia-debugdump
+│   ├── nvidia-persistenced
+│   └── nvidia-smi
+├── lib
+</span><span class="gp">│   ├── libEGL_nvidia.so.0 -&gt;</span><span class="w"> </span>libEGL_nvidia.so.375.66
+<span class="go">│   ├── libEGL_nvidia.so.375.66
+│   ├── libEGL.so.1
+│   ├── libGLdispatch.so.0
+</span><span class="gp">│   ├── libGLESv1_CM_nvidia.so.1 -&gt;</span><span class="w"> </span>libGLESv1_CM_nvidia.so.375.66
+<span class="go">│   ├── libGLESv1_CM_nvidia.so.375.66
+│   ├── libGLESv1_CM.so.1
+</span><span class="gp">│   ├── libGLESv2_nvidia.so.2 -&gt;</span><span class="w"> </span>libGLESv2_nvidia.so.375.66
+<span class="go">│   ├── libGLESv2_nvidia.so.375.66
+│   ├── libGLESv2.so.2
+</span><span class="gp">│   ├── libGL.so.1 -&gt;</span><span class="w"> </span>libGL.so.1.0.0
+<span class="go">│   ├── libGL.so.1.0.0
+</span><span class="gp">│   ├── libGLX_indirect.so.0 -&gt;</span><span class="w"> </span>libGLX_nvidia.so.375.66
+<span class="gp">│   ├── libGLX_nvidia.so.0 -&gt;</span><span class="w"> </span>libGLX_nvidia.so.375.66
+<span class="go">│   ├── libGLX_nvidia.so.375.66
+│   ├── libGLX.so.0
+</span><span class="gp">│   ├── libnvcuvid.so.1 -&gt;</span><span class="w"> </span>libnvcuvid.so.375.66
+<span class="go">│   ├── libnvcuvid.so.375.66
+│   ├── libnvidia-compiler.so.375.66
+│   ├── libnvidia-eglcore.so.375.66
+│   ├── libnvidia-egl-wayland.so.375.66
+</span><span class="gp">│   ├── libnvidia-encode.so.1 -&gt;</span><span class="w"> </span>libnvidia-encode.so.375.66
+<span class="go">│   ├── libnvidia-encode.so.375.66
+│   ├── libnvidia-fatbinaryloader.so.375.66
+</span><span class="gp">│   ├── libnvidia-fbc.so.1 -&gt;</span><span class="w"> </span>libnvidia-fbc.so.375.66
+<span class="go">│   ├── libnvidia-fbc.so.375.66
+│   ├── libnvidia-glcore.so.375.66
+│   ├── libnvidia-glsi.so.375.66
+</span><span class="gp">│   ├── libnvidia-ifr.so.1 -&gt;</span><span class="w"> </span>libnvidia-ifr.so.375.66
+<span class="go">│   ├── libnvidia-ifr.so.375.66
+</span><span class="gp">│   ├── libnvidia-ml.so.1 -&gt;</span><span class="w"> </span>libnvidia-ml.so.375.66
+<span class="go">│   ├── libnvidia-ml.so.375.66
+│   ├── libnvidia-ptxjitcompiler.so.375.66
+│   ├── libnvidia-tls.so.375.66
+</span><span class="gp">│   ├── libvdpau_nvidia.so.1 -&gt;</span><span class="w"> </span>libvdpau_nvidia.so.375.66
+<span class="go">│   └── libvdpau_nvidia.so.375.66
+└── lib64
+</span><span class="gp">    ├── libcuda.so -&gt;</span><span class="w"> </span>libcuda.so.375.66
+<span class="gp">    ├── libcuda.so.1 -&gt;</span><span class="w"> </span>libcuda.so.375.66
+<span class="go">    ├── libcuda.so.375.66
+</span><span class="gp">    ├── libEGL_nvidia.so.0 -&gt;</span><span class="w"> </span>libEGL_nvidia.so.375.66
+<span class="go">    ├── libEGL_nvidia.so.375.66
+    ├── libEGL.so.1
+    ├── libGLdispatch.so.0
+</span><span class="gp">    ├── libGLESv1_CM_nvidia.so.1 -&gt;</span><span class="w"> </span>libGLESv1_CM_nvidia.so.375.66
+<span class="go">    ├── libGLESv1_CM_nvidia.so.375.66
+    ├── libGLESv1_CM.so.1
+</span><span class="gp">    ├── libGLESv2_nvidia.so.2 -&gt;</span><span class="w"> </span>libGLESv2_nvidia.so.375.66
+<span class="go">    ├── libGLESv2_nvidia.so.375.66
+    ├── libGLESv2.so.2
+</span><span class="gp">    ├── libGL.so.1 -&gt;</span><span class="w"> </span>libGL.so.1.0.0
+<span class="go">    ├── libGL.so.1.0.0
+</span><span class="gp">    ├── libGLX_indirect.so.0 -&gt;</span><span class="w"> </span>libGLX_nvidia.so.375.66
+<span class="gp">    ├── libGLX_nvidia.so.0 -&gt;</span><span class="w"> </span>libGLX_nvidia.so.375.66
+<span class="go">    ├── libGLX_nvidia.so.375.66
+    ├── libGLX.so.0
+</span><span class="gp">    ├── libnvcuvid.so.1 -&gt;</span><span class="w"> </span>libnvcuvid.so.375.66
+<span class="go">    ├── libnvcuvid.so.375.66
+    ├── libnvidia-compiler.so.375.66
+    ├── libnvidia-eglcore.so.375.66
+    ├── libnvidia-egl-wayland.so.375.66
+</span><span class="gp">    ├── libnvidia-encode.so.1 -&gt;</span><span class="w"> </span>libnvidia-encode.so.375.66
+<span class="go">    ├── libnvidia-encode.so.375.66
+    ├── libnvidia-fatbinaryloader.so.375.66
+</span><span class="gp">    ├── libnvidia-fbc.so.1 -&gt;</span><span class="w"> </span>libnvidia-fbc.so.375.66
+<span class="go">    ├── libnvidia-fbc.so.375.66
+    ├── libnvidia-glcore.so.375.66
+    ├── libnvidia-glsi.so.375.66
+</span><span class="gp">    ├── libnvidia-ifr.so.1 -&gt;</span><span class="w"> </span>libnvidia-ifr.so.375.66
+<span class="go">    ├── libnvidia-ifr.so.375.66
+</span><span class="gp">    ├── libnvidia-ml.so.1 -&gt;</span><span class="w"> </span>libnvidia-ml.so.375.66
+<span class="go">    ├── libnvidia-ml.so.375.66
+    ├── libnvidia-ptxjitcompiler.so.375.66
+    ├── libnvidia-tls.so.375.66
+    ├── libOpenGL.so.0
+</span><span class="gp">    ├── libvdpau_nvidia.so.1 -&gt;</span><span class="w"> </span>libvdpau_nvidia.so.375.66
+<span class="go">    └── libvdpau_nvidia.so.375.66
+
+3 directories, 81 files
+</span></pre></div></div>
+
+<p><code>/var/lib/nvidia-docker/volumes/nvidia_driver/375.66/bin/</code> に <code>nvidia-smi</code> が置かれているのがわかる。</p>
+
+<p>あとは Dockerfile で <code>PATH</code> や <code>LD_LIBRARY_PATH</code> が適切に設定されていれば、コンテナから GPU や CUDA が利用できるわけである。<br>
+しかしその環境変数を適切に設定するのも面倒なわけで、そこで <a href="https://hub.docker.com/r/nvidia/cuda/" class="autolink" rel="nofollow noopener" target="_blank">https://hub.docker.com/r/nvidia/cuda/</a> にある NVIDIA 公式の docker image が <code>/usr/local/nvidia/</code> にあるドライバやライブラリにパスを通している。<br>
+例えば <code>nvidia/cuda:8.0-runtime-ubuntu16.04</code> イメージの Dockerfile はこのようになっている。</p>
+
+<div class="code-frame" data-lang="Dockerfile"><div class="highlight"><pre><span class="k">FROM</span><span class="s"> ubuntu:16.04</span>
+<span class="k">LABEL</span><span class="s"> maintainer "NVIDIA CORPORATION &lt;cudatools@nvidia.com&gt;"</span>
+
+<span class="k">RUN </span><span class="nv">NVIDIA_GPGKEY_SUM</span><span class="o">=</span>d1be581509378368edeec8c1eb2958702feedf3bc3d17011adbf24efacce4ab5 <span class="o">&amp;&amp;</span> <span class="se">\
+</span>    <span class="nv">NVIDIA_GPGKEY_FPR</span><span class="o">=</span>ae09fe4bbd223a84b2ccfce3f60f4b3d7fa2af80 <span class="o">&amp;&amp;</span> <span class="se">\
+</span>    apt-key adv <span class="nt">--fetch-keys</span> http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/7fa2af80.pub <span class="o">&amp;&amp;</span> <span class="se">\
+</span>    apt-key adv <span class="nt">--export</span> <span class="nt">--no-emit-version</span> <span class="nt">-a</span> <span class="nv">$NVIDIA_GPGKEY_FPR</span> | <span class="nb">tail</span> <span class="nt">-n</span> +5 <span class="o">&gt;</span> cudasign.pub <span class="o">&amp;&amp;</span> <span class="se">\
+</span>    <span class="nb">echo</span> <span class="s2">"</span><span class="nv">$NVIDIA_GPGKEY_SUM</span><span class="s2">  cudasign.pub"</span> | <span class="nb">sha256sum</span> <span class="nt">-c</span> <span class="nt">--strict</span> - <span class="o">&amp;&amp;</span> <span class="nb">rm </span>cudasign.pub <span class="o">&amp;&amp;</span> <span class="se">\
+</span>    <span class="nb">echo</span> <span class="s2">"deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64 /"</span> <span class="o">&gt;</span> /etc/apt/sources.list.d/cuda.list
+
+<span class="k">ENV</span><span class="s"> CUDA_VERSION 8.0.61</span>
+<span class="k">LABEL</span><span class="s"> com.nvidia.cuda.version="${CUDA_VERSION}"</span>
+<span class="k">ENV</span><span class="s"> NVIDIA_CUDA_VERSION $CUDA_VERSION</span>
+
+<span class="k">ENV</span><span class="s"> CUDA_PKG_VERSION 8-0=$CUDA_VERSION-1</span>
+<span class="k">RUN </span>apt-get update <span class="o">&amp;&amp;</span> apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> <span class="se">\
+</span>        cuda-nvrtc-<span class="nv">$CUDA_PKG_VERSION</span> <span class="se">\
+</span>        cuda-nvgraph-<span class="nv">$CUDA_PKG_VERSION</span> <span class="se">\
+</span>        cuda-cusolver-<span class="nv">$CUDA_PKG_VERSION</span> <span class="se">\
+</span>        cuda-cublas-8-0<span class="o">=</span>8.0.61.2-1 <span class="se">\
+</span>        cuda-cufft-<span class="nv">$CUDA_PKG_VERSION</span> <span class="se">\
+</span>        cuda-curand-<span class="nv">$CUDA_PKG_VERSION</span> <span class="se">\
+</span>        cuda-cusparse-<span class="nv">$CUDA_PKG_VERSION</span> <span class="se">\
+</span>        cuda-npp-<span class="nv">$CUDA_PKG_VERSION</span> <span class="se">\
+</span>        cuda-cudart-<span class="nv">$CUDA_PKG_VERSION</span> <span class="o">&amp;&amp;</span> <span class="se">\
+</span>    <span class="nb">ln</span> <span class="nt">-s</span> cuda-8.0 /usr/local/cuda <span class="o">&amp;&amp;</span> <span class="se">\
+</span>    <span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span>
+
+<span class="c"># nvidia-docker 1.0</span>
+<span class="k">LABEL</span><span class="s"> com.nvidia.volumes.needed="nvidia_driver"</span>
+
+<span class="k">RUN </span><span class="nb">echo</span> <span class="s2">"/usr/local/nvidia/lib"</span> <span class="o">&gt;&gt;</span> /etc/ld.so.conf.d/nvidia.conf <span class="o">&amp;&amp;</span> <span class="se">\
+</span>    <span class="nb">echo</span> <span class="s2">"/usr/local/nvidia/lib64"</span> <span class="o">&gt;&gt;</span> /etc/ld.so.conf.d/nvidia.conf
+
+<span class="k">ENV</span><span class="s"> PATH /usr/local/nvidia/bin:/usr/local/cuda/bin:${PATH}</span>
+<span class="k">ENV</span><span class="s"> LD_LIBRARY_PATH /usr/local/nvidia/lib:/usr/local/nvidia/lib64</span>
+
+<span class="c"># nvidia-container-runtime</span>
+<span class="k">ENV</span><span class="s"> NVIDIA_VISIBLE_DEVICES all</span>
+<span class="k">ENV</span><span class="s"> NVIDIA_DRIVER_CAPABILITIES compute,utility</span>
+</pre></div></div>
+
+<p>まず CUDA をインストールして、それから <code>ENV LD_LIBRARY_PATH</code> でドライバへのパスを通しているのがわかる。</p>
+
+<p>詳細は以下を参照のこと。</p>
+
+<ul>
+<li>nvidia-docker wiki - Motivation - <a href="https://github.com/NVIDIA/nvidia-docker/wiki/Motivation" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/NVIDIA/nvidia-docker/wiki/Motivation</a>
+</li>
+<li>nvidia-docker wiki - Internals - <a href="https://github.com/NVIDIA/nvidia-docker/wiki/Internals" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/NVIDIA/nvidia-docker/wiki/Internals</a>
+</li>
+<li>nvidia-docker wiki - NVIDIA-driver - <a href="https://github.com/NVIDIA/nvidia-docker/wiki/NVIDIA-driver" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/NVIDIA/nvidia-docker/wiki/NVIDIA-driver</a>
+</li>
+<li>nvidia/cuda - <a href="https://hub.docker.com/r/nvidia/cuda/" class="autolink" rel="nofollow noopener" target="_blank">https://hub.docker.com/r/nvidia/cuda/</a>
+</li>
+<li>nvidia/cuda:8.0-runtime-ubuntu16.04 - <a href="https://gitlab.com/nvidia/cuda/blob/ubuntu16.04/8.0/runtime/Dockerfile" class="autolink" rel="nofollow noopener" target="_blank">https://gitlab.com/nvidia/cuda/blob/ubuntu16.04/8.0/runtime/Dockerfile</a>
+</li>
+<li>nvidia/cuda:8.0-devel-ubuntu16.04 - <a href="https://gitlab.com/nvidia/cuda/blob/ubuntu16.04/8.0/devel/Dockerfile" class="autolink" rel="nofollow noopener" target="_blank">https://gitlab.com/nvidia/cuda/blob/ubuntu16.04/8.0/devel/Dockerfile</a>
+</li>
+<li>nvidia/cuda:8.0-cudnn5-devel-ubuntu16.04 - <a href="https://gitlab.com/nvidia/cuda/blob/ubuntu16.04/8.0/devel/cudnn5/Dockerfile" class="autolink" rel="nofollow noopener" target="_blank">https://gitlab.com/nvidia/cuda/blob/ubuntu16.04/8.0/devel/cudnn5/Dockerfile</a>
+</li>
+</ul>
+
+<h4>
+<span id="nvidia-docker-build-時に-usrlocalnvidia-がない問題" class="fragment"></span><a href="#nvidia-docker-build-%E6%99%82%E3%81%AB-usrlocalnvidia-%E3%81%8C%E3%81%AA%E3%81%84%E5%95%8F%E9%A1%8C"><i class="fa fa-link"></i></a>nvidia-docker build 時に <code>/usr/local/nvidia</code> がない問題</h4>
+
+<p>nvidia-docker のこの方法ではプロビジョニング時(docker build時)にはコンテナ内の <code>/usr/local/nvidia</code> が存在しない。<br>
+そのため、ドライバライブラリに依存するライブラリのビルドは Dockerfile では記述できない場合がある。<br>
+例えば OpenCV のビルド時に動画のエンコードデコードを高速化する <code>libnvcuvid.so</code> というドライバ付属ライブラリを使いたくても、 configure 時に存在しないのでオプションを有効にすることができない。</p>
+
+<p>ではどうすればいいのかというと OpenCV をビルドする前に一旦 <code>nvidia-docker build</code> してイメージを作成してしまう。<br>
+それから <code>nvidia-docker run</code> で OpenCV をビルドし、 <code>docker commit</code> で NVCUVID が有効な OpenCV 入りイメージを再度作成するという手がある。</p>
+
+<p>プロビジョニング時に一旦ドライバをインストールしてから OpenCV をビルドし、最後にドライバを <code>apt-get purge</code> すればいいのでは？と思うかもしれないが、 <code>nvidia/cuda</code> イメージをベースにしているとドライバのインストールに失敗する。<br>
+あるいは Dockerfile でホストのドライバライブラリをコンテナ内へ <code>COPY</code> するという手もあるが、煩雑なのでおすすめできない。</p>
+
+<h3>
+<span id="nvidia-docker-20" class="fragment"></span><a href="#nvidia-docker-20"><i class="fa fa-link"></i></a>nvidia-docker 2.0</h3>
+
+<p>2017年10月現在、 <a href="https://github.com/NVIDIA/nvidia-docker/tree/2.0" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/NVIDIA/nvidia-docker/tree/2.0</a> において nvidia-docker 2.0 ユーティリティが開発されており、<br>
+nvidia-docker 2.0 は今まで説明した 1.0 とは異なった実装になっている。</p>
+
+<ul>
+<li>docker のコンテナランタイムである containerd 技術を直接使っている</li>
+<li>
+<code>nvidia-docker</code> という docker ラッパーコマンドはなくなり、 <code>docker run --runtime=nvidia</code> として起動する</li>
+<li>nvidia-docker-plugin デーモンはもはや必要ない</li>
+<li>公式配布の <code>nvidia/cuda</code> イメージだけではなく、任意のイメージに対して GPU サポートを有効にできる</li>
+<li>バックエンドに <a href="https://github.com/NVIDIA/nvidia-container-runtime" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/NVIDIA/nvidia-container-runtime</a> と <a href="https://github.com/NVIDIA/libnvidia-container" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/NVIDIA/libnvidia-container</a> を利用している</li>
+<li>Kubernetes プラグイン <a href="https://github.com/NVIDIA/k8s-device-plugin" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/NVIDIA/k8s-device-plugin</a> と組み合わせて使えるようになる</li>
+</ul>
+
+<p>いつ正式リリースされるのかは不明であるが、開発状況から見るとおそらく来年春までには何らかの発表があると思われる。</p>
+
+<h2>
+<span id="導入" class="fragment"></span><a href="#%E5%B0%8E%E5%85%A5"><i class="fa fa-link"></i></a>導入</h2>
+
+<p>この章ではnvidiaドライバ、 docker デーモン、 nvidia-docker コマンドのインストールおよび注意点を説明する。<br>
+以後ホスト OS は Ubuntu 16.04 として話を進めていく。</p>
+
+<h3>
+<span id="ホストへの-nvidia-ドライバのインストール" class="fragment"></span><a href="#%E3%83%9B%E3%82%B9%E3%83%88%E3%81%B8%E3%81%AE-nvidia-%E3%83%89%E3%83%A9%E3%82%A4%E3%83%90%E3%81%AE%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB"><i class="fa fa-link"></i></a>ホストへの nvidia ドライバのインストール</h3>
+
+<ul>
+<li>公式ドキュメント - <a href="https://help.ubuntu.com/community/BinaryDriverHowto/Nvidia" class="autolink" rel="nofollow noopener" target="_blank">https://help.ubuntu.com/community/BinaryDriverHowto/Nvidia</a>
+</li>
+</ul>
+
+<p>有効なドライバを確認</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nb">sudo </span>apt <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> ubuntu-drivers-common
+ubuntu-drivers list
+</pre></div></div>
+
+<p>ドライバのインストールと再起動</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nb">sudo </span>apt <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> nvidia-375 nvidia-modprobe
+<span class="nb">sudo </span>reboot now
+</pre></div></div>
+
+<h3>
+<span id="docker-のインストール" class="fragment"></span><a href="#docker-%E3%81%AE%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB"><i class="fa fa-link"></i></a>docker のインストール</h3>
+
+<ul>
+<li>公式ドキュメント - <a href="https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/" class="autolink" rel="nofollow noopener" target="_blank">https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/</a>
+</li>
+</ul>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>curl <span class="nt">-fsSL</span> https://download.docker.com/linux/ubuntu/gpg | <span class="nb">sudo </span>apt-key add -
+<span class="nb">sudo </span>add-apt-repository <span class="se">\</span>
+   <span class="s2">"deb [arch=amd64] https://download.docker.com/linux/ubuntu </span><span class="se">\</span><span class="s2">
+   </span><span class="si">$(</span>lsb_release <span class="nt">-cs</span><span class="si">)</span><span class="s2"> </span><span class="se">\</span><span class="s2">
+   stable"</span>
+<span class="nb">sudo </span>apt-get update <span class="nt">-y</span>
+<span class="nb">sudo </span>apt-get <span class="nb">install</span> <span class="nt">-y</span> docker-ce
+</pre></div></div>
+
+<h3>
+<span id="nvidia-docker-のインストール" class="fragment"></span><a href="#nvidia-docker-%E3%81%AE%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB"><i class="fa fa-link"></i></a>nvidia-docker のインストール</h3>
+
+<ul>
+<li>公式ドキュメント - <a href="https://github.com/NVIDIA/nvidia-docker" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/NVIDIA/nvidia-docker</a>
+</li>
+</ul>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>wget <span class="nt">-P</span> /tmp https://github.com/NVIDIA/nvidia-docker/releases/download/v1.0.1/nvidia-docker_1.0.1-1_amd64.deb
+<span class="nb">sudo </span>dpkg <span class="nt">-i</span> /tmp/nvidia-docker<span class="k">*</span>.deb <span class="o">&amp;&amp;</span> <span class="nb">rm</span> /tmp/nvidia-docker<span class="k">*</span>.deb
+<span class="nb">sudo </span>nvidia-docker run <span class="nt">--rm</span> nvidia/cuda nvidia-smi
+</pre></div></div>
+
+<p>このように出れば OK</p>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>nvidia-docker run <span class="nt">--rm</span> nvidia/cuda:8.0-runtime nvidia-smi
+<span class="go">Wed Oct 18 09:28:50 2017
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 375.66                 Driver Version: 375.66                    |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|===============================+======================+======================|
+|   0  Tesla K80           Off  | 2E50:00:00.0     Off |                    0 |
+| N/A   32C    P8    31W / 149W |      0MiB / 11439MiB |      0%      Default |
++-------------------------------+----------------------+----------------------+
+|   1  Tesla K80           Off  | 42A1:00:00.0     Off |                    0 |
+| N/A   39C    P8    25W / 149W |      0MiB / 11439MiB |      0%      Default |
++-------------------------------+----------------------+----------------------+
+
++-----------------------------------------------------------------------------+
+| Processes:                                                       GPU Memory |
+|  GPU       PID  Type  Process name                               Usage      |
+|=============================================================================|
+|  No running processes found                                                 |
++-----------------------------------------------------------------------------+
+</span></pre></div></div>
+
+<p><strong>※ <code>nvidia-docker run --rm nvidia/cuda nvidia-smi</code> したら <code>Error: unsupported CUDA version: driver 0.0 &lt; image 8.0.61</code> などが出たとき</strong></p>
+
+<ul>
+<li>
+<a href="https://hub.docker.com/r/nvidia/cuda/" class="autolink" rel="nofollow noopener" target="_blank">https://hub.docker.com/r/nvidia/cuda/</a> のデフォルトのイメージが CUDA 9.0 になったのが原因</li>
+<li>
+<code>nvidia-docker run --rm nvidia/cuda:8.0-runtime nvidia-smi</code> で CUDA 8.0 を指定するとよい</li>
+<li>それでダメなら <code>sudo apt-get install libcuda1-375</code> を試す - <a href="https://github.com/NVIDIA/nvidia-docker/issues/257#issuecomment-264039866" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/NVIDIA/nvidia-docker/issues/257#issuecomment-264039866</a>
+</li>
+<li>それでもダメなときは <a href="https://github.com/NVIDIA/nvidia-docker/issues/" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/NVIDIA/nvidia-docker/issues/</a> で検索</li>
+</ul>
+
+<h3>
+<span id="docker-group-の追加" class="fragment"></span><a href="#docker-group-%E3%81%AE%E8%BF%BD%E5%8A%A0"><i class="fa fa-link"></i></a>docker group の追加</h3>
+
+<ul>
+<li><a href="https://docs.docker.com/engine/installation/linux/linux-postinstall/" class="autolink" rel="nofollow noopener" target="_blank">https://docs.docker.com/engine/installation/linux/linux-postinstall/</a></li>
+</ul>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nb">sudo </span>groupadd docker
+<span class="nb">sudo </span>usermod <span class="nt">-aG</span> docker <span class="nv">$USER</span>
+</pre></div></div>
+
+<p>再ログインし直すと sudo なしで docker コマンドが使えるようになる。</p>
+
+<h4>
+<span id="docker-グループユーザの-root-権限を無効にする" class="fragment"></span><a href="#docker-%E3%82%B0%E3%83%AB%E3%83%BC%E3%83%97%E3%83%A6%E3%83%BC%E3%82%B6%E3%81%AE-root-%E6%A8%A9%E9%99%90%E3%82%92%E7%84%A1%E5%8A%B9%E3%81%AB%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>docker グループユーザの root 権限を無効にする</h4>
+
+<p><code>-v</code> オプションを使えばホストの root 所有権のディレクトリもコンテナ内へとマウントできてしまう。<br>
+例えば、 root ユーザ以外見ることができないはずの <code>/root</code> を読み書きすることができてしまう。</p>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>docker run <span class="nt">--rm</span> <span class="nt">-v</span> /root:/opt/root ubuntu:16.04 <span class="nb">ls</span> <span class="nt">-la</span> /opt/root
+<span class="go">total 24
+drwx------ 3 root root 4096 Oct 17 09:23 .
+drwxr-xr-x 1 root root 4096 Oct 18 10:53 ..
+-rw------- 1 root root   75 Oct 17 09:23 .bash_history
+-rw-r--r-- 1 root root 3106 Oct 22  2015 .bashrc
+-rw-r--r-- 1 root root  148 Aug 17  2015 .profile
+drwx------ 2 root root 4096 Oct  3 02:32 .ssh
+</span></pre></div></div>
+
+<p>この問題を回避するには、 docker デーモンを <code>--userns-remap</code> オプション付きで実行すればよい。</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">sudo </span>systemctl stop docker.service
+<span class="nv">$ </span><span class="nb">sudo </span>dockerd <span class="nt">--userns-remap</span><span class="o">=</span>ubuntu:ubuntu &amp;
+<span class="nv">$ </span>docker run <span class="nt">--rm</span> <span class="nt">-v</span> /root:/opt/root ubuntu:16.04 <span class="nb">ls</span> <span class="nt">-la</span> /opt/root
+
+<span class="nb">ls</span>: cannot open directory <span class="s1">'/opt/root'</span>: Permission denied
+<span class="nv">$ </span><span class="nb">kill</span> %1
+</pre></div></div>
+
+<p><code>--userns-remap=ubuntu:ubuntu</code> オプションにより、コンテナ内では任意のユーザ＆グループのプロセスを、ホスト側からは <code>ubuntu</code> グループの <code>ubuntu</code> ユーザとして見えるように強制することができる。<br>
+この設定は <code>/etc/docker/daemon.json</code> に記述すれば永続化できる。</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>$ sudo systemctl stop docker.service
+$ sudo vim /etc/docker/daemon.json
+{
+    "userns-remap": "ubuntu:ubuntu"
+}
+$ sudo systemctl start docker.service
+</pre></div></div>
+
+<p>これで docker グループユーザの root 権限能力を無効にすることができた。</p>
+
+<p>以下参考リンク</p>
+
+<ul>
+<li><a href="https://www.pugetsystems.com/labs/hpc/Docker-and-NVIDIA-docker-on-your-workstation-Setup-User-Namespaces-906/" class="autolink" rel="nofollow noopener" target="_blank">https://www.pugetsystems.com/labs/hpc/Docker-and-NVIDIA-docker-on-your-workstation-Setup-User-Namespaces-906/</a></li>
+<li><a href="https://docs.docker.com/engine/security/userns-remap/#enable-userns-remap-on-the-daemon" class="autolink" rel="nofollow noopener" target="_blank">https://docs.docker.com/engine/security/userns-remap/#enable-userns-remap-on-the-daemon</a></li>
+</ul>
+
+<h2>
+<span id="作業工程" class="fragment"></span><a href="#%E4%BD%9C%E6%A5%AD%E5%B7%A5%E7%A8%8B"><i class="fa fa-link"></i></a>作業工程</h2>
+
+<p>この章では、 NVIDIA ドライバと docker デーモンをインストールした環境で、コンテナ内に CUDA 作業環境を作り、コンテナ内で作業する手順を説明する。<br>
+コンテナはいくらでも作ったり消せたりするので、ディレクトリ構成等が壊れそうになってもコンテナを消すだけで済むので、ホスト環境を汚したくない場合に便利。</p>
+
+<p>コンテナを使った作業手順の概略。</p>
+
+<ol>
+<li>Dockerfile 作成</li>
+<li>
+<code>nvidia-docker build ... ./</code> でイメージを作成</li>
+<li>
+<code>nvidia-docker run -ti ... /bin/bash</code> でコンテナを作成してコンテナ環境のシェルへログイン</li>
+<li>コンテナ環境を確認して exit してコンテナ環境を一時停止</li>
+</ol>
+
+<p>コンテナ内作業＆ホストでの作業</p>
+
+<ol>
+<li>
+<code>docker start ...</code> でコンテナを再開てシェルへログイン</li>
+<li>コンテナ内シェルで <code>screen</code> や <code>tmux</code> を起動</li>
+<li>コンテナ内で何か作業する
+
+<ul>
+<li>ctrl-p + ctrl-q で一旦ホストへ戻れる</li>
+<li>
+<code>docker attach ...</code> でホストからコンテナ内シェルへ戻れる</li>
+</ul>
+</li>
+<li>作業完了したら exit でコンテナを停止する</li>
+</ol>
+
+<p>手順をひとつづつ解説する</p>
+
+<h3>
+<span id="dockerfile-の作成" class="fragment"></span><a href="#dockerfile-%E3%81%AE%E4%BD%9C%E6%88%90"><i class="fa fa-link"></i></a>Dockerfile の作成</h3>
+
+<p>Dockerfile(作業環境の初期状態の設計図)を作る。</p>
+
+<div class="code-frame" data-lang="Dockerfile"><div class="highlight"><pre><span class="c"># `FROM nvidia/cuda:8.0-cudnn5-devel-ubuntu16.04` でベースにする CUDA 環境を選ぶことができる。</span>
+<span class="c"># 利用可能な CUDA 環境の一覧は https://hub.docker.com/r/nvidia/cuda/ にある。</span>
+<span class="k">FROM</span><span class="s"> nvidia/cuda:8.0-cudnn5-devel-ubuntu16.04</span>
+
+<span class="c"># 自動アップグレード</span>
+<span class="k">ENV</span><span class="s"> DEBIAN_FRONTEND "noninteractive"</span>
+<span class="k">RUN </span>apt-get update <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get <span class="nt">-y</span> <span class="se">\
+</span>    <span class="nt">-o</span> Dpkg::Options::<span class="o">=</span><span class="s2">"--force-confdef"</span> <span class="se">\
+</span>    <span class="nt">-o</span> Dpkg::Options::<span class="o">=</span><span class="s2">"--force-confold"</span> dist-upgrade
+
+<span class="c"># 使いたいソフトウェアを入れる</span>
+<span class="k">RUN </span>apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> <span class="se">\
+</span>    <span class="nb">sudo </span>ssh <span class="se">\
+</span>    build-essential <span class="se">\
+</span>    zsh screen cmake unzip git curl wget vim tree htop <span class="se">\
+</span>    python-dev python-pip python-setuptools <span class="se">\
+</span>    python3-dev python3-pip python3-setuptools <span class="se">\
+</span>    graphviz
+
+<span class="c"># キャッシュを消してイメージを小さくする</span>
+<span class="k">RUN </span>apt-get clean <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get autoremove <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get update <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get upgrade <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get autoremove <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get autoclean <span class="nt">-y</span>
+<span class="k">RUN </span><span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span> /var/cache/apt/archives/<span class="k">*</span>
+
+<span class="c"># ユーザ設定</span>
+<span class="c"># ユーザ ID をパラメータにすることでホストボリュームに対する操作をユーザ権限で実行するようにしている。</span>
+<span class="c"># `--userns-remap` の設定が面倒なときに使う。</span>
+<span class="k">ARG</span><span class="s"> user_name=ubuntu</span>
+<span class="k">ARG</span><span class="s"> user_id=1942</span>
+<span class="k">ARG</span><span class="s"> group_name=ubuntu</span>
+<span class="k">ARG</span><span class="s"> group_id=1942</span>
+
+<span class="k">RUN </span>groupadd <span class="nt">-g</span> <span class="k">${</span><span class="nv">group_id</span><span class="k">}</span> <span class="k">${</span><span class="nv">group_name</span><span class="k">}</span>
+<span class="k">RUN </span>useradd <span class="nt">-u</span> <span class="k">${</span><span class="nv">user_id</span><span class="k">}</span> <span class="nt">-g</span> <span class="k">${</span><span class="nv">group_id</span><span class="k">}</span> <span class="nt">-d</span> /home/<span class="k">${</span><span class="nv">user_name</span><span class="k">}</span> <span class="nt">--create-home</span> <span class="nt">--shell</span> /usr/bin/zsh <span class="k">${</span><span class="nv">user_name</span><span class="k">}</span>
+<span class="k">RUN </span><span class="nb">echo</span> <span class="s2">"</span><span class="k">${</span><span class="nv">user_name</span><span class="k">}</span><span class="s2"> ALL=(ALL) NOPASSWD:ALL"</span> <span class="o">&gt;&gt;</span> /etc/sudoers
+<span class="k">RUN </span><span class="nb">chown</span> <span class="nt">-R</span> <span class="k">${</span><span class="nv">user_name</span><span class="k">}</span>:<span class="k">${</span><span class="nv">group_name</span><span class="k">}</span> /home/<span class="k">${</span><span class="nv">user_name</span><span class="k">}</span>
+<span class="k">RUN </span>chsh <span class="nt">-s</span> /usr/bin/zsh <span class="k">${</span><span class="nv">user_name</span><span class="k">}</span>
+
+<span class="c"># 以後 ubuntu ユーザの設定</span>
+<span class="k">USER</span><span class="s"> ubuntu</span>
+<span class="k">WORKDIR</span><span class="s"> /home/ubuntu</span>
+<span class="k">ENV</span><span class="s"> HOME /home/ubuntu</span>
+
+<span class="c"># zsh</span>
+<span class="k">RUN </span>bash <span class="nt">-c</span> <span class="s2">"</span><span class="si">$(</span>curl <span class="nt">-fsSL</span> https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh<span class="si">)</span><span class="s2">"</span>
+<span class="k">RUN </span><span class="nb">echo</span> <span class="s1">'shell "/usr/bin/zsh"'</span> <span class="o">&gt;&gt;</span>  /home/ubuntu/.screenrc
+
+<span class="k">ENV</span><span class="s"> LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/usr/local/cuda/lib64:$LD_LIBRARY_PATH</span>
+
+<span class="k">WORKDIR</span><span class="s"> $HOME/</span>
+</pre></div></div>
+
+<h3>
+<span id="イメージの作成" class="fragment"></span><a href="#%E3%82%A4%E3%83%A1%E3%83%BC%E3%82%B8%E3%81%AE%E4%BD%9C%E6%88%90"><i class="fa fa-link"></i></a>イメージの作成</h3>
+
+<p>Dockerfileを元にイメージ(作業環境の初期状態)を作る。</p>
+
+<p>Dockerfile を用意したらこのようなディレクトリを用意して、</p>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>tree
+<span class="c">.
+</span><span class="go">└── Dockerfile
+
+0 directories, 1 file
+</span></pre></div></div>
+
+<p>初回(このDockerfileを一度も使ったことがない場合)のみ、 image をビルドする。</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nb">sudo </span>nvidia-docker build <span class="se">\</span>
+  <span class="nt">--build-arg</span> <span class="nv">user_id</span><span class="o">=</span><span class="nv">$UID</span> <span class="se">\</span>
+  <span class="nt">--build-arg</span> <span class="nv">group_id</span><span class="o">=</span><span class="nv">$GID</span> <span class="se">\</span>
+  <span class="nt">-t</span> myworkspace-image <span class="se">\</span>
+  ./
+</pre></div></div>
+
+<ul>
+<li>
+<code>-t myworkspace-image</code> はイメージの名前(tag)</li>
+<li>
+<code>--build-arg</code> でコンテナプロセスのユーザ ID とグループ ID を自分の ID と一致させておくとホスト側のファイルを編集するときにパーミッション管理が楽</li>
+</ul>
+
+<p>プロビジョニング作業が終わったらイメージが正常に作成されかどうかを <code>sudo docker images</code> コマンドで確認する。</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nv">$ </span>docker images
+REPOSITORY              TAG                 IMAGE ID            CREATED             SIZE
+myworkspace-image       latest              747cb2d60bbe        4 seconds ago       148MB
+</pre></div></div>
+
+<h3>
+<span id="コンテナの作成とログイン" class="fragment"></span><a href="#%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E3%81%AE%E4%BD%9C%E6%88%90%E3%81%A8%E3%83%AD%E3%82%B0%E3%82%A4%E3%83%B3"><i class="fa fa-link"></i></a>コンテナの作成とログイン</h3>
+
+<p>作成した image を元に新しいコンテナ(作業環境)を作り、コンテナ内シェルへ入る。</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nb">sudo </span>nvidia-docker run <span class="se">\</span>
+  <span class="nt">--name</span> myworkspace <span class="se">\</span>
+  <span class="nt">--volume</span><span class="o">=</span><span class="s2">"</span><span class="si">$(</span><span class="nb">pwd</span><span class="si">)</span><span class="s2">:/opt/workdir"</span> <span class="se">\</span>
+  <span class="nt">--workdir</span><span class="o">=</span><span class="s2">"/opt/workdir"</span> <span class="se">\</span>
+  <span class="nt">-ti</span> <span class="se">\</span>
+  myworkspace <span class="se">\</span>
+    /usr/bin/zsh
+</pre></div></div>
+
+<ul>
+<li>
+<code>docker run</code> = <code>docker create</code> + <code>docker start</code>
+</li>
+<li>
+<code>--name myworkspace</code> - このコンテナ(作業環境)の名前</li>
+<li>
+<code>--volume="$(pwd):/opt/workdir" --workdir="/opt/workdir"</code> - ホストのカレントディレクトリを <code>/opt/workdir</code> へマウントする。ホストファイルをコンテナ側から編集したいときに便利。</li>
+<li>
+<code>-ti</code> - <code>-t</code> - 疑似ターミナル (pseudo-TTY) を割り当て - <code>-i</code> -  コンテナの STDIN にアタッチ。コンテナ内のシェルを使いたい時に使う。 <code>/bin/bash</code> でも良い。</li>
+</ul>
+
+<h3>
+<span id="コンテナ内でのターミナルエミュレータの使用" class="fragment"></span><a href="#%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E5%86%85%E3%81%A7%E3%81%AE%E3%82%BF%E3%83%BC%E3%83%9F%E3%83%8A%E3%83%AB%E3%82%A8%E3%83%9F%E3%83%A5%E3%83%AC%E3%83%BC%E3%82%BF%E3%81%AE%E4%BD%BF%E7%94%A8"><i class="fa fa-link"></i></a>コンテナ内でのターミナルエミュレータの使用</h3>
+
+<p>コンテナ内のシェルにログインしたらまず tmux ないし gnu screen を起動することをおすすめする。<br>
+学習などを始めてしまうと他の作業ができなくなってしまうため。</p>
+
+<p>もしコンテナ内のシェルで screen や tmux を起動し忘れて何か作業を開始してしまった場合、 </p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>docker <span class="nb">exec</span> <span class="nt">-u</span> 0:0 <span class="nt">-ti</span> <span class="o">[</span>container <span class="nb">id</span><span class="o">]</span> /bin/bash
+</pre></div></div>
+
+<p>することで起動中のコンテナへルート権限で入ることができる。</p>
+
+<h3>
+<span id="コンテナ内シェルからの一時脱出" class="fragment"></span><a href="#%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E5%86%85%E3%82%B7%E3%82%A7%E3%83%AB%E3%81%8B%E3%82%89%E3%81%AE%E4%B8%80%E6%99%82%E8%84%B1%E5%87%BA"><i class="fa fa-link"></i></a>コンテナ内シェルからの一時脱出</h3>
+
+<p><code>ctrl-p + ctrl-q</code> でコンテナ内のシェル(<code>/usr/bin/zsh</code>)から抜け出してホスト側のシェルに戻ることができる。<br>
+シェルで起動中のプロセスはそのまま実行される。</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nb">sudo </span>docker attach <span class="o">[</span>container <span class="nb">id</span><span class="o">]</span>
+</pre></div></div>
+
+<p>でコンテナ内シェルへ入ることができる。</p>
+
+<h3>
+<span id="コンテナの停止と再開" class="fragment"></span><a href="#%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E3%81%AE%E5%81%9C%E6%AD%A2%E3%81%A8%E5%86%8D%E9%96%8B"><i class="fa fa-link"></i></a>コンテナの停止と再開</h3>
+
+<p>シェルから <code>exit</code> するとコンテナは停止する。<br>
+それまでに作業したコンテナ内のファイルシステム等環境はそのまま保持される。<br>
+再びコンテナ環境へ入りたい場合は</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nb">sudo </span>docker start <span class="nt">-ai</span> <span class="o">[</span>containerid]
+</pre></div></div>
+
+<p>とするとシェルを再開して入ることができる。</p>
+
+<h3>
+<span id="コンテナとイメージの一覧管理削除" class="fragment"></span><a href="#%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E3%81%A8%E3%82%A4%E3%83%A1%E3%83%BC%E3%82%B8%E3%81%AE%E4%B8%80%E8%A6%A7%E7%AE%A1%E7%90%86%E5%89%8A%E9%99%A4"><i class="fa fa-link"></i></a>コンテナとイメージの一覧、管理、削除</h3>
+
+<p>よく使う基本的なコマンドとか</p>
+
+<ul>
+<li>
+<code>docker ps</code> - 起動中のコンテナの一覧</li>
+<li>
+<code>docker ps -a</code> - (停止中のコンテナも含めた)作成済みのコンテナ一覧</li>
+<li>
+<code>docker images</code> - キャッシュ済みのイメージの一覧</li>
+<li>
+<code>docker rm [container id]</code> - コンテナの削除。CUDAのバージョンが古くなったなどでこのコンテナはもう要らないなという時、ディスク容量が逼迫してきた時に使う。</li>
+<li>
+<code>docker rmi [image id]</code> - イメージの削除。同上。</li>
+</ul>
+
+<h2>
+<span id="応用" class="fragment"></span><a href="#%E5%BF%9C%E7%94%A8"><i class="fa fa-link"></i></a>応用</h2>
+
+<p>実用上便利なテクニックをいくつか紹介する</p>
+
+<h3>
+<span id="コンテナ内からホストの-usb-カメラにアクセスしたい" class="fragment"></span><a href="#%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E5%86%85%E3%81%8B%E3%82%89%E3%83%9B%E3%82%B9%E3%83%88%E3%81%AE-usb-%E3%82%AB%E3%83%A1%E3%83%A9%E3%81%AB%E3%82%A2%E3%82%AF%E3%82%BB%E3%82%B9%E3%81%97%E3%81%9F%E3%81%84"><i class="fa fa-link"></i></a>コンテナ内からホストの USB カメラにアクセスしたい</h3>
+
+<p>デバイスファイルを透過する。</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>nvidia-docker run <span class="se">\</span>
+  <span class="nt">--device</span><span class="o">=</span>/dev/video0:/dev/video0 <span class="se">\</span>
+  <span class="nt">-ti</span> <span class="se">\</span>
+  foo <span class="se">\</span>
+    /bin/bash
+</pre></div></div>
+
+<p>参考リンク</p>
+
+<ul>
+<li><a href="http://www.itmedia.co.jp/enterprise/articles/1603/02/news031_2.html" class="autolink" rel="nofollow noopener" target="_blank">http://www.itmedia.co.jp/enterprise/articles/1603/02/news031_2.html</a></li>
+</ul>
+
+<h3>
+<span id="コンテナ内の-gui-アプリケーションを動かしたい" class="fragment"></span><a href="#%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E5%86%85%E3%81%AE-gui-%E3%82%A2%E3%83%97%E3%83%AA%E3%82%B1%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%82%92%E5%8B%95%E3%81%8B%E3%81%97%E3%81%9F%E3%81%84"><i class="fa fa-link"></i></a>コンテナ内の GUI アプリケーションを動かしたい</h3>
+
+<p>xhost をローカルユーザに公開して X11 UNIX ソケット経由で描画する。</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>xhost +local:
+nvidia-docker run <span class="se">\</span>
+  <span class="nt">--env</span><span class="o">=</span><span class="s2">"DISPLAY=</span><span class="nv">$DISPLAY</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">--volume</span><span class="o">=</span><span class="s2">"/tmp/.X11-unix:/tmp/.X11-unix:rw"</span> <span class="se">\</span>
+  foo <span class="se">\</span>
+    /usr/bin/xeyes
+</pre></div></div>
+
+<p>参考リンク</p>
+
+<ul>
+<li><a href="http://wiki.ros.org/docker/Tutorials/GUI" class="autolink" rel="nofollow noopener" target="_blank">http://wiki.ros.org/docker/Tutorials/GUI</a></li>
+</ul>
+
+<p>なおリモートホストで動作中の docker コンテナ内の GUI プロセスも <code>ssh -XC foo@bar</code> などの x11 forwarding が使えるが、  <code>ssh -L 5901:localhost:5901 foo@bar</code> して <code>tightvnc</code> 使った方が遅延が少ない気がする。</p>
+
+<h3>
+<span id="コンテナ内で-visual-studio-code-を動かしたい" class="fragment"></span><a href="#%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E5%86%85%E3%81%A7-visual-studio-code-%E3%82%92%E5%8B%95%E3%81%8B%E3%81%97%E3%81%9F%E3%81%84"><i class="fa fa-link"></i></a>コンテナ内で Visual Studio Code を動かしたい</h3>
+
+<p>C++ の開発において、依存ライブラリはOS付属のパッケージマネージャ <code>apt</code> や <code>/usr/local/</code> などで管理している。<br>
+この開発環境も docker 内に隔離してしまいたいが、 コード補完やデバッガを使うには <code>/usr</code> ディレクトリにアクセスできないといけない。<br>
+コンテナ内の bash にログインしてプラグインまみれの vim で開発すればよいのだけれど、どうせなら vscode を使いたい、という奇特な人向け。</p>
+
+<div class="code-frame" data-lang="Dockerfile"><div class="highlight"><pre><span class="k">FROM</span><span class="s"> ubuntu:16.04</span>
+<span class="k">ENV</span><span class="s"> DEBIAN_FRONTEND "noninteractive"</span>
+
+<span class="k">RUN </span>apt-get update <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get <span class="nt">-y</span> <span class="se">\
+</span>  <span class="nt">-o</span> Dpkg::Options::<span class="o">=</span><span class="s2">"--force-confdef"</span> <span class="se">\
+</span>  <span class="nt">-o</span> Dpkg::Options::<span class="o">=</span><span class="s2">"--force-confold"</span> dist-upgrade
+
+<span class="k">RUN </span>apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> <span class="se">\
+</span>  <span class="nb">sudo </span>apt-transport-https software-properties-common ppa-purge apt-utils <span class="se">\
+</span>  ca-certificates git curl wget <span class="se">\
+</span>  <span class="nb">tar </span>zip unzip zlib1g-dev bzip2 libbz2-dev <span class="se">\
+</span>  zsh vim screen tree htop
+
+<span class="c"># C++17 が使いたい</span>
+<span class="k">RUN </span>wget <span class="nt">-O</span> - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
+<span class="k">RUN </span>add-apt-repository <span class="s2">"deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-5.0 main"</span>
+<span class="k">RUN </span>add-apt-repository ppa:ubuntu-toolchain-r/test
+<span class="k">RUN </span>apt-get update <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> <span class="se">\
+</span>  build-essential binutils cmake autoconf automake autogen pkg-config libtool <span class="se">\
+</span>  gcc-7 g++-7 gdb <span class="se">\
+</span>  clang-5.0 lldb-5.0 lld-5.0
+<span class="k">RUN </span>update-alternatives <span class="nt">--install</span> /usr/bin/gcc gcc /usr/bin/gcc-7 20
+<span class="k">RUN </span>update-alternatives <span class="nt">--install</span> /usr/bin/g++ g++ /usr/bin/g++-7 20
+
+<span class="c"># vscode 依存ライブラリ</span>
+<span class="k">RUN </span>apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> <span class="se">\
+</span>  libgtk2.0-0 libgtk-3-0 libgconf2-4 gvfs-bin <span class="se">\
+</span>  libpango-1.0-0 libcairo2 libfontconfig1 gettext aspell aspell-en rxvt-unicode-256color <span class="se">\
+</span>  libasound2 libcanberra-gtk-module libgl1-mesa-glx <span class="se">\
+</span>  libsecret-1-0 libnss3 libnotify-bin <span class="se">\
+</span>  x11-xserver-utils libxkbfile1 libxtst6 libxss1 xterm
+
+<span class="k">RUN </span>wget <span class="nt">-O</span> vscode-amd64.deb  https://go.microsoft.com/fwlink/?LinkID<span class="o">=</span>760868
+<span class="k">RUN </span>dpkg <span class="nt">-i</span> vscode-amd64.deb
+<span class="k">RUN </span><span class="nb">rm </span>vscode-amd64.deb
+
+<span class="k">RUN </span>apt-get <span class="nb">install</span> <span class="nt">-f</span> <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get update <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get upgrade <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get dist-upgrade <span class="nt">-y</span>
+
+<span class="k">WORKDIR</span><span class="s"> /tmp</span>
+<span class="k">RUN </span><span class="nb">rm</span> <span class="nt">-rf</span> /tmp/<span class="k">*</span>
+<span class="k">RUN </span>apt-get clean
+<span class="k">RUN </span>apt-get autoremove <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get update <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get upgrade <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get autoremove <span class="nt">-y</span>
+<span class="k">RUN </span>apt-get autoclean <span class="nt">-y</span>
+<span class="k">RUN </span><span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span> /var/cache/apt/archives/<span class="k">*</span>
+
+<span class="k">ARG</span><span class="s"> user_name=ubuntu</span>
+<span class="k">ARG</span><span class="s"> user_id=1942</span>
+<span class="k">ARG</span><span class="s"> group_name=ubuntu</span>
+<span class="k">ARG</span><span class="s"> group_id=1942</span>
+
+<span class="k">RUN </span>groupadd <span class="nt">-g</span> <span class="k">${</span><span class="nv">group_id</span><span class="k">}</span> <span class="k">${</span><span class="nv">group_name</span><span class="k">}</span>
+<span class="k">RUN </span>useradd <span class="nt">-u</span> <span class="k">${</span><span class="nv">user_id</span><span class="k">}</span> <span class="nt">-g</span> <span class="k">${</span><span class="nv">group_id</span><span class="k">}</span> <span class="nt">-d</span> /home/<span class="k">${</span><span class="nv">user_name</span><span class="k">}</span> <span class="nt">--create-home</span> <span class="nt">--shell</span> /usr/bin/zsh <span class="k">${</span><span class="nv">user_name</span><span class="k">}</span>
+<span class="k">RUN </span><span class="nb">echo</span> <span class="s2">"</span><span class="k">${</span><span class="nv">user_name</span><span class="k">}</span><span class="s2"> ALL=(ALL) NOPASSWD:ALL"</span> <span class="o">&gt;&gt;</span> /etc/sudoers
+<span class="k">RUN </span><span class="nb">chown</span> <span class="nt">-R</span> <span class="k">${</span><span class="nv">user_name</span><span class="k">}</span>:<span class="k">${</span><span class="nv">group_name</span><span class="k">}</span> /home/<span class="k">${</span><span class="nv">user_name</span><span class="k">}</span>
+<span class="k">RUN </span>chsh <span class="nt">-s</span> /usr/bin/zsh <span class="k">${</span><span class="nv">user_name</span><span class="k">}</span>
+
+<span class="k">USER</span><span class="s"> ${user_name}</span>
+<span class="k">WORKDIR</span><span class="s"> /home/${user_name}</span>
+<span class="k">ENV</span><span class="s"> HOME /home/${user_name}</span>
+
+<span class="k">RUN </span>bash <span class="nt">-c</span> <span class="s2">"</span><span class="si">$(</span>curl <span class="nt">-fsSL</span> https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh<span class="si">)</span><span class="s2">"</span>
+<span class="k">RUN </span><span class="nb">echo</span> <span class="s1">'shell "/usr/bin/zsh"'</span> <span class="o">&gt;&gt;</span>  /home/ubuntu/.screenrc
+
+<span class="c"># vscode plugins</span>
+<span class="k">RUN </span>/usr/bin/code <span class="nt">--install-extension</span> ms-vscode.cpptools
+<span class="k">RUN </span>/usr/bin/code <span class="nt">--install-extension</span> vector-of-bool.cmake-tools
+<span class="k">RUN </span>/usr/bin/code <span class="nt">--install-extension</span> DevonDCarew.bazel-code
+<span class="k">RUN </span>/usr/bin/code <span class="nt">--install-extension</span> naereen.makefiles-support-for-vscode
+<span class="k">RUN </span>/usr/bin/code <span class="nt">--install-extension</span> maelvalais.autoconf
+</pre></div></div>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nb">sudo </span>docker build <span class="se">\</span>
+  <span class="nt">--build-arg</span> <span class="nv">user_id</span><span class="o">=</span><span class="nv">$UID</span> <span class="se">\</span>
+  <span class="nt">--build-arg</span> <span class="nv">group_id</span><span class="o">=</span><span class="nv">$GID</span> <span class="se">\</span>
+  <span class="nt">-t</span> vscode-image <span class="se">\</span>
+  ./
+xhost +local:
+<span class="nb">sudo </span>docker run <span class="se">\</span>
+  <span class="nt">--rm</span> <span class="se">\</span>
+  <span class="nt">--env</span><span class="o">=</span><span class="s2">"DISPLAY=</span><span class="nv">$DISPLAY</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">--volume</span><span class="o">=</span><span class="s2">"/tmp/.X11-unix:/tmp/.X11-unix:rw"</span> <span class="se">\</span>
+  <span class="nt">--volume</span><span class="o">=</span><span class="s2">"</span><span class="si">$(</span><span class="nb">pwd</span><span class="si">)</span><span class="s2">:/opt/workdir"</span> <span class="se">\</span>
+  <span class="nt">--workdir</span><span class="o">=</span><span class="s2">"/opt/workdir"</span> <span class="se">\</span>
+  <span class="nt">-ti</span> <span class="se">\</span>
+  vscode-image <span class="se">\</span>
+    /usr/bin/code <span class="nt">--verbose</span> ./
+</pre></div></div>
+
+<h3>
+<span id="コンテナ内の-jupyter-notebook-や-tensorboard-へアクセスしたい" class="fragment"></span><a href="#%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E5%86%85%E3%81%AE-jupyter-notebook-%E3%82%84-tensorboard-%E3%81%B8%E3%82%A2%E3%82%AF%E3%82%BB%E3%82%B9%E3%81%97%E3%81%9F%E3%81%84"><i class="fa fa-link"></i></a>コンテナ内の jupyter notebook や tensorboard へアクセスしたい</h3>
+
+<ul>
+<li>コンテナ内で <code>jupyter notebook --ip=0.0.0.0 --port=8080</code> として jupyter を起動。</li>
+<li>
+<code>http://localhost:8080</code> にアクセス</li>
+<li>tensorboard の場合は <code>tensorboard --port=8080 --logdir=log</code> とか</li>
+</ul>
+
+<h3>
+<span id="prometheus-で-gpu-使用率を監視したい" class="fragment"></span><a href="#prometheus-%E3%81%A7-gpu-%E4%BD%BF%E7%94%A8%E7%8E%87%E3%82%92%E7%9B%A3%E8%A6%96%E3%81%97%E3%81%9F%E3%81%84"><i class="fa fa-link"></i></a>prometheus で GPU 使用率を監視したい</h3>
+
+<p><a href="https://github.com/roguePanda/nvidia_exporter" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/roguePanda/nvidia_exporter</a> を使う。</p>
+
+<div class="code-frame" data-lang="Dockerfile"><div class="highlight"><pre><span class="k">FROM</span><span class="s"> nvidia/cuda:8.0-cudnn6-devel-ubuntu16.04</span>
+
+<span class="k">RUN </span>apt-get update
+<span class="k">RUN </span>apt-get <span class="nt">-y</span> <span class="se">\
+</span>  <span class="nt">-o</span> Dpkg::Options::<span class="o">=</span><span class="s2">"--force-confdef"</span> <span class="se">\
+</span>  <span class="nt">-o</span> Dpkg::Options::<span class="o">=</span><span class="s2">"--force-confold"</span> dist-upgrade
+<span class="k">RUN </span>apt-get <span class="nb">install</span>  <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> <span class="se">\
+</span>  git python-dev python-numpy python-pip python-setuptools 
+<span class="k">RUN </span><span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span>
+
+<span class="k">RUN </span>useradd <span class="nt">--user-group</span> <span class="nt">--create-home</span> <span class="nt">--shell</span> /bin/false app
+
+<span class="k">ENV</span><span class="s"> HOME /home/app</span>
+<span class="k">WORKDIR</span><span class="s"> $HOME</span>
+
+<span class="k">RUN </span>git clone https://github.com/roguePanda/nvidia_exporter.git <span class="o">&amp;&amp;</span> <span class="se">\
+</span>  <span class="nb">cd </span>nvidia_exporter <span class="o">&amp;&amp;</span> <span class="se">\
+</span>  git checkout <span class="nt">-b</span> aug 9d327cbca06eed0a27966656fdff6827d7559131 <span class="o">&amp;&amp;</span> <span class="se">\
+</span>  python setup.py <span class="nb">install</span>
+<span class="k">RUN </span><span class="nb">chown</span> <span class="nt">-R</span> app:app <span class="nv">$HOME</span>/<span class="k">*</span>
+
+<span class="k">USER</span><span class="s"> app</span>
+
+<span class="k">ENV</span><span class="s"> LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/usr/local/cuda/lib64:$LD_LIBRARY_PATH</span>
+
+<span class="k">CMD</span><span class="s"> ["nvidia_exporter", "9200"]</span>
+</pre></div></div>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nb">sudo </span>nvidia-docker build <span class="nt">-t</span> nvidia_exporter <span class="nb">.</span>
+<span class="nb">sudo </span>nvidia-docker run <span class="se">\</span>
+  <span class="nt">--rm</span> <span class="se">\</span>
+  <span class="nt">-p</span> 9200:9200 <span class="se">\</span>
+  nvidia_exporter <span class="se">\</span>
+    nvidia_exporter 9200
+</pre></div></div>
+
+<h3>
+<span id="docker-compose-したい" class="fragment"></span><a href="#docker-compose-%E3%81%97%E3%81%9F%E3%81%84"><i class="fa fa-link"></i></a>docker-compose したい</h3>
+
+<h4>
+<span id="nvidia-docker-のしくみのおさらい" class="fragment"></span><a href="#nvidia-docker-%E3%81%AE%E3%81%97%E3%81%8F%E3%81%BF%E3%81%AE%E3%81%8A%E3%81%95%E3%82%89%E3%81%84"><i class="fa fa-link"></i></a>nvidia-docker のしくみのおさらい</h4>
+
+<p>nvidia-docker は</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>docker run <span class="se">\</span>
+  <span class="nt">--volume-driver</span><span class="o">=</span>nvidia-docker <span class="se">\</span>
+  <span class="nt">--volume</span><span class="o">=</span>nvidia_driver_375.66:/usr/local/nvidia:ro <span class="se">\</span>
+  foo
+</pre></div></div>
+
+<p>として起動される。<br>
+この <code>--volume-driver=nvidia-docker</code> プラグインが <code>nvidia_driver_361.48</code> というドライバファイルをまとめたボリュームを動的に作成し、コンテナに適用する。</p>
+
+<p>静的にドライバファイルのボリュームを作るには</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>docker volume create <span class="se">\</span>
+  <span class="nt">--name</span><span class="o">=</span>nvidia_driver_375.66 <span class="se">\</span>
+  <span class="nt">--driver</span><span class="o">=</span>nvidia-docker
+</pre></div></div>
+
+<p>のように <code>nvidia_driver_361.48</code> ドライバボリュームを作っておいてから、</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>docker run <span class="se">\</span>
+  <span class="nt">--volume</span><span class="o">=</span>nvidia_driver_375.66:/usr/local/nvidia:ro <span class="se">\</span>
+  foo
+</pre></div></div>
+
+<p>としてコンテナに適用して起動できる。</p>
+
+<h4>
+<span id="docker-compose-の場合" class="fragment"></span><a href="#docker-compose-%E3%81%AE%E5%A0%B4%E5%90%88"><i class="fa fa-link"></i></a>docker-compose の場合</h4>
+
+<p>docker-compose でも同じことをすればよい。</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>docker volume create <span class="se">\</span>
+  <span class="nt">--name</span><span class="o">=</span>nvidia_driver_375.66 <span class="se">\</span>
+   <span class="nt">--driver</span> nvidia-docker
+</pre></div></div>
+
+<p>として <code>nvidia_driver_375.66</code> ドライバボリュームを作っておいてから、 <code>docker-compose.yml</code> ファイルを</p>
+
+<div class="code-frame" data-lang="yml"><div class="highlight"><pre><span class="na">version</span><span class="pi">:</span> <span class="s1">'</span><span class="s">3'</span>
+<span class="na">volumes</span><span class="pi">:</span>
+  <span class="s">nvidia_driver_375.66</span><span class="pi">:</span>
+    <span class="na">external</span><span class="pi">:</span> <span class="no">true</span>
+<span class="na">services</span><span class="pi">:</span>
+  <span class="na">nvidia_exporter</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">nvidia/cuda:8.0-runtime</span>
+    <span class="na">command</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">nvidia-smi</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">-l'</span>
+    <span class="na">devices</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">/dev/nvidia0</span>
+    <span class="pi">-</span> <span class="s">/dev/nvidiactl</span>
+    <span class="pi">-</span> <span class="s">/dev/nvidia-uvm</span>
+    <span class="na">volumes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">nvidia_driver_375.66:/usr/local/nvidia:ro</span>
+</pre></div></div>
+
+<p>としてデバイスファイルとドライバをコンテナに渡せばよい。</p>
+
+<h4>
+<span id="nvidia-docker-compose" class="fragment"></span><a href="#nvidia-docker-compose"><i class="fa fa-link"></i></a>nvidia-docker-compose</h4>
+
+<p><a href="https://github.com/eywalker/nvidia-docker-compose" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/eywalker/nvidia-docker-compose</a> というツールを使うと</p>
+
+<div class="code-frame" data-lang="yml"><div class="highlight"><pre><span class="na">version</span><span class="pi">:</span> <span class="s1">'</span><span class="s">3'</span>
+<span class="na">services</span><span class="pi">:</span>
+  <span class="na">nvidia_exporter</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">nvidia/cuda:8.0-runtime</span>
+    <span class="na">command</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">nvidia-smi</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">-l'</span>
+</pre></div></div>
+
+<p>のような GPU 環境非依存の <code>docker-compose.yml</code> ファイルから上のような <code>nvidia-docker</code> 適用済み <code>docker-compose.yml</code> ファイルを作成してくれる。</p>
+
+<p><code>nvidia-docker-compose</code> コマンドは <code>docker-compose</code> コマンドのラッパとしても使える</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>nvidia-docker-compose build
+nvidia-docker-compose up
+</pre></div></div>
+
+<p>参考リンク</p>
+
+<ul>
+<li><a href="https://stackoverflow.com/questions/43368470/use-nvidia-docker-from-docker-compose" class="autolink" rel="nofollow noopener" target="_blank">https://stackoverflow.com/questions/43368470/use-nvidia-docker-from-docker-compose</a></li>
+<li><a href="https://gist.github.com/cgarciae/2ab3642a8a7b33843b964b3210ac2120" class="autolink" rel="nofollow noopener" target="_blank">https://gist.github.com/cgarciae/2ab3642a8a7b33843b964b3210ac2120</a></li>
+<li><a href="https://stackoverflow.com/questions/41346401/use-nvidia-docker-compose-launch-a-container-but-exited-soon" class="autolink" rel="nofollow noopener" target="_blank">https://stackoverflow.com/questions/41346401/use-nvidia-docker-compose-launch-a-container-but-exited-soon</a></li>
+<li><a href="https://gist.github.com/cgarciae/2ab3642a8a7b33843b964b3210ac2120" class="autolink" rel="nofollow noopener" target="_blank">https://gist.github.com/cgarciae/2ab3642a8a7b33843b964b3210ac2120</a></li>
+<li><a href="https://github.com/NVIDIA/nvidia-docker/wiki/NVIDIA-driver#alternatives" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/NVIDIA/nvidia-docker/wiki/NVIDIA-driver#alternatives</a></li>
+</ul>
+
+<h3>
+<span id="docker-machine--azure-したい" class="fragment"></span><a href="#docker-machine--azure-%E3%81%97%E3%81%9F%E3%81%84"><i class="fa fa-link"></i></a>docker-machine + azure したい</h3>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>docker-machine create <span class="se">\</span>
+  <span class="nt">--driver</span> azure <span class="se">\</span>
+  <span class="nt">--azure-environment</span> AzurePublicCloud <span class="se">\</span>
+  <span class="nt">--azure-location</span> westus2 <span class="se">\</span>
+  <span class="nt">--azure-subscription-id</span> xx-xx-xx-xx-xx <span class="se">\</span>
+  <span class="nt">--azure-client-id</span> xx-xx-xx-xx-xx <span class="se">\</span>
+  <span class="nt">--azure-client-secret</span> xx-xx-xx-xx-xx <span class="se">\</span>
+  <span class="nt">--azure-image</span> canonical:UbuntuServer:16.04.0-LTS:latest <span class="se">\</span>
+  <span class="nt">--azure-size</span> Standard_NC6 <span class="se">\</span>
+  <span class="nt">--azure-resource-group</span> rancher-gpu <span class="se">\</span>
+  <span class="nt">--engine-install-url</span> https://gist.githubusercontent.com/legokichi/xxxx/raw/nvidia-docker-install.sh <span class="se">\</span>
+  <span class="nv">$MACHINE_NAME</span>
+</pre></div></div>
+
+<ul>
+<li>docker-machine rm $MACHINE_NAME で消さないとリソースが増えすぎて面倒なことになるので注意。</li>
+<li>docker-machine env $MACHINE_NAME で環境変数見る</li>
+<li>docker-machine ssh $MACHINE_NAME で ssh で入る</li>
+<li>$MACHINE_NAME は rancher の GUI 上で表示されるインスタンス名で、azure の仮想マシンの名前はまた別に命名されます。 azure portak と見比べるときは ip などで判断してください</li>
+<li>docker-machine azure-driver のオプション一覧 - <a href="https://docs.docker.com/machine/drivers/azure/#options" class="autolink" rel="nofollow noopener" target="_blank">https://docs.docker.com/machine/drivers/azure/#options</a>
+</li>
+<li>
+<code>--azure-subscription-id</code> - azure portal のサブスクリプションで見えます</li>
+<li>
+<code>--azure-client-id</code> と <code>--azure-client-secret</code> はここ - <a href="https://docs.microsoft.com/en-us/azure/container-service/kubernetes/container-service-kubernetes-service-principal" class="autolink" rel="nofollow noopener" target="_blank">https://docs.microsoft.com/en-us/azure/container-service/kubernetes/container-service-kubernetes-service-principal</a>
+</li>
+<li>権限とリソースを指定してアプリを作成し、キーを発行、 appId が client_id, password が client_secret</li>
+<li><div class="code-frame" data-lang="sh"><div class="highlight"><pre>az ad sp create-for-rbac <span class="nt">--name</span> rancher <span class="nt">--role</span><span class="o">=</span>Owner
+<span class="o">{</span>
+<span class="s2">"appId"</span>: <span class="s2">"xxxxxxx"</span>,
+<span class="s2">"displayName"</span>: <span class="s2">"rancher"</span>,
+<span class="s2">"name"</span>: <span class="s2">"http://rancher"</span>,
+<span class="s2">"password"</span>: <span class="s2">"xxxx"</span>,
+<span class="s2">"tenant"</span>: <span class="s2">"xxxxx"</span>
+<span class="o">}</span>
+</pre></div></div></li>
+<li>
+<p><code>--azure-location</code> と <code>--azure-size</code> - このへんを参照</p>
+
+<ul>
+<li><a href="https://docs.microsoft.com/ja-jp/azure/virtual-machines/windows/sizes?toc=%2Fazure%2Fvirtual-machines%2Fwindows%2Ftoc.json" class="autolink" rel="nofollow noopener" target="_blank">https://docs.microsoft.com/ja-jp/azure/virtual-machines/windows/sizes?toc=%2Fazure%2Fvirtual-machines%2Fwindows%2Ftoc.json</a></li>
+<li><a href="https://docs.microsoft.com/ja-jp/azure/virtual-machines/windows/sizes-general" class="autolink" rel="nofollow noopener" target="_blank">https://docs.microsoft.com/ja-jp/azure/virtual-machines/windows/sizes-general</a></li>
+<li><a href="https://docs.microsoft.com/ja-jp/azure/virtual-machines/windows/sizes-gpu" class="autolink" rel="nofollow noopener" target="_blank">https://docs.microsoft.com/ja-jp/azure/virtual-machines/windows/sizes-gpu</a></li>
+<li><a href="https://docs.microsoft.com/ja-jp/azure/virtual-machines/windows/sizes-compute" class="autolink" rel="nofollow noopener" target="_blank">https://docs.microsoft.com/ja-jp/azure/virtual-machines/windows/sizes-compute</a></li>
+</ul>
+</li>
+<li><p><code>--azure-image</code> - nvidia-docker 使いたい場合は基本的にホストマシンは ubuntu16 固定で</p></li>
+<li><p><code>--azure-resource-group</code> - 時節に応じて適切な名前を</p></li>
+<li><p><code>--engine-install-url</code> - docker と nvidia-docker をインストールする添付のスクリプト。</p></li>
+</ul>
+
+<h3>
+<span id="rancher-に-nvidia-docker-ホストを追加したい" class="fragment"></span><a href="#rancher-%E3%81%AB-nvidia-docker-%E3%83%9B%E3%82%B9%E3%83%88%E3%82%92%E8%BF%BD%E5%8A%A0%E3%81%97%E3%81%9F%E3%81%84"><i class="fa fa-link"></i></a>rancher に nvidia-docker ホストを追加したい</h3>
+
+<p>rancher 1.x の GUI では現状 azure の NC|NV GPU インスタンスを選択することができない。<br>
+そこで rancher-cli を使う。</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>rancher host create <span class="se">\</span>
+  <span class="nt">--name</span> test-azure-nvidia-host <span class="se">\</span>
+  <span class="nt">--azure-open-port</span><span class="o">=</span>500/udp <span class="se">\</span>
+  <span class="nt">--azure-open-port</span><span class="o">=</span>4500/udp <span class="se">\</span>
+  <span class="nt">--driver</span> azure <span class="se">\</span>
+  <span class="nt">--azure-environment</span> AzurePublicCloud <span class="se">\</span>
+  <span class="nt">--azure-location</span> westus2 <span class="se">\</span>
+  <span class="nt">--azure-subscription-id</span> xx-xx-xx-xx-xx <span class="se">\</span>
+  <span class="nt">--azure-client-id</span> xx-xx-xx-xx-xx <span class="se">\</span>
+  <span class="nt">--azure-client-secret</span> xx-xx-xx-xx-xx <span class="se">\</span>
+  <span class="nt">--azure-image</span> canonical:UbuntuServer:16.04.0-LTS:latest <span class="se">\</span>
+  <span class="nt">--azure-size</span> Standard_NC6 <span class="se">\</span>
+  <span class="nt">--azure-resource-group</span> rancher <span class="se">\</span>
+  <span class="nt">--azure-availability-set</span> docker-machine <span class="se">\</span>
+  <span class="nt">--engine-install-url</span> https://gist.githubusercontent.com/legokichi/xxxxx/raw/nvidia-docker-install.sh
+</pre></div></div>
+
+<p>インストールスクリプトは以下のように書く。</p>
+
+<div class="code-frame" data-lang="sh">
+<div class="code-lang"><span class="bold">nvidia-docker-install.sh</span></div>
+<div class="highlight"><pre><span class="c">#!/bin/bash</span>
+<span class="nb">set</span> <span class="nt">-eu</span>
+
+<span class="c"># nvidia-driver</span>
+<span class="nb">sudo </span>apt-key adv <span class="nt">--fetch-keys</span> http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/7fa2af80.pub
+<span class="nb">sudo </span>sh <span class="nt">-c</span> <span class="s1">'echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64 /" &gt; /etc/apt/sources.list.d/cuda.list'</span>
+<span class="nb">sudo </span>apt-get update <span class="nt">-y</span>
+<span class="nb">sudo </span>apt-cache madison cuda-drivers
+<span class="nb">sudo </span>apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> cuda-drivers<span class="o">=</span>384.81-1
+
+<span class="c"># docker</span>
+<span class="nb">sudo </span>apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="se">\</span>
+  apt-transport-https <span class="se">\</span>
+  ca-certificates <span class="se">\</span>
+  curl <span class="se">\</span>
+  software-properties-common
+curl <span class="nt">-fsSL</span> https://download.docker.com/linux/ubuntu/gpg | <span class="nb">sudo </span>apt-key add -
+<span class="nb">sudo </span>add-apt-repository <span class="se">\</span>
+   <span class="s2">"deb [arch=amd64] https://download.docker.com/linux/ubuntu </span><span class="se">\</span><span class="s2">
+   </span><span class="si">$(</span>lsb_release <span class="nt">-cs</span><span class="si">)</span><span class="s2"> </span><span class="se">\</span><span class="s2">
+   stable"</span>
+<span class="nb">sudo </span>apt-get update <span class="nt">-y</span>
+<span class="nb">sudo </span>apt-cache madison docker-ce
+<span class="nb">sudo </span>apt-get <span class="nb">install</span> <span class="nt">-y</span> docker-ce<span class="o">=</span>17.06.2~ce-0~ubuntu
+
+<span class="c"># nvidia-docker</span>
+wget <span class="nt">-P</span> /tmp https://github.com/NVIDIA/nvidia-docker/releases/download/v1.0.1/nvidia-docker_1.0.1-1_amd64.deb
+<span class="nb">sudo </span>dpkg <span class="nt">-i</span> /tmp/nvidia-docker<span class="k">*</span>.deb <span class="o">&amp;&amp;</span> <span class="nb">rm</span> /tmp/nvidia-docker<span class="k">*</span>.deb
+
+<span class="c"># driver hack</span>
+<span class="nb">export </span><span class="nv">NVIDIA_VERSION</span><span class="o">=</span><span class="sb">`</span>nvidia-smi <span class="nt">--query</span> | <span class="nb">grep</span> <span class="s2">"Driver Version"</span> | <span class="nb">head</span> <span class="nt">-n</span> 1 | <span class="nb">cut</span> <span class="nt">-d</span> <span class="s1">':'</span> <span class="nt">-f</span> 2 | <span class="nb">awk</span> <span class="s1">'{$1=$1;print}'</span><span class="sb">`</span>
+<span class="nb">sudo echo</span> <span class="nv">$NVIDIA_VERSION</span> | <span class="nb">sudo tee</span> /opt/check
+
+<span class="nb">sudo </span>docker volume create <span class="nt">--name</span><span class="o">=</span>nvidia_driver_<span class="nv">$NVIDIA_VERSION</span> <span class="nt">-d</span> nvidia-docker
+<span class="nb">export </span><span class="nv">NVIDIA_DRIVER_DIR</span><span class="o">=</span><span class="sb">`</span><span class="nb">sudo </span>docker volume inspect <span class="nt">-f</span> <span class="s2">"{{ .Mountpoint }}"</span> nvidia_driver_<span class="k">${</span><span class="nv">NVIDIA_VERSION</span><span class="k">}</span><span class="sb">`</span>
+<span class="nb">sudo echo</span> <span class="nv">$NVIDIA_DRIVER_DIR</span> | <span class="nb">sudo tee</span> <span class="nt">-a</span> /opt/check
+<span class="nb">sudo echo</span> <span class="s2">"</span><span class="sb">`</span><span class="nb">sudo ls</span> <span class="nt">-la</span> <span class="nv">$NVIDIA_DRIVER_DIR</span><span class="sb">`</span><span class="s2">"</span> | <span class="nb">sudo tee</span> <span class="nt">-a</span> /opt/check
+
+<span class="nb">sudo mkdir</span> <span class="nt">-p</span> /usr/local/nvidia/
+<span class="nb">sudo cp</span> <span class="nt">-ra</span> <span class="nv">$NVIDIA_DRIVER_DIR</span>/<span class="k">*</span> /usr/local/nvidia/ 2&gt;&amp;1 | <span class="nb">sudo tee</span> <span class="nt">-a</span> /opt/check
+</pre></div>
+</div>
+
+<p>nvidia-volume によるドライバのバージョン管理ではボリューム名にドライバのバージョン番号が入ってしまうため docker-compose ファイルを書くのが面倒になる。<br>
+そこでホストの <code>/usr/local/nvidia/</code> にすべてのドライバを入れてしまい、nvidia-dockerの管理外のボリュームを作成している。</p>
+
+<p>docker-compose ファイルにドライバのバージョン番号を書かなくても良くなる。</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>version: <span class="s1">'2'</span>
+services:
+  nvidia-smi:
+    image: nvidia/cuda:8.0-runtime
+    <span class="nb">command</span>: /usr/bin/env nvidia-smi <span class="nt">-l</span>
+    devices:
+    - /dev/nvidia0
+    - /dev/nvidiactl
+    - /dev/nvidia-uvm
+    - /dev/nvidia-uvm-tools
+    volumes:
+    - /usr/local/nvidia/:/usr/local/nvidia:ro
+</pre></div></div>
+
+<p>インストールスクリプトの docker と cuda-driver のバージョンを調べるには下記のようにする</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nv">$ </span>apt-cache madison cuda-drivers
+cuda-drivers |   384.81-1 | http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64  Packages
+cuda-drivers |   384.66-1 | http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64  Packages
+cuda-drivers |   375.88-1 | http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64  Packages
+cuda-drivers |   375.74-1 | http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64  Packages
+cuda-drivers |   375.51-1 | http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64  Packages
+cuda-drivers |   375.26-1 | http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64  Packages
+cuda-drivers |   367.48-1 | http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64  Packages
+<span class="nv">$ </span>apt-cache madison docker-ce
+docker-ce | 17.09.0~ce-0~ubuntu | https://download.docker.com/linux/ubuntu xenial/stable amd64 Packages
+docker-ce | 17.06.2~ce-0~ubuntu | https://download.docker.com/linux/ubuntu xenial/stable amd64 Packages
+docker-ce | 17.06.1~ce-0~ubuntu | https://download.docker.com/linux/ubuntu xenial/stable amd64 Packages
+docker-ce | 17.06.0~ce-0~ubuntu | https://download.docker.com/linux/ubuntu xenial/stable amd64 Packages
+docker-ce | 17.03.2~ce-0~ubuntu-xenial | https://download.docker.com/linux/ubuntu xenial/stable amd64 Packages
+docker-ce | 17.03.1~ce-0~ubuntu-xenial | https://download.docker.com/linux/ubuntu xenial/stable amd64 Packages
+docker-ce | 17.03.0~ce-0~ubuntu-xenial | https://download.docker.com/linux/ubuntu xenial/stable amd64 Packages
+</pre></div></div>
+
+<h4>
+<span id="rancher-ホスト用-nvidia-docker-入り-ami-の作成" class="fragment"></span><a href="#rancher-%E3%83%9B%E3%82%B9%E3%83%88%E7%94%A8-nvidia-docker-%E5%85%A5%E3%82%8A-ami-%E3%81%AE%E4%BD%9C%E6%88%90"><i class="fa fa-link"></i></a>rancher ホスト用 nvidia-docker 入り AMI の作成</h4>
+
+<p><code>g3.4xlarge</code> GPU インスタンス環境で <code>ubuntu/images/hvm-ssd/ubuntu-xenial-16.04-amd64-server-20170721 (ami-ea4eae8c)</code> をベースにインスタンスを立てて、 NVIDIA ドライバと docker と nvidia-docker を入れる。</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nb">sudo </span>apt-get update <span class="nt">-y</span>
+<span class="nb">sudo </span>apt <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> ubuntu-drivers-common
+ubuntu-drivers list
+<span class="nb">sudo </span>apt <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> nvidia-375 nvidia-modprobe
+<span class="nb">sudo </span>apt <span class="nb">install</span> <span class="nt">-y</span> libcuda1-375
+curl <span class="nt">-fsSL</span> https://download.docker.com/linux/ubuntu/gpg | <span class="nb">sudo </span>apt-key add -
+<span class="nb">sudo </span>add-apt-repository <span class="se">\</span>
+   <span class="s2">"deb [arch=amd64] https://download.docker.com/linux/ubuntu </span><span class="se">\</span><span class="s2">
+   </span><span class="si">$(</span>lsb_release <span class="nt">-cs</span><span class="si">)</span><span class="s2"> </span><span class="se">\</span><span class="s2">
+   stable"</span>
+<span class="nb">sudo </span>apt-get update <span class="nt">-y</span>
+<span class="nb">sudo </span>apt-get <span class="nb">install</span> <span class="nt">-y</span> docker-ce
+wget <span class="nt">-P</span> /tmp https://github.com/NVIDIA/nvidia-docker/releases/download/v1.0.1/nvidia-docker_1.0.1-1_amd64.deb
+<span class="nb">sudo </span>dpkg <span class="nt">-i</span> /tmp/nvidia-docker<span class="k">*</span>.deb <span class="o">&amp;&amp;</span> <span class="nb">rm</span> /tmp/nvidia-docker<span class="k">*</span>.deb
+<span class="c"># sudo nvidia-docker run --rm nvidia/cuda:8.0-runtime nvidia-smi</span>
+<span class="nb">sudo </span>apt update <span class="nt">-y</span>
+<span class="nb">sudo </span>apt upgrade <span class="nt">-y</span>
+<span class="nb">sudo </span>apt autoremove <span class="nt">-y</span>
+<span class="nb">sudo </span>apt autoclean <span class="nt">-y</span>
+<span class="nb">sudo rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/
+</pre></div></div>
+
+<p>インスタンスを停止し、 AWS コンソールから AMI を作成する。</p>
+
+<h4>
+<span id="azure-cli-で仮想マシンのディスクイメージから-azure-上で-rancher-ホストを起動する" class="fragment"></span><a href="#azure-cli-%E3%81%A7%E4%BB%AE%E6%83%B3%E3%83%9E%E3%82%B7%E3%83%B3%E3%81%AE%E3%83%87%E3%82%A3%E3%82%B9%E3%82%AF%E3%82%A4%E3%83%A1%E3%83%BC%E3%82%B8%E3%81%8B%E3%82%89-azure-%E4%B8%8A%E3%81%A7-rancher-%E3%83%9B%E3%82%B9%E3%83%88%E3%82%92%E8%B5%B7%E5%8B%95%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>azure-cli で仮想マシンのディスクイメージから azure 上で rancher ホストを起動する</h4>
+
+<ul>
+<li>azure-cli - <a href="https://docs.microsoft.com/en-us/cli/azure/vm?view=azure-cli-latest" class="autolink" rel="nofollow noopener" target="_blank">https://docs.microsoft.com/en-us/cli/azure/vm?view=azure-cli-latest</a>
+</li>
+</ul>
+
+<p>インスタンス作成</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nb">time </span>az vm create <span class="se">\</span>
+  <span class="nt">--resource-group</span> rancher-gpu-host-vmss <span class="se">\</span>
+  <span class="nt">--name</span> rancher-gpu <span class="se">\</span>
+  <span class="nt">--location</span> westus2 <span class="se">\</span>
+  <span class="nt">--size</span> Standard_NC6 <span class="se">\</span>
+  <span class="nt">--image</span> /subscriptions/xxx/resourceGroups/rancher-gpu-host-vmss/providers/Microsoft.Compute/images/xxx <span class="se">\</span>
+  <span class="nt">--authentication-type</span> password <span class="se">\</span>
+  <span class="nt">--admin-username</span> ubuntu <span class="se">\</span>
+  <span class="nt">--admin-password</span> xxxx
+</pre></div></div>
+
+<p>azure vm 拡張機能セット用インストールスクリプトで rancher-agent を起動する</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>az vm extension <span class="nb">set</span> <span class="se">\</span>
+  <span class="nt">--resource-group</span> rancher-gpu-host-vmss <span class="se">\</span>
+  <span class="nt">--vm-name</span> rancher-gpu <span class="se">\</span>
+  <span class="nt">--name</span> CustomScript <span class="se">\</span>
+  <span class="nt">--publisher</span> Microsoft.Azure.Extensions <span class="se">\</span>
+  <span class="nt">--version</span> 2.0 <span class="se">\</span>
+  <span class="nt">--settings</span> <span class="s1">'{"fileUris": ["https://gist.githubusercontent.com/legokichi/xxx/raw/automate.sh"],"commandToExecute": "./automate.sh"}'</span>
+</pre></div></div>
+
+<p>rancher ホストの起動スクリプトに rancherサーバの URL を引数で設定しておく。</p>
+
+<div class="code-frame" data-lang="sh">
+<div class="code-lang"><span class="bold">automate.sh</span></div>
+<div class="highlight"><pre><span class="nb">sudo </span>docker run <span class="nt">--rm</span> <span class="nt">--privileged</span> <span class="nt">-v</span> /var/run/docker.sock:/var/run/docker.sock <span class="nt">-v</span> /var/lib/rancher:/var/lib/rancher rancher/agent:v1.2.6 http://<span class="k">***</span>
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="sh">
+<div class="code-lang"><span class="bold">nvidia-docker-install.sh</span></div>
+<div class="highlight"><pre><span class="c">#!/bin/bash</span>
+<span class="nb">set</span> <span class="nt">-eu</span>
+
+<span class="c"># nvidia-driver</span>
+<span class="nb">sudo </span>apt-key adv <span class="nt">--fetch-keys</span> http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/7fa2af80.pub
+<span class="nb">sudo </span>sh <span class="nt">-c</span> <span class="s1">'echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64 /" &gt; /etc/apt/sources.list.d/cuda.list'</span>
+<span class="nb">sudo </span>apt-get update <span class="nt">-y</span>
+<span class="nb">sudo </span>apt-cache madison cuda-drivers
+<span class="nb">sudo </span>apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> cuda-drivers<span class="o">=</span>384.81-1
+
+<span class="c"># docker</span>
+<span class="nb">sudo </span>apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="se">\</span>
+  apt-transport-https <span class="se">\</span>
+  ca-certificates <span class="se">\</span>
+  curl <span class="se">\</span>
+  software-properties-common
+curl <span class="nt">-fsSL</span> https://download.docker.com/linux/ubuntu/gpg | <span class="nb">sudo </span>apt-key add -
+<span class="nb">sudo </span>add-apt-repository <span class="se">\</span>
+   <span class="s2">"deb [arch=amd64] https://download.docker.com/linux/ubuntu </span><span class="se">\</span><span class="s2">
+   </span><span class="si">$(</span>lsb_release <span class="nt">-cs</span><span class="si">)</span><span class="s2"> </span><span class="se">\</span><span class="s2">
+   stable"</span>
+<span class="nb">sudo </span>apt-get update <span class="nt">-y</span>
+<span class="nb">sudo </span>apt-cache madison docker-ce
+<span class="nb">sudo </span>apt-get <span class="nb">install</span> <span class="nt">-y</span> docker-ce<span class="o">=</span>17.06.2~ce-0~ubuntu
+
+<span class="c"># nvidia-docker</span>
+wget <span class="nt">-P</span> /tmp https://github.com/NVIDIA/nvidia-docker/releases/download/v1.0.1/nvidia-docker_1.0.1-1_amd64.deb
+<span class="nb">sudo </span>dpkg <span class="nt">-i</span> /tmp/nvidia-docker<span class="k">*</span>.deb <span class="o">&amp;&amp;</span> <span class="nb">rm</span> /tmp/nvidia-docker<span class="k">*</span>.deb
+
+<span class="c"># driver hack</span>
+<span class="nb">export </span><span class="nv">NVIDIA_VERSION</span><span class="o">=</span><span class="sb">`</span>nvidia-smi <span class="nt">--query</span> | <span class="nb">grep</span> <span class="s2">"Driver Version"</span> | <span class="nb">head</span> <span class="nt">-n</span> 1 | <span class="nb">cut</span> <span class="nt">-d</span> <span class="s1">':'</span> <span class="nt">-f</span> 2 | <span class="nb">awk</span> <span class="s1">'{$1=$1;print}'</span><span class="sb">`</span>
+<span class="nb">sudo echo</span> <span class="nv">$NVIDIA_VERSION</span> | <span class="nb">sudo tee</span> /opt/check
+
+<span class="nb">sudo </span>docker volume create <span class="nt">--name</span><span class="o">=</span>nvidia_driver_<span class="nv">$NVIDIA_VERSION</span> <span class="nt">-d</span> nvidia-docker
+<span class="nb">export </span><span class="nv">NVIDIA_DRIVER_DIR</span><span class="o">=</span><span class="sb">`</span><span class="nb">sudo </span>docker volume inspect <span class="nt">-f</span> <span class="s2">"{{ .Mountpoint }}"</span> nvidia_driver_<span class="k">${</span><span class="nv">NVIDIA_VERSION</span><span class="k">}</span><span class="sb">`</span>
+<span class="nb">sudo echo</span> <span class="nv">$NVIDIA_DRIVER_DIR</span> | <span class="nb">sudo tee</span> <span class="nt">-a</span> /opt/check
+<span class="nb">sudo echo</span> <span class="s2">"</span><span class="sb">`</span><span class="nb">sudo ls</span> <span class="nt">-la</span> <span class="nv">$NVIDIA_DRIVER_DIR</span><span class="sb">`</span><span class="s2">"</span> | <span class="nb">sudo tee</span> <span class="nt">-a</span> /opt/check
+
+<span class="nb">sudo mkdir</span> <span class="nt">-p</span> /usr/local/nvidia/
+<span class="nb">sudo cp</span> <span class="nt">-ra</span> <span class="nv">$NVIDIA_DRIVER_DIR</span>/<span class="k">*</span> /usr/local/nvidia/ 2&gt;&amp;1 | <span class="nb">sudo tee</span> <span class="nt">-a</span> /opt/check
+</pre></div>
+</div>
+
+<h5>
+<span id="azure-vmss-の場合" class="fragment"></span><a href="#azure-vmss-%E3%81%AE%E5%A0%B4%E5%90%88"><i class="fa fa-link"></i></a>azure VMSS の場合</h5>
+
+<ul>
+<li>azure-cli vmss のドキュメント - <a href="https://docs.microsoft.com/en-us/cli/azure/vmss?view=azure-cli-latest" class="autolink" rel="nofollow noopener" target="_blank">https://docs.microsoft.com/en-us/cli/azure/vmss?view=azure-cli-latest</a>
+</li>
+<li>リソース グループの作成</li>
+</ul>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>az group create <span class="se">\</span>
+  <span class="nt">--location</span> westus2 <span class="se">\</span>
+  <span class="nt">--name</span> rancher-gpu-host-vmss
+</pre></div></div>
+
+<ul>
+<li>カスタム VM イメージの構築 - <a href="https://docs.microsoft.com/ja-jp/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-deploy-app#build-a-custom-vm-image" class="autolink" rel="nofollow noopener" target="_blank">https://docs.microsoft.com/ja-jp/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-deploy-app#build-a-custom-vm-image</a>
+</li>
+<li>スケールセットの作成 - <a href="https://docs.microsoft.com/ja-jp/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-create#create-from-azure-cli" class="autolink" rel="nofollow noopener" target="_blank">https://docs.microsoft.com/ja-jp/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-create#create-from-azure-cli</a>
+</li>
+</ul>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>az vmss create <span class="se">\</span>
+  <span class="nt">--resource-group</span> rancher-gpu-host-vmss <span class="se">\</span>
+  <span class="nt">--name</span> rancher-gpu <span class="se">\</span>
+  <span class="nt">--image</span> /subscriptions/xxxx/resourceGroups/rancher-gpu-host-vmss/providers/Microsoft.Compute/images/xxxx-xxxx <span class="se">\</span>
+  <span class="nt">--authentication-type</span> password <span class="se">\</span>
+  <span class="nt">--admin-username</span> ubuntu <span class="se">\</span>
+  <span class="nt">--admin-password</span> xxxx
+</pre></div></div>
+
+<ul>
+<li>情報表示</li>
+</ul>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>az vmss list-instance-connection-info <span class="se">\</span>
+  <span class="nt">--resource-group</span> rancher-gpu-host-vmss <span class="se">\</span>
+  <span class="nt">--name</span> rancher-gpu
+</pre></div></div>
+
+<ul>
+<li>カスタム スクリプト拡張機能を使用してアプリケーションをインストールする - <a href="https://docs.microsoft.com/ja-jp/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-deploy-app#already-provisioned" class="autolink" rel="nofollow noopener" target="_blank">https://docs.microsoft.com/ja-jp/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-deploy-app#already-provisioned</a>
+</li>
+</ul>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>az vmss extension <span class="nb">set</span> <span class="se">\</span>
+  <span class="nt">--resource-group</span> rancher-gpu-host-vmss <span class="se">\</span>
+  <span class="nt">--vmss-name</span> rancher-gpu <span class="se">\</span>
+  <span class="nt">--name</span> CustomScript <span class="se">\</span>
+  <span class="nt">--publisher</span> Microsoft.Azure.Extensions <span class="se">\</span>
+  <span class="nt">--version</span> 2.0 <span class="se">\</span>
+  <span class="nt">--settings</span> <span class="s1">'{"fileUris": ["https://gist.githubusercontent.com/legokichi/xxxx/raw/automate.sh"],"commandToExecute": "./automate.sh"}'</span>
+</pre></div></div>
+
+<ul>
+<li>詳細情報</li>
+</ul>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>az vmss extension show <span class="se">\</span>
+  <span class="nt">--resource-group</span> rancher-gpu-host-vmss <span class="se">\</span>
+  <span class="nt">--vmss-name</span> rancher-gpu <span class="se">\</span>
+  <span class="nt">--name</span> CustomScript
+</pre></div></div>
+
+<h4>
+<span id="rancher-server-で-gpu-ホストを追加する" class="fragment"></span><a href="#rancher-server-%E3%81%A7-gpu-%E3%83%9B%E3%82%B9%E3%83%88%E3%82%92%E8%BF%BD%E5%8A%A0%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>rancher server で GPU ホストを追加する</h4>
+
+<p>rancher server の Add Host から AWS を選択する。region 入力欄が作成した AMI のリージョンと一致するように注意する。</p>
+
+<p>GPU インスタンスを選択し、 SSH User を <code>ubuntu</code> に設定する（ベースイメージに<code>ubuntu-xenial-16.04-amd64-server-20170721</code>を選択したため）。</p>
+
+<p>ボリュームドライバに <code>nvidia-docker</code> と入力し、デバイスに <code>/dev/nvidia0</code>, <code>/dev/nvidiactl</code>, <code>/dev/nvidia-uvm</code> を渡す。<br>
+ここでボリュームドライバを指定しているので <code>docker volume create</code> はしなくて良い。</p>
+
+<p>プロビジョニングに成功して「ホストの docker のバージョンが違います」と言われても気にしない。</p>
+
+<h2>
+<span id="小技" class="fragment"></span><a href="#%E5%B0%8F%E6%8A%80"><i class="fa fa-link"></i></a>小技</h2>
+
+<h3>
+<span id="ホスト-gpu-の確認" class="fragment"></span><a href="#%E3%83%9B%E3%82%B9%E3%83%88-gpu-%E3%81%AE%E7%A2%BA%E8%AA%8D"><i class="fa fa-link"></i></a>ホスト GPU の確認</h3>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>lspci <span class="nt">-vnn</span> | <span class="nb">grep</span> <span class="nt">-i</span> VGA <span class="nt">-A</span> 12
+<span class="go">0000:00:08.0 VGA compatible controller [0300]: Microsoft Corporation Hyper-V virtual VGA [1414:5353] (prog-if 00 [VGA controller])
+    Flags: bus master, fast devsel, latency 0, IRQ 11
+    Memory at f8000000 (32-bit, non-prefetchable) [size=64M]
+    [virtual] Expansion ROM at 000c0000 [disabled] [size=128K]
+    Kernel driver in use: hyperv_fb
+    Kernel modules: hyperv_fb
+
+61f0:00:00.0 3D controller [0302]: NVIDIA Corporation GK210GL [Tesla K80] [10de:102d] (rev a1)
+    Subsystem: NVIDIA Corporation GK210GL [Tesla K80] [10de:106c]
+    Flags: bus master, fast devsel, latency 0, IRQ 24
+    Memory at 22000000 (32-bit, non-prefetchable) [size=16M]
+    Memory at 1800000000 (64-bit, prefetchable) [size=16G]
+    Memory at 1c00000000 (64-bit, prefetchable) [size=32M]
+</span></pre></div></div>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>lspci | <span class="nb">grep</span> <span class="nt">-i</span> nvidia
+<span class="go">61f0:00:00.0 3D controller: NVIDIA Corporation GK210GL [Tesla K80] (rev a1)
+b63b:00:00.0 3D controller: NVIDIA Corporation GK210GL [Tesla K80] (rev a1)
+</span></pre></div></div>
+
+<h3>
+<span id="ホストのドライバの確認" class="fragment"></span><a href="#%E3%83%9B%E3%82%B9%E3%83%88%E3%81%AE%E3%83%89%E3%83%A9%E3%82%A4%E3%83%90%E3%81%AE%E7%A2%BA%E8%AA%8D"><i class="fa fa-link"></i></a>ホストのドライバの確認</h3>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> /proc/driver/nvidia/version
+<span class="go">NVRM version: NVIDIA UNIX x86_64 Kernel Module  375.66  Mon May  1 15:29:16 PDT 2017
+GCC version:  gcc version 5.4.0 20160609 (Ubuntu 5.4.0-6ubuntu1~16.04.5) 
+</span></pre></div></div>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>dpkg <span class="nt">-l</span> | <span class="nb">head</span> <span class="nt">-n</span> 5<span class="p">;</span> dpkg <span class="nt">-l</span> | <span class="nb">grep </span>nvidia
+<span class="go">Desired=Unknown/Install/Remove/Purge/Hold
+| Status=Not/Inst/Conf-files/Unpacked/halF-conf/Half-inst/trig-aWait/Trig-pend
+|/ Err?=(none)/Reinst-required (Status,Err: uppercase=bad)
+||/ Name                                  Version                                    Architecture Description
++++-=====================================-==========================================-============-===============================
+ii  nvidia-375                            375.66-0ubuntu0.16.04.1                    amd64        NVIDIA binary driver - version 375.66
+ii  nvidia-docker                         1.0.1-1                                    amd64        NVIDIA Docker container tools
+ii  nvidia-modprobe                       361.28-1                                   amd64        utility to load NVIDIA kernel modules and create device nodes
+ii  nvidia-opencl-icd-375                 375.66-0ubuntu0.16.04.1                    amd64        NVIDIA OpenCL ICD
+ii  nvidia-prime                          0.8.2                                      amd64        Tools to enable NVIDIA's Prime
+ii  nvidia-settings                       361.42-0ubuntu1                            amd64        Tool for configuring the NVIDIA graphics driver
+</span></pre></div></div>
+
+<h3>
+<span id="ホストの利用可能なドライバの一覧" class="fragment"></span><a href="#%E3%83%9B%E3%82%B9%E3%83%88%E3%81%AE%E5%88%A9%E7%94%A8%E5%8F%AF%E8%83%BD%E3%81%AA%E3%83%89%E3%83%A9%E3%82%A4%E3%83%90%E3%81%AE%E4%B8%80%E8%A6%A7"><i class="fa fa-link"></i></a>ホストの利用可能なドライバの一覧</h3>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>ubuntu-drivers devices
+<span class="go">== /sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A03:00/device:07/VMBUS:01/22668ee3-15dd-4b02-990b-ba398e1c43cf/pci61f0:00/61f0:00:00.0 ==
+modalias : pci:v000010DEd0000102Dsv000010DEsd0000106Cbc03sc02i00
+vendor   : NVIDIA Corporation
+model    : GK210GL [Tesla K80]
+driver   : nvidia-375 - distro non-free recommended
+driver   : xserver-xorg-video-nouveau - distro free builtin
+
+== cpu-microcode.py ==
+driver   : intel-microcode - distro non-free
+</span></pre></div></div>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>ubuntu-drivers list
+<span class="go">intel-microcode
+nvidia-375
+</span></pre></div></div>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>apt-cache search nvidia-3
+<span class="go">nvidia-304-dev - NVIDIA binary Xorg driver development files
+nvidia-331 - Transitional package for nvidia-331
+nvidia-331-dev - Transitional package for nvidia-340-dev
+nvidia-331-updates - Transitional package for nvidia-340
+nvidia-331-updates-dev - Transitional package for nvidia-340-dev
+nvidia-331-updates-uvm - Transitional package for nvidia-340
+nvidia-331-uvm - Transitional package for nvidia-340
+nvidia-340-dev - NVIDIA binary Xorg driver development files
+nvidia-340-updates - Transitional package for nvidia-340
+nvidia-340-updates-dev - Transitional package for nvidia-340-dev
+nvidia-340-updates-uvm - Transitional package for nvidia-340-updates
+nvidia-340-uvm - Transitional package for nvidia-340
+nvidia-346 - Transitional package for nvidia-346
+nvidia-346-dev - Transitional package for nvidia-352-dev
+nvidia-346-updates - Transitional package for nvidia-346-updates
+nvidia-346-updates-dev - Transitional package for nvidia-352-updates-dev
+nvidia-352 - Transitional package for nvidia-361
+nvidia-352-dev - Transitional package for nvidia-361-dev
+nvidia-352-updates - Transitional package for nvidia-361
+nvidia-352-updates-dev - Transitional package for nvidia-361-dev
+nvidia-361-updates - Transitional package for nvidia-361
+nvidia-361-updates-dev - Transitional package for nvidia-361-dev
+nvidia-304 - NVIDIA legacy binary driver - version 304.135
+nvidia-304-updates - Transitional package for nvidia-304
+nvidia-304-updates-dev - Transitional package for nvidia-304-dev
+nvidia-340 - NVIDIA binary driver - version 340.102
+nvidia-361 - Transitional package for nvidia-367
+nvidia-361-dev - Transitional package for nvidia-367-dev
+nvidia-367 - Transitional package for nvidia-375
+nvidia-367-dev - Transitional package for nvidia-375-dev
+nvidia-375 - NVIDIA binary driver - version 375.66
+nvidia-375-dev - NVIDIA binary Xorg driver development files
+</span></pre></div></div>
+
+<h3>
+<span id="ホスト-linux-の環境の確認" class="fragment"></span><a href="#%E3%83%9B%E3%82%B9%E3%83%88-linux-%E3%81%AE%E7%92%B0%E5%A2%83%E3%81%AE%E7%A2%BA%E8%AA%8D"><i class="fa fa-link"></i></a>ホスト Linux の環境の確認</h3>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span><span class="nb">uname</span> <span class="nt">-a</span>
+<span class="gp">Linux somehost 4.11.0-1013-azure #</span>13-Ubuntu SMP Mon Oct 2 17:59:06 UTC 2017 x86_64 x86_64 x86_64 GNU/Linux
+</pre></div></div>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> /etc/<span class="k">*</span>release
+<span class="go">DISTRIB_ID=Ubuntu
+DISTRIB_RELEASE=16.04
+DISTRIB_CODENAME=xenial
+DISTRIB_DESCRIPTION="Ubuntu 16.04.3 LTS"
+NAME="Ubuntu"
+VERSION="16.04.3 LTS (Xenial Xerus)"
+ID=ubuntu
+ID_LIKE=debian
+PRETTY_NAME="Ubuntu 16.04.3 LTS"
+VERSION_ID="16.04"
+HOME_URL="http://www.ubuntu.com/"
+SUPPORT_URL="http://help.ubuntu.com/"
+BUG_REPORT_URL="http://bugs.launchpad.net/ubuntu/"
+VERSION_CODENAME=xenial
+UBUNTU_CODENAME=xenial
+</span></pre></div></div>
+
+<h2>
+<span id="cuda-環境の確認" class="fragment"></span><a href="#cuda-%E7%92%B0%E5%A2%83%E3%81%AE%E7%A2%BA%E8%AA%8D"><i class="fa fa-link"></i></a>CUDA 環境の確認</h2>
+
+<p>ホストでは cuda をインストールしていない。</p>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>nvcc <span class="nt">-V</span>
+<span class="go">The program 'nvcc' is currently not installed. You can install it by typing:
+sudo apt install nvidia-cuda-toolkit
+</span></pre></div></div>
+
+<p>コンテナの中では確認できる。</p>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>docker run <span class="nt">--rm</span> <span class="nt">-ti</span> nvidia/cuda:8.0-cudnn5-devel-ubuntu16.04 nvcc <span class="nt">-V</span>
+<span class="go">nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2016 NVIDIA Corporation
+Built on Tue_Jan_10_13:22:03_CST_2017
+Cuda compilation tools, release 8.0, V8.0.61
+</span></pre></div></div>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>nvidia-docker run <span class="nt">--rm</span> <span class="nt">-ti</span> nvidia/cuda:8.0-cudnn5-devel-ubuntu16.04 bash <span class="nt">-c</span> <span class="s2">"dpkg -l | head -n 5; dpkg -l | grep cuda"</span>
+<span class="go">Desired=Unknown/Install/Remove/Purge/Hold
+| Status=Not/Inst/Conf-files/Unpacked/halF-conf/Half-inst/trig-aWait/Trig-pend
+|/ Err?=(none)/Reinst-required (Status,Err: uppercase=bad)
+||/ Name                        Version                       Architecture Description
++++-===========================-=============================-============-===============================================================================
+ii  cuda-command-line-tools-8-0 8.0.61-1                      amd64        CUDA command-line tools
+ii  cuda-core-8-0               8.0.61-1                      amd64        CUDA core tools
+ii  cuda-cublas-8-0             8.0.61.2-1                    amd64        CUBLAS native runtime libraries
+ii  cuda-cublas-dev-8-0         8.0.61.2-1                    amd64        CUBLAS native dev links, headers
+ii  cuda-cudart-8-0             8.0.61-1                      amd64        CUDA Runtime native Libraries
+ii  cuda-cudart-dev-8-0         8.0.61-1                      amd64        CUDA Runtime native dev links, headers
+ii  cuda-cufft-8-0              8.0.61-1                      amd64        CUFFT native runtime libraries
+ii  cuda-cufft-dev-8-0          8.0.61-1                      amd64        CUFFT native dev links, headers
+ii  cuda-curand-8-0             8.0.61-1                      amd64        CURAND native runtime libraries
+ii  cuda-curand-dev-8-0         8.0.61-1                      amd64        CURAND native dev links, headers
+ii  cuda-cusolver-8-0           8.0.61-1                      amd64        CUDA solver native runtime libraries
+ii  cuda-cusolver-dev-8-0       8.0.61-1                      amd64        CUDA solver native dev links, headers
+ii  cuda-cusparse-8-0           8.0.61-1                      amd64        CUSPARSE native runtime libraries
+ii  cuda-cusparse-dev-8-0       8.0.61-1                      amd64        CUSPARSE native dev links, headers
+ii  cuda-driver-dev-8-0         8.0.61-1                      amd64        CUDA Driver native dev stub library
+ii  cuda-license-8-0            8.0.61-1                      amd64        CUDA licenses
+ii  cuda-misc-headers-8-0       8.0.61-1                      amd64        CUDA miscellaneous headers
+ii  cuda-npp-8-0                8.0.61-1                      amd64        NPP native runtime libraries
+ii  cuda-npp-dev-8-0            8.0.61-1                      amd64        NPP native dev links, headers
+ii  cuda-nvgraph-8-0            8.0.61-1                      amd64        NVGRAPH native runtime libraries
+ii  cuda-nvgraph-dev-8-0        8.0.61-1                      amd64        NVGRAPH native dev links, headers
+ii  cuda-nvml-dev-8-0           8.0.61-1                      amd64        NVML native dev links, headers
+ii  cuda-nvrtc-8-0              8.0.61-1                      amd64        NVRTC native runtime libraries
+ii  cuda-nvrtc-dev-8-0          8.0.61-1                      amd64        NVRTC native dev links, headers
+ii  libcudnn5                   5.1.10-1+cuda8.0              amd64        cuDNN runtime libraries
+ii  libcudnn5-dev               5.1.10-1+cuda8.0              amd64        cuDNN development libraries and headers
+</span></pre></div></div>
+
+<h3>
+<span id="cpu-や-gpu-の使用率が見たい" class="fragment"></span><a href="#cpu-%E3%82%84-gpu-%E3%81%AE%E4%BD%BF%E7%94%A8%E7%8E%87%E3%81%8C%E8%A6%8B%E3%81%9F%E3%81%84"><i class="fa fa-link"></i></a>CPU や GPU の使用率が見たい</h3>
+
+<ul>
+<li>
+<code>nvidia-smi</code> - GPU 使用率と使用プロセスのモニタリング。ドライバについてくるのでホストでもコンテナ内でも使える</li>
+<li>
+<code>htop</code> - CPU、メモリ、プロセス一覧のモニタリング。 <code>apt install htop</code> でインストール。ホスト、コンテナ内両方で重宝する。</li>
+</ul>
+
+<h3>
+<span id="コンテナとホストの間でファイル転送" class="fragment"></span><a href="#%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E3%81%A8%E3%83%9B%E3%82%B9%E3%83%88%E3%81%AE%E9%96%93%E3%81%A7%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E8%BB%A2%E9%80%81"><i class="fa fa-link"></i></a>コンテナとホストの間でファイル転送</h3>
+
+<ul>
+<li>
+<code>docker cp foo.txt mycontainer:/foo.txt</code> ホスト-&gt;コンテナ</li>
+<li>
+<code>docker cp mycontainer:/foo.txt foo.txt</code> コンテナ-&gt;ホスト</li>
+</ul>
+
+<h3>
+<span id="マルチ-gpu-環境でコンテナに割り当てる-gpu-を制限したい" class="fragment"></span><a href="#%E3%83%9E%E3%83%AB%E3%83%81-gpu-%E7%92%B0%E5%A2%83%E3%81%A7%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E3%81%AB%E5%89%B2%E3%82%8A%E5%BD%93%E3%81%A6%E3%82%8B-gpu-%E3%82%92%E5%88%B6%E9%99%90%E3%81%97%E3%81%9F%E3%81%84"><i class="fa fa-link"></i></a>マルチ GPU 環境でコンテナに割り当てる GPU を制限したい</h3>
+
+<p>ホストやコンテナ内では、一般的には<br>
+<code>sh<br>
+env CUDA_VISIBLE_DEVICES=0 some_process<br>
+</code><br>
+としてプロセスから見える GPU を制限する。</p>
+
+<p>コンテナ内そのものからアクセスできる GPU 数を制限する場合は <code>NV_GPU</code> 環境変数を使う。</p>
+
+<p>ホスト環境は GPU ふたつ。</p>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>nvidia-smi <span class="nt">-L</span>
+<span class="go">GPU 0: Tesla K80 (UUID: GPU-ed0c67d5-5f87-af95-d4a3-c08805247462)
+GPU 1: Tesla K80 (UUID: GPU-e431f402-0937-964d-63bc-78f9d875928a)
+</span></pre></div></div>
+
+<p><code>NV_GPU=0</code> で コンテナに割り当てる GPU 数を決める。</p>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span><span class="nb">env </span><span class="nv">NV_GPU</span><span class="o">=</span><span class="s1">'0'</span> nvidia-docker run <span class="nt">--rm</span> <span class="nt">-ti</span> nvidia/cuda:8.0-cudnn5-devel-ubuntu16.04 nvidia-smi <span class="nt">-L</span>
+<span class="go">GPU 0: Tesla K80 (UUID: GPU-ed0c67d5-5f87-af95-d4a3-c08805247462)
+</span></pre></div></div>
+
+<p>参考</p>
+
+<ul>
+<li><a href="https://github.com/NVIDIA/nvidia-docker/wiki/nvidia-docker#gpu-isolation" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/NVIDIA/nvidia-docker/wiki/nvidia-docker#gpu-isolation</a></li>
+</ul>
+
+<h3>
+<span id="未使用のコンテナやイメージの削除" class="fragment"></span><a href="#%E6%9C%AA%E4%BD%BF%E7%94%A8%E3%81%AE%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E3%82%84%E3%82%A4%E3%83%A1%E3%83%BC%E3%82%B8%E3%81%AE%E5%89%8A%E9%99%A4"><i class="fa fa-link"></i></a>未使用のコンテナやイメージの削除</h3>
+
+<p>停止済みコンテナ削除</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>docker container prune
+</pre></div></div>
+
+<p>タグ無しイメージ削除</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>docker image prune
+</pre></div></div>
+
+<h3>
+<span id="docker-commit-で-作業後のコンテナをイメージに固める" class="fragment"></span><a href="#docker-commit-%E3%81%A7-%E4%BD%9C%E6%A5%AD%E5%BE%8C%E3%81%AE%E3%82%B3%E3%83%B3%E3%83%86%E3%83%8A%E3%82%92%E3%82%A4%E3%83%A1%E3%83%BC%E3%82%B8%E3%81%AB%E5%9B%BA%E3%82%81%E3%82%8B"><i class="fa fa-link"></i></a>docker commit で 作業後のコンテナをイメージに固める</h3>
+
+<ol>
+<li>CTRL-p+CTRL-q をコンソールで入力して、コンテナをdetachする</li>
+<li>
+<code>docker ps</code> で 今detachしたコンテナのIDを調べる</li>
+<li>
+<code>docker commit -m "comment" &lt;container id&gt; &lt;image name&gt;</code> で commit</li>
+<li>
+<code>docker images</code> で ID を確認</li>
+<li>
+<code>docker attach &lt;container id&gt;</code> で確認</li>
+</ol>
+
+<h3>
+<span id="docker-save-でイメージをシングルファイルに固める" class="fragment"></span><a href="#docker-save-%E3%81%A7%E3%82%A4%E3%83%A1%E3%83%BC%E3%82%B8%E3%82%92%E3%82%B7%E3%83%B3%E3%82%B0%E3%83%AB%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%81%AB%E5%9B%BA%E3%82%81%E3%82%8B"><i class="fa fa-link"></i></a>docker save でイメージをシングルファイルに固める</h3>
+
+<p>ファイルに保存</p>
+
+<div class="code-frame" data-lang="ssh"><div class="highlight"><pre>sudo docker save -o &lt;save image to file path&gt; &lt;image name&gt;
+</pre></div></div>
+
+<p>scp 等でイメージファイルを移動した後、ロード</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>sudo docker load -i &lt;path to image file&gt;
+</pre></div></div>

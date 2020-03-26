@@ -1,0 +1,40 @@
+
+<h1>
+<span id="clang-32bit-コンパイル-で-usrbinld-fatal-error-failed-to-allocate-memory" class="fragment"></span><a href="#clang-32bit-%E3%82%B3%E3%83%B3%E3%83%91%E3%82%A4%E3%83%AB-%E3%81%A7-usrbinld-fatal-error-failed-to-allocate-memory"><i class="fa fa-link"></i></a>clang 32bit コンパイル で /usr/bin/ld: fatal error: failed to allocate memory</h1>
+
+<h2>
+<span id="問題" class="fragment"></span><a href="#%E5%95%8F%E9%A1%8C"><i class="fa fa-link"></i></a>問題</h2>
+
+<p>ubuntu 14.04 32bit で <code>./emsdk install clang-incoming-32bit</code> しようとしたところ、<code>emsdk_portable/clang/fastcomp/build_incoming_32/bin/clang-3.9</code> のリンク時に <code>/usr/bin/ld: fatal error: failed to allocate memory</code> というエラーを吐いて止まった。</p>
+
+<h2>
+<span id="原因" class="fragment"></span><a href="#%E5%8E%9F%E5%9B%A0"><i class="fa fa-link"></i></a>原因</h2>
+
+<p>32bit OS では 4GB までしかメモリを使えないのに 32bit clang のコンパイルに 4GB 以上メモリ使っている。</p>
+
+<h2>
+<span id="解決策" class="fragment"></span><a href="#%E8%A7%A3%E6%B1%BA%E7%AD%96"><i class="fa fa-link"></i></a>解決策</h2>
+
+<p><code>ld</code> の <a href="https://linuxjm.osdn.jp/html/GNU_binutils/man1/ld.1.html%60" rel="nofollow noopener" target="_blank">-no-keep-memory</a> オプションを強制的に使わせるために ld　の代わりの shell script を書く。</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>mv /usr/bin/ld /usr/bin/ld.old
+echo '/usr/bin/ld.old --no-keep-memory $@' &gt; /usr/bin/ld
+chmod a+x /usr/bin/ld
+</pre></div></div>
+
+<p>これでリンクできた。</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>rm /usr/bin/ld
+mv /usr/bin/ld.old /usr/bin/ld
+</pre></div></div>
+
+<p>終わったら元に戻しておく。</p>
+
+<h2>
+<span id="参考" class="fragment"></span><a href="#%E5%8F%82%E8%80%83"><i class="fa fa-link"></i></a>参考</h2>
+
+<ul>
+<li><a href="http://stackoverflow.com/questions/33551473/ld-fatal-error-failed-to-allocate-memory" class="autolink" rel="nofollow noopener" target="_blank">http://stackoverflow.com/questions/33551473/ld-fatal-error-failed-to-allocate-memory</a></li>
+<li><a href="http://stackoverflow.com/questions/25197570/llvm-clang-compile-error-with-memory-exhausted" class="autolink" rel="nofollow noopener" target="_blank">http://stackoverflow.com/questions/25197570/llvm-clang-compile-error-with-memory-exhausted</a></li>
+<li><a href="https://linuxjm.osdn.jp/html/GNU_binutils/man1/ld.1.html" class="autolink" rel="nofollow noopener" target="_blank">https://linuxjm.osdn.jp/html/GNU_binutils/man1/ld.1.html</a></li>
+</ul>

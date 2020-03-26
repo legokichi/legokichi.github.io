@@ -1,0 +1,475 @@
+
+<h1>
+<span id="rust-の-proptest-の紹介" class="fragment"></span><a href="#rust-%E3%81%AE-proptest-%E3%81%AE%E7%B4%B9%E4%BB%8B"><i class="fa fa-link"></i></a>Rust の Proptest の紹介</h1>
+
+<p>この記事は <a href="https://qiita.com/advent-calendar/2018/property-based-testing">Property-Based Testing Advent Calendar 2018</a> の 13 日目の記事です。</p>
+
+<p>これ→ <a href="https://github.com/AltSysrq/proptest/" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/AltSysrq/proptest/</a></p>
+
+<p>型からテストを生成する quickcheck と違って具体的な値の範囲を設定できるのが特徴です。</p>
+
+<h2>
+<span id="0-から-9-の値の生成" class="fragment"></span><a href="#0-%E3%81%8B%E3%82%89-9-%E3%81%AE%E5%80%A4%E3%81%AE%E7%94%9F%E6%88%90"><i class="fa fa-link"></i></a>0 から 9 の値の生成</h2>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nd">#[macro_use]</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">proptest</span><span class="p">;</span>
+
+<span class="nd">proptest!</span> <span class="p">{</span>
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">test_addition</span><span class="p">(</span><span class="n">a</span> <span class="n">in</span> <span class="mi">0</span><span class="o">..</span><span class="mi">10</span><span class="p">,</span> <span class="n">b</span> <span class="n">in</span> <span class="mi">0</span><span class="o">..</span><span class="mi">10</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"a:{}, b:{}"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+        <span class="nd">prop_assert!</span><span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="n">b</span> <span class="o">&lt;=</span> <span class="mi">18</span><span class="p">);</span>
+        <span class="c">// a:1, b:8</span>
+        <span class="c">// a:9, b:0</span>
+        <span class="c">// a:5, b:4</span>
+        <span class="c">// a:5, b:1</span>
+        <span class="c">// a:8, b:5</span>
+        <span class="c">// ...</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="日付の生成" class="fragment"></span><a href="#%E6%97%A5%E4%BB%98%E3%81%AE%E7%94%9F%E6%88%90"><i class="fa fa-link"></i></a>日付の生成</h2>
+
+<p>例えば 西暦0年から 3000 年までの日付のテストケースを 10 個を生成するにはこう書きます。<br>
+値の型も合わせて書けます</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nd">proptest!</span> <span class="p">{</span>
+    <span class="c">// #[test] の前にテストの設定が書けます</span>
+    <span class="nd">#![proptest_config(ProptestConfig</span> <span class="err">{</span>
+        <span class="nd">cases:</span> <span class="mi">10</span><span class="nd">,</span>
+        <span class="err">..</span> <span class="nd">ProptestConfig::default()</span>
+    <span class="err">}</span><span class="nd">)]</span>
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">parses_date_back_to_original</span><span class="p">(</span><span class="n">y</span> <span class="n">in</span> <span class="mi">0u32</span><span class="o">..</span><span class="mi">3000</span><span class="p">,</span> <span class="n">m</span> <span class="n">in</span> <span class="mi">1u32</span><span class="o">..</span><span class="mi">13</span><span class="p">,</span> <span class="n">d</span> <span class="n">in</span> <span class="mi">1u32</span><span class="o">..</span><span class="mi">32</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"{}-{}/{}"</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">d</span><span class="p">);</span>
+        <span class="c">// 2089-2/26</span>
+        <span class="c">// 2743-9/7</span>
+        <span class="c">// 1331-4/9</span>
+        <span class="c">// 19-8/22</span>
+        <span class="c">// 617-5/30</span>
+        <span class="c">// 2562-9/2</span>
+        <span class="c">// 2867-3/4</span>
+        <span class="c">// 2629-10/5</span>
+        <span class="c">// 32-1/30</span>
+        <span class="c">// 2125-12/19</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="型による生成" class="fragment"></span><a href="#%E5%9E%8B%E3%81%AB%E3%82%88%E3%82%8B%E7%94%9F%E6%88%90"><i class="fa fa-link"></i></a>型による生成</h2>
+
+<p><code>std::u8::MIN</code> から <code>std::u8::MAX</code> までの値が生成されます</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nd">proptest!</span> <span class="p">{</span>
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">addition_is_commutative</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">u8</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">u8</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"a:{}, b:{}"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+        <span class="nd">prop_assert_eq!</span><span class="p">(</span><span class="n">a</span> <span class="k">as</span> <span class="nb">u16</span> <span class="o">+</span> <span class="n">b</span> <span class="k">as</span> <span class="nb">u16</span><span class="p">,</span> <span class="n">b</span> <span class="k">as</span> <span class="nb">u16</span> <span class="o">+</span> <span class="n">a</span> <span class="k">as</span> <span class="nb">u16</span><span class="p">);</span>
+        <span class="c">// a:144, b:204</span>
+        <span class="c">// a:199, b:67</span>
+        <span class="c">// a:61, b:137</span>
+        <span class="c">// a:9, b:246</span>
+        <span class="c">// a:217, b:63</span>
+        <span class="c">// a:254, b:41</span>
+        <span class="c">// a:102, b:49</span>
+        <span class="c">// a:228, b:58</span>
+        <span class="c">// a:120, b:77</span>
+        <span class="c">// a:180, b:206</span>
+        <span class="c">// a:80, b:238</span>
+        <span class="c">// a:214, b:10</span>
+        <span class="c">// a:27, b:60</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="文字列の生成" class="fragment"></span><a href="#%E6%96%87%E5%AD%97%E5%88%97%E3%81%AE%E7%94%9F%E6%88%90"><i class="fa fa-link"></i></a>文字列の生成</h2>
+
+<p>String 型を指定すると任意長の文字列が生成されます。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nd">proptest!</span> <span class="p">{</span>
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">test_string_concat2</span><span class="p">(</span><span class="n">a</span> <span class="n">in</span> <span class="s">".*"</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"a:{}, b:{}"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+        <span class="k">let</span> <span class="n">cat</span> <span class="o">=</span> <span class="nd">format!</span><span class="p">(</span><span class="s">"{}{}"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+        <span class="nd">prop_assert_eq!</span><span class="p">(</span><span class="n">a</span><span class="nf">.len</span><span class="p">()</span> <span class="o">+</span> <span class="n">b</span><span class="nf">.len</span><span class="p">(),</span> <span class="n">cat</span><span class="nf">.len</span><span class="p">());</span>
+        <span class="c">// a:</span>
+        <span class="c">// '%C&lt;*3/𻰵       ¥?�򶦳wNW:uXѨෆ</span>
+        <span class="c">// a:§&lt;, b:㇃.$𛰐.&lt;𝕆𑵠શ&amp;𐣴Lι¥"</span>
+        <span class="c">// a:=Ѩ򁊤~)﻿򯔻𨠊`$﻿𞟰, b:5.2�~ⷍ,ꡄë⃡</span>
+        <span class="c">// a:󳦦&lt;?򊲋*u%, b:Cో\ই𒑈ೌ🕴</span>
+        <span class="c">// a:񵧘</span>
+        <span class="c">//    򥰡)*\򤴗b﻿󢪏/�Ѩo&amp;iz󦝋&lt;0O)x𿋄?$&amp;g, b:&gt;ે={𑚐ಿ𖿡𐼱</span>
+        <span class="c">// a:'{w"𵱭񙎯%󉸇&lt;ùª, b:"&lt;)፶𝍫[ැ.𐊲ල/ὐ\=%T𑄿OH</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>文字列の生成には正規表現も使えます。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nd">proptest!</span> <span class="p">{</span>
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">test_string_concat</span><span class="p">(</span><span class="n">a</span> <span class="n">in</span> <span class="s">".*"</span><span class="p">,</span> <span class="n">b</span> <span class="n">in</span> <span class="s">".*"</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"a:{}, b:{}"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+        <span class="k">let</span> <span class="n">cat</span> <span class="o">=</span> <span class="nd">format!</span><span class="p">(</span><span class="s">"{}{}"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+        <span class="nd">prop_assert_eq!</span><span class="p">(</span><span class="n">a</span><span class="nf">.len</span><span class="p">()</span> <span class="o">+</span> <span class="n">b</span><span class="nf">.len</span><span class="p">(),</span> <span class="n">cat</span><span class="nf">.len</span><span class="p">());</span>
+        <span class="c">// a:L򙼳RH�񷡯񥝎򜱇.$�*$x󡡙󄸑?, b:𐋈Ѩ.︖</span>
+        <span class="c">// N/, b:/0U&amp;\𐤦/፸{\°鲙/🧀aꬌ{Ὄ0ᰡ%.5</span>
+        <span class="c">// a:񠼯$$�򨛓%ѨT8^Kl¥So&lt;</span>
+        <span class="c">//                 , b:l#.ῳ𐊉ඃ𗫸{Ὀ'</span>
+        <span class="c">// a:񗜸ë"ñ𴐨=t=*&amp;򗨭|{YW¥$`{&lt;'{𑂸.􀧬{"Ѩ z, b:C'@?5𐄳=ڼ3?\o⿲ⴑ¥𐨺🦲</span>
+        <span class="c">// 􂘰., b:$᳆xணⶥ,᪳Itﷁ 𑋷ￏ𐣵꣏xcm?WූU𐨥$ⶭ*</span>
+        <span class="c">// a:+%&lt;\&lt;򧎍򬽶\'!:󎟪M🕴{🕴i🕴&amp;y.󬅟, b:&lt;🕴rjc𞹋mRෟq{֎ꬃ'𑌪q{{=²$</span>
+        <span class="c">// a:𹂟𽏊{󳫒?p,*$?r&lt;", b:</span>
+        <span class="c">// OѨ&amp;񤊤'񻲖}񴳋.'﻿."    E.񁟍%LE%=k³$\�򢹜b/򁅃󘏾\, b:𐁒mږ{¥`uລ</span>
+        <span class="c">// a:򄈴"Ѩ$*'%, b:"ﵜ𑌳\</span>
+        <span class="c">// a:B=/&amp;🕴򀣷�󆉝¥":Y  kL, b:$¥\?caP'¥0/&amp;"r︙Ὓ</span>
+        <span class="c">// ...</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>日付っぽい文字列</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nd">proptest!</span> <span class="p">{</span>
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">parses_all_valid_dates</span><span class="p">(</span><span class="n">s</span> <span class="n">in</span> <span class="s">"[0-9]{4}-[0-9]{2}-[0-9]{2}"</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"{}-{}/{}"</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">d</span><span class="p">);</span>
+        <span class="c">// 1667-77-67</span>
+        <span class="c">// 5076-51-20</span>
+        <span class="c">// 4487-07-47</span>
+        <span class="c">// 3281-25-92</span>
+        <span class="c">// 2818-71-60</span>
+        <span class="c">// 5361-52-97</span>
+        <span class="c">// 0196-34-59</span>
+        <span class="c">// 9202-17-16</span>
+        <span class="c">// 8864-17-26</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>任意の非制御文字で構成された任意の文字列</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nd">proptest!</span> <span class="p">{</span>
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">doesnt_crash</span><span class="p">(</span><span class="n">s</span> <span class="n">in</span> <span class="s">"</span><span class="se">\\</span><span class="s">PC*"</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"{}"</span><span class="p">,</span> <span class="n">s</span><span class="p">);</span>
+        <span class="c">// %'úయ$︨Ὓn'{𑘴&lt;ᬍ/:𐤿({🕴𐡇{=ZѨ𑒸ா𞸻˱༣:I</span>
+        <span class="c">// F`ﬗw½:`𑆔6</span>
+        <span class="c">// u</span>
+        <span class="c">// 🉢࿈6'🦴𐨗𐠸ಸ|</span>
+        <span class="c">// lୈ﹩?/7𖭟qt</span>
+        <span class="c">// ?}&amp;`I�`சퟀ'f;្</span>
+        <span class="c">// yE$/¥=`�ׯె=𑴡=𫮓7</span>
+        <span class="c">// ລ"{ೖ꧳ೲx{%%7hך</span>
+        <span class="c">// 9v^/ⷃ`</span>
+        <span class="c">// L6</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="テストのタイムアウト" class="fragment"></span><a href="#%E3%83%86%E3%82%B9%E3%83%88%E3%81%AE%E3%82%BF%E3%82%A4%E3%83%A0%E3%82%A2%E3%82%A6%E3%83%88"><i class="fa fa-link"></i></a>テストのタイムアウト</h2>
+
+<p>テストはデフォルトの設定でフォークしたスレッドで実行されます。<br>
+これによりテストにタイムアウトを設定できます。<br>
+このフィボナッチ数関数はテストのタイムアウト、スタックオーバーフロー、または u64 のオーバーフローによってパニックしテストが失敗します。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">fn</span> <span class="nf">fib</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">u64</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">u64</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="p">{</span>
+        <span class="n">n</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="nf">fib</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="nf">fib</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nd">proptest!</span> <span class="p">{</span>
+    <span class="nd">#![proptest_config(ProptestConfig</span> <span class="err">{</span>
+        <span class="nd">fork:</span> <span class="kc">true</span><span class="nd">,</span>
+        <span class="nd">timeout:</span> <span class="mi">1000</span><span class="nd">,</span>
+        <span class="err">..</span> <span class="nd">ProptestConfig::default()</span>
+    <span class="err">}</span><span class="nd">)]</span>
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">test_fib</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">u64</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nd">assert!</span><span class="p">(</span><span class="nf">fib</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">n</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>デフォルトのタイムアウトは環境変数でも渡せます</p>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="go">PROPTEST_FORK=true cargo test
+PROPTEST_TIMEOUT=1000 cargo test
+</span></pre></div></div>
+
+<p><code>PROPTEST_TIMEOUT</code> を設定したら自動的にフォークされるので設定するのは <code>fork</code> か <code>timeout</code> のどちらかで良いです。</p>
+
+<h2>
+<span id="ひとつのテストの中で複数のテストケースを作る" class="fragment"></span><a href="#%E3%81%B2%E3%81%A8%E3%81%A4%E3%81%AE%E3%83%86%E3%82%B9%E3%83%88%E3%81%AE%E4%B8%AD%E3%81%A7%E8%A4%87%E6%95%B0%E3%81%AE%E3%83%86%E3%82%B9%E3%83%88%E3%82%B1%E3%83%BC%E3%82%B9%E3%82%92%E4%BD%9C%E3%82%8B"><i class="fa fa-link"></i></a>ひとつのテストの中で複数のテストケースを作る</h2>
+
+<p>ひとつのテストの中で複数のテストケースを生成することもできます。<br>
+テストのたびに重い初期化処理をしなくてもよくなるため便利です。<br>
+ただしこの方法で作られたテストではテストのタイムアウトをすることができません。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nd">#[test]</span>
+<span class="k">fn</span> <span class="nf">my_test</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c">// 環境変数を読んだり</span>
+    <span class="nn">dotenv</span><span class="p">::</span><span class="nf">dotenv</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">();</span>
+    <span class="nn">env_logger</span><span class="p">::</span><span class="nf">try_init</span><span class="p">()</span><span class="nf">.ok</span><span class="p">();</span>
+    <span class="nd">#[derive(Clone,</span> <span class="nd">Debug,</span> <span class="nd">Deserialize)]</span>
+    <span class="k">struct</span> <span class="n">Config</span> <span class="p">{</span>
+        <span class="n">database_url</span><span class="p">:</span> <span class="nb">String</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">let</span> <span class="n">config</span> <span class="o">=</span> <span class="nn">envy</span><span class="p">::</span><span class="nn">from_env</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Config</span><span class="o">&gt;</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">();</span>
+
+    <span class="c">// データベースを初期化したりできます</span>
+    <span class="k">let</span> <span class="n">db</span> <span class="o">=</span> <span class="nn">Db</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="o">&amp;</span><span class="n">config</span><span class="py">.database_url</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
+
+    <span class="c">// マクロの都合クロージャの引数はタプルで渡す必要があります</span>
+    <span class="nd">proptest!</span><span class="p">(|(</span><span class="n">x</span> <span class="n">in</span> <span class="mi">0u32</span><span class="o">..</span><span class="mi">42u32</span><span class="p">,</span> <span class="n">y</span> <span class="n">in</span> <span class="mi">1000u32</span><span class="o">..</span><span class="mi">100000u32</span><span class="p">)|</span> <span class="p">{</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"x:{}, y:{}"</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">);</span>
+    <span class="p">});</span>
+
+    <span class="c">// move クロージャも使えます</span>
+    <span class="nd">proptest!</span><span class="p">(</span><span class="k">move</span> <span class="p">|(</span><span class="n">x</span> <span class="n">in</span> <span class="mi">0u32</span><span class="o">..</span><span class="mi">42u32</span><span class="p">)|</span> <span class="p">{</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"x:{}"</span><span class="p">,</span> <span class="n">x</span><span class="p">);</span>
+    <span class="p">});</span>
+
+    <span class="c">// マクロの第一引数にテストの設定を渡せます</span>
+    <span class="nd">proptest!</span><span class="p">(</span><span class="nn">ProptestConfig</span><span class="p">::</span><span class="nf">with_cases</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="p">|(</span><span class="n">x</span><span class="p">:</span> <span class="nb">i32</span><span class="p">)|</span> <span class="p">{</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"x:{}"</span><span class="p">,</span> <span class="n">x</span><span class="p">);</span>
+    <span class="p">});</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="失敗したテストケースの保存" class="fragment"></span><a href="#%E5%A4%B1%E6%95%97%E3%81%97%E3%81%9F%E3%83%86%E3%82%B9%E3%83%88%E3%82%B1%E3%83%BC%E3%82%B9%E3%81%AE%E4%BF%9D%E5%AD%98"><i class="fa fa-link"></i></a>失敗したテストケースの保存</h2>
+
+<p><code>proptest-regressions</code> というファイルに失敗したテストケースが保存されます</p>
+
+<div class="code-frame" data-lang="">
+<div class="code-lang"><span class="bold">tests/test.proptest-regressions</span></div>
+<div class="highlight"><pre># Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+xs 1701150751 4032634173 2240973666 2150442205 # shrinks to all_data = -1, offset = 0, limit = 0
+xs 284604027 460482942 1202867123 218470716 # shrinks to all_data = 0, offset = 9223372036854775809, limit = 1
+</pre></div>
+</div>
+
+<h2>
+<span id="strategy-によるカスタムテストケースの生成" class="fragment"></span><a href="#strategy-%E3%81%AB%E3%82%88%E3%82%8B%E3%82%AB%E3%82%B9%E3%82%BF%E3%83%A0%E3%83%86%E3%82%B9%E3%83%88%E3%82%B1%E3%83%BC%E3%82%B9%E3%81%AE%E7%94%9F%E6%88%90"><i class="fa fa-link"></i></a>Strategy によるカスタムテストケースの生成</h2>
+
+<p><a href="https://altsysrq.github.io/rustdoc/proptest/latest/proptest/index.html#strategy-basics" class="autolink" rel="nofollow noopener" target="_blank">https://altsysrq.github.io/rustdoc/proptest/latest/proptest/index.html#strategy-basics</a></p>
+
+<p><code>proptest!</code> マクロの中では次のようにテストケースを生成しています</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">extern</span> <span class="n">crate</span> <span class="n">proptest</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nn">proptest</span><span class="p">::</span><span class="nn">test_runner</span><span class="p">::</span><span class="n">TestRunner</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">proptest</span><span class="p">::</span><span class="nn">strategy</span><span class="p">::{</span><span class="n">Strategy</span><span class="p">,</span> <span class="n">ValueTree</span><span class="p">};</span>
+
+<span class="k">fn</span> <span class="nf">some_function</span><span class="p">(</span><span class="n">v</span><span class="p">:</span> <span class="nb">i32</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c">// Do a bunch of stuff, but crash if v &gt; 500</span>
+    <span class="k">assert</span><span class="o">!</span><span class="p">(</span><span class="n">v</span> <span class="o">&lt;=</span> <span class="mi">500</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="nd">#[test]</span>
+<span class="k">fn</span> <span class="nf">some_function_doesnt_crash</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">let</span> <span class="k">mut</span> <span class="n">runner</span> <span class="o">=</span> <span class="nn">TestRunner</span><span class="p">::</span><span class="nf">default</span><span class="p">();</span>
+    <span class="k">for</span> <span class="mi">_</span> <span class="n">in</span> <span class="mi">0</span><span class="o">..</span><span class="mi">256</span> <span class="p">{</span>
+        <span class="k">let</span> <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="o">..</span><span class="mi">10000i32</span><span class="p">)</span><span class="nf">.new_tree</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span> <span class="n">runner</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
+        <span class="nf">some_function</span><span class="p">(</span><span class="n">val</span><span class="nf">.current</span><span class="p">());</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="shrinking-による最小限の失敗テストケースの探索" class="fragment"></span><a href="#shrinking-%E3%81%AB%E3%82%88%E3%82%8B%E6%9C%80%E5%B0%8F%E9%99%90%E3%81%AE%E5%A4%B1%E6%95%97%E3%83%86%E3%82%B9%E3%83%88%E3%82%B1%E3%83%BC%E3%82%B9%E3%81%AE%E6%8E%A2%E7%B4%A2"><i class="fa fa-link"></i></a>Shrinking による最小限の失敗テストケースの探索</h2>
+
+<p><a href="https://altsysrq.github.io/rustdoc/proptest/latest/proptest/#shrinking-basics" class="autolink" rel="nofollow noopener" target="_blank">https://altsysrq.github.io/rustdoc/proptest/latest/proptest/#shrinking-basics</a></p>
+
+<p>次の例は失敗するとわかっている関数に関してより単純なテストケースを探索するプログラムです。<br>
+<code>simplify</code> によって生成したテストケースをより単純なものへと縮小していき、<br>
+<code>complicate</code> でより複雑なものへと拡大していくことで、<br>
+最低限の失敗するテストケースを探索することができます。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">extern</span> <span class="n">crate</span> <span class="n">proptest</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nn">proptest</span><span class="p">::</span><span class="nn">test_runner</span><span class="p">::</span><span class="n">TestRunner</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">proptest</span><span class="p">::</span><span class="nn">strategy</span><span class="p">::{</span><span class="n">Strategy</span><span class="p">,</span> <span class="n">ValueTree</span><span class="p">};</span>
+
+<span class="c">// この some_function は 501 以上の値を入力すると失敗する関数だとします。</span>
+<span class="c">// ある失敗するとわかっているテストに関して、</span>
+<span class="c">// テストケースの成功と失敗を bool で表すことにより、</span>
+<span class="c">// より単純なケースを探索します</span>
+<span class="k">fn</span> <span class="nf">some_function</span><span class="p">(</span><span class="n">v</span><span class="p">:</span> <span class="nb">i32</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">bool</span> <span class="p">{</span>
+    <span class="n">v</span> <span class="o">&lt;=</span> <span class="mi">500</span>
+<span class="p">}</span>
+
+<span class="k">fn</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">let</span> <span class="k">mut</span> <span class="n">runner</span> <span class="o">=</span> <span class="nn">TestRunner</span><span class="p">::</span><span class="nf">default</span><span class="p">();</span>
+
+    <span class="c">// 256 回探索を試みる</span>
+    <span class="k">for</span> <span class="mi">_</span> <span class="n">in</span> <span class="mi">0</span><span class="o">..</span><span class="mi">256</span> <span class="p">{</span>
+        <span class="c">// 10000i32 から値を絞り込みます。この場合は 10000 から 0 へと絞り込んでいきます</span>
+        <span class="k">let</span> <span class="k">mut</span> <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="o">..</span><span class="mi">10000i32</span><span class="p">)</span><span class="nf">.new_tree</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span> <span class="n">runner</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
+        <span class="k">if</span> <span class="nf">some_function</span><span class="p">(</span><span class="n">val</span><span class="nf">.current</span><span class="p">())</span> <span class="p">{</span>
+            <span class="c">// このテストケースは成功したので他に失敗するテストケースを探す</span>
+            <span class="n">continue</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="c">// some_function が false を返したのでよ単純なテストケースを探索する</span>
+        <span class="k">loop</span> <span class="p">{</span>
+            <span class="k">if</span> <span class="o">!</span><span class="nf">some_function</span><span class="p">(</span><span class="n">val</span><span class="nf">.current</span><span class="p">())</span> <span class="p">{</span>
+                <span class="c">// テストが落ちたのでより単純なケースを見つけた</span>
+                <span class="k">if</span> <span class="o">!</span><span class="n">val</span><span class="nf">.simplify</span><span class="p">()</span> <span class="p">{</span>
+                    <span class="c">// これ以上単純化できない</span>
+                    <span class="k">break</span><span class="p">;</span>
+                <span class="p">}</span>
+            <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+                <span class="c">// この単純化したテストは成功してしまったのでもう少し複雑なテストケースを生成します</span>
+                <span class="k">if</span> <span class="o">!</span><span class="n">val</span><span class="nf">.complicate</span><span class="p">()</span> <span class="p">{</span>
+                    <span class="k">break</span><span class="p">;</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"The minimal failing case is {}"</span><span class="p">,</span> <span class="n">val</span><span class="nf">.current</span><span class="p">());</span>
+        <span class="nd">assert_eq!</span><span class="p">(</span><span class="mi">501</span><span class="p">,</span> <span class="n">val</span><span class="nf">.current</span><span class="p">());</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="nd">panic!</span><span class="p">(</span><span class="s">"Didn't find a failing test case"</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="パニックハンドラ" class="fragment"></span><a href="#%E3%83%91%E3%83%8B%E3%83%83%E3%82%AF%E3%83%8F%E3%83%B3%E3%83%89%E3%83%A9"><i class="fa fa-link"></i></a>パニックハンドラ</h2>
+
+<p><a href="https://altsysrq.github.io/rustdoc/proptest/latest/proptest/#using-the-test-runner" class="autolink" rel="nofollow noopener" target="_blank">https://altsysrq.github.io/rustdoc/proptest/latest/proptest/#using-the-test-runner</a></p>
+
+<p>proptest の TestRunner は <code>Result&lt;_, TestError&gt;</code> またはパニックを失敗として取り扱うことができます</p>
+
+<h2>
+<span id="カスタム戦略を作る" class="fragment"></span><a href="#%E3%82%AB%E3%82%B9%E3%82%BF%E3%83%A0%E6%88%A6%E7%95%A5%E3%82%92%E4%BD%9C%E3%82%8B"><i class="fa fa-link"></i></a>カスタム戦略を作る</h2>
+
+<p>任意の i8 相当の String を生成</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nd">proptest!</span><span class="p">{</span>
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">test</span><span class="p">(</span><span class="n">o</span> <span class="n">in</span> <span class="nn">any</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">i8</span><span class="o">&gt;</span><span class="p">()</span><span class="nf">.prop_map</span><span class="p">(|</span><span class="n">v</span><span class="p">|</span> <span class="n">v</span><span class="nf">.to_string</span><span class="p">())){</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"{:?}"</span><span class="p">,</span> <span class="n">o</span><span class="p">);</span>
+        <span class="c">// "-65"</span>
+        <span class="c">// "-119"</span>
+        <span class="c">// "43"</span>
+        <span class="c">// "-56"</span>
+        <span class="c">// "65"</span>
+        <span class="c">// "-48"</span>
+        <span class="c">// "22"</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>構造体</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nd">#[derive(Clone,</span> <span class="nd">Debug)]</span>
+<span class="k">struct</span> <span class="n">Order</span> <span class="p">{</span>
+  <span class="n">id</span><span class="p">:</span> <span class="nb">String</span><span class="p">,</span>
+  <span class="n">item</span><span class="p">:</span> <span class="nb">String</span><span class="p">,</span>
+  <span class="n">quantity</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">fn</span> <span class="nf">gen_order</span><span class="p">()</span> <span class="k">-&gt;</span> <span class="k">impl</span> <span class="n">Strategy</span><span class="o">&lt;</span><span class="n">Value</span> <span class="o">=</span> <span class="n">Order</span><span class="o">&gt;</span><span class="p">{</span>
+    <span class="p">(</span><span class="nn">any</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">u32</span><span class="o">&gt;</span><span class="p">()</span><span class="nf">.prop_map</span><span class="p">(|</span><span class="n">v</span><span class="p">|</span> <span class="n">v</span><span class="nf">.to_string</span><span class="p">()),</span>
+        <span class="s">"[a-z]*"</span><span class="p">,</span> <span class="mi">1</span><span class="o">..</span><span class="mi">1000u32</span><span class="p">)</span><span class="nf">.prop_map</span><span class="p">(</span>
+            <span class="p">|(</span><span class="n">id</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">quantity</span><span class="p">)|</span> <span class="n">Order</span> <span class="p">{</span> <span class="n">id</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">quantity</span> <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="nd">proptest!</span><span class="p">{</span>
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">test_order</span><span class="p">(</span><span class="n">o</span> <span class="n">in</span> <span class="nf">gen_order</span><span class="p">()){</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"{:?}"</span><span class="p">,</span> <span class="n">o</span><span class="p">);</span>
+        <span class="c">// Order { id: "3372296639", item: "yybosjbnvryotdoeglcmpxia", quantity: 383 }</span>
+        <span class="c">// Order { id: "2833625993", item: "deshvxgsqywccnllzjasffgfpqlbzlo", quantity: 486 }</span>
+        <span class="c">// Order { id: "3260047346", item: "hhhsylstdlxotrjrvj", quantity: 256 }</span>
+        <span class="c">// Order { id: "3833458271", item: "pbmrvxbguybyvwjzod", quantity: 305 }</span>
+        <span class="c">// Order { id: "3864500675", item: "idmugc", quantity: 454 }</span>
+        <span class="c">// Order { id: "2807396473", item: "jjnbygsbrjkkgzyrdtadhslmxllie", quantity: 701 }</span>
+        <span class="c">// Order { id: "3619398342", item: "flcqcwuimcqgiajtmzev", quantity: 760 }</span>
+        <span class="c">// Order { id: "2618995400", item: "wpbcsnhwpauvysjlxtbakiimj", quantity: 375 }</span>
+        <span class="c">// Order { id: "3882359522", item: "tzfwrudqwko", quantity: 486 }</span>
+        <span class="c">// Order { id: "407582390", item: "mnxpkntwukoh", quantity: 221 }</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p><code>Option&lt;i8&gt;</code> のような列挙型は <code>prop_oneof!</code> マクロを使う。<br>
+リストの一番後ろを一番複雑なケースにして、手前ほど簡単なケースにするとうまく shrinking をやってくれる - <a href="https://altsysrq.github.io/rustdoc/proptest/latest/proptest/#generating-enums" class="autolink" rel="nofollow noopener" target="_blank">https://altsysrq.github.io/rustdoc/proptest/latest/proptest/#generating-enums</a></p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre>
+<span class="k">fn</span> <span class="nf">gen_opt</span><span class="p">()</span> <span class="k">-&gt;</span> <span class="k">impl</span> <span class="n">Strategy</span><span class="o">&lt;</span><span class="n">Value</span> <span class="o">=</span> <span class="nb">Option</span><span class="o">&lt;</span><span class="nb">i8</span><span class="o">&gt;&gt;</span> <span class="p">{</span>
+    <span class="nd">prop_oneof!</span><span class="p">[</span>
+        <span class="nf">Just</span><span class="p">(</span><span class="nb">None</span><span class="p">),</span>
+        <span class="nn">any</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">i8</span><span class="o">&gt;</span><span class="p">()</span><span class="nf">.prop_map</span><span class="p">(|</span><span class="n">i</span><span class="p">|</span> <span class="nf">Some</span><span class="p">(</span><span class="n">i</span><span class="p">)),</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+
+<span class="nd">proptest!</span><span class="p">{</span>
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">opt_test</span><span class="p">(</span><span class="n">o</span> <span class="n">in</span> <span class="nf">gen_opt</span><span class="p">()){</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"{:?}"</span><span class="p">,</span> <span class="n">o</span><span class="p">);</span>
+        <span class="c">// None</span>
+        <span class="c">// Some(24)</span>
+        <span class="c">// None</span>
+        <span class="c">// Some(-89)</span>
+        <span class="c">// None</span>
+        <span class="c">// None</span>
+        <span class="c">// None</span>
+        <span class="c">// Some(-54)</span>
+        <span class="c">// None</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="高階ストラテジー" class="fragment"></span><a href="#%E9%AB%98%E9%9A%8E%E3%82%B9%E3%83%88%E3%83%A9%E3%83%86%E3%82%B8%E3%83%BC"><i class="fa fa-link"></i></a>高階ストラテジー</h2>
+
+<p>任意長のの Vec と、そのインデックスの usize が欲しい場合、まず任意長のが Vec を作ってから、 その len の範囲内でインデックスを生成すると便利です</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">fn</span> <span class="nf">vec_and_index</span><span class="p">()</span> <span class="k">-&gt;</span> <span class="k">impl</span> <span class="n">Strategy</span><span class="o">&lt;</span><span class="n">Value</span> <span class="o">=</span> <span class="p">(</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="nb">u8</span><span class="o">&gt;</span><span class="p">,</span> <span class="nb">usize</span><span class="p">)</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="nn">prop</span><span class="p">::</span><span class="nn">collection</span><span class="p">::</span><span class="nf">vec</span><span class="p">(</span><span class="nn">any</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">u8</span><span class="o">&gt;</span><span class="p">(),</span> <span class="mi">1</span><span class="o">..</span><span class="mi">10</span><span class="p">)</span>
+        <span class="nf">.prop_flat_map</span><span class="p">(|</span><span class="n">vec</span><span class="p">|</span> <span class="p">{</span>
+            <span class="k">let</span> <span class="n">len</span> <span class="o">=</span> <span class="n">vec</span><span class="nf">.len</span><span class="p">();</span>
+            <span class="p">(</span><span class="nf">Just</span><span class="p">(</span><span class="n">vec</span><span class="p">),</span> <span class="mi">0</span><span class="o">..</span><span class="n">len</span><span class="p">)</span>
+        <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="nd">proptest!</span><span class="p">{</span>
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">vec_test</span><span class="p">(</span><span class="n">o</span> <span class="n">in</span> <span class="nf">gen_opt</span><span class="p">()){</span>
+        <span class="nd">println!</span><span class="p">(</span><span class="s">"{:?}"</span><span class="p">,</span> <span class="n">o</span><span class="p">);</span>
+        <span class="c">// ([155, 132, 216, 101, 111, 103, 141, 154], 6)</span>
+        <span class="c">// ([24, 240], 1)</span>
+        <span class="c">// ([105, 54, 102, 54, 187, 32, 252], 6)</span>
+        <span class="c">// ([252, 88, 150, 52, 105, 102, 7, 152], 0)</span>
+        <span class="c">// ([218, 143, 62, 85, 194, 73, 57], 5)</span>
+        <span class="c">// ([45, 145, 182, 93, 225, 140], 1)</span>
+        <span class="c">// ([254], 0)</span>
+        <span class="c">// ([123, 80, 121, 19, 228, 48, 134], 4)</span>
+        <span class="c">// ([181, 37], 1)</span>
+        <span class="c">// ([214, 251, 140, 179, 227, 126], 0)</span>
+        <span class="c">// ([154, 203, 139, 20, 83, 15], 0)</span>
+        <span class="c">// ([14], 0)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="その他の機能" class="fragment"></span><a href="#%E3%81%9D%E3%81%AE%E4%BB%96%E3%81%AE%E6%A9%9F%E8%83%BD"><i class="fa fa-link"></i></a>その他の機能</h2>
+
+<p>ここが詳しいです <del><a href="https://altsysrq.github.io/rustdoc/proptest/latest/proptest/" class="autolink" rel="nofollow noopener" target="_blank">https://altsysrq.github.io/rustdoc/proptest/latest/proptest/</a></del> → <a href="https://altsysrq.github.io/proptest-book/intro.html" class="autolink" rel="nofollow noopener" target="_blank">https://altsysrq.github.io/proptest-book/intro.html</a></p>

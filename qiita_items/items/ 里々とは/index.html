@@ -1,0 +1,146 @@
+<p>この記事は<a href="http://qiita.com/advent-calendar/2013/minor-language">マイナー言語 Advent Calendar 2013</a> の17日目です。</p>
+
+<h1>
+<span id="里々とは" class="fragment"></span><a href="#%E9%87%8C%E3%80%85%E3%81%A8%E3%81%AF"><i class="fa fa-link"></i></a>里々とは</h1>
+
+<p><a href="https://www.google.co.jp/search?q=%E4%BC%BA%E3%81%8B" rel="nofollow noopener" target="_blank">伺か(ukagaka)</a>というデスクトップマスコットの実行環境があります。このデスクトップマスコットのことを伺かではゴーストといい、このゴーストのAIを担当するプログラムのことを<a href="http://usada.sakura.vg/contents/specification2.html#shiori" rel="nofollow noopener" target="_blank">SHIORI</a>（栞）とよびます。<br>
+<a href="http://ms.shillest.net/satoriya.xhtml" rel="nofollow noopener" target="_blank">里々(satori)</a>はその栞の一種で、とにかく簡単にゴーストのプログラミングができるため、もっとも人気な栞のひとつです。</p>
+
+<p>さて、今回は例として艦隊これくしょんのキャラクターのセリフを書いてみましょう。</p>
+
+<h1>
+<span id="トーク" class="fragment"></span><a href="#%E3%83%88%E3%83%BC%E3%82%AF"><i class="fa fa-link"></i></a>トーク</h1>
+
+<p>キャラクターのおしゃべりをこんな風に書けます。</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>＊OnBoot
+：英国で産まれた帰国子女の金剛デース！
+ヨロシクオネガイシマース！
+</pre></div></div>
+
+<p>簡単ですね。</p>
+
+<p>「＊ラベル名」でトークを定義できます。<br>
+「OnBoot」はその名のとおりのシステムイベントです。伺かはイベント駆動です。</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>＊出撃
+：連装砲ちゃん、一緒に行くよ
+：[＞ヮ＜]
+：しまかぜ、出撃しまーす！
+</pre></div></div>
+
+<p>トーク行頭についている「：」は、たとえば島風と連装砲ちゃんといった二人で一組のキャラクターを会話させるのに使う機能なのですが、艦これではキャラクター同士の会話がほとんどないため、今回はほとんどつかいません。</p>
+
+<h1>
+<span id="ジャンプ" class="fragment"></span><a href="#%E3%82%B8%E3%83%A3%E3%83%B3%E3%83%97"><i class="fa fa-link"></i></a>ジャンプ</h1>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>＊OnMouseDoubleClick
+＞母港/詳細閲覧
+
+＊母港/詳細閲覧
+：紅茶が飲みたいネー
+
+＊母港/詳細閲覧
+：HI!今日もイイ天気ネー！
+
+＊母港/詳細閲覧
+：HEY！提督ぅー。触ってもイイけどサー、時間と場所をわきまえなヨー！
+</pre></div></div>
+
+<p>「＞ラベル名」で他のトークへジャンプできます。<br>
+おなじラベル名のトークが複数あると、ランダムに選ばれます。</p>
+
+<h1>
+<span id="条件ジャンプ" class="fragment"></span><a href="#%E6%9D%A1%E4%BB%B6%E3%82%B8%E3%83%A3%E3%83%B3%E3%83%97"><i class="fa fa-link"></i></a>条件ジャンプ</h1>
+
+<p>条件ジャンプも使えるので時報トークも簡単につくれます。</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>＊OnMinuteChange
+＞０分【タブ】（現在分）＝＝０
+＃条件ジャンプ
+
+＊０分
+＞（現在時）時
+＃ジャンプ先のラベル名を動的に決められるのでこんなこともできる
+
+＊０時
+：午前零時justデース！
+
+＊１時
+：午前一時。提督は働き者デース
+</pre></div></div>
+
+<p>「【タブ】」はタブキーです。全角スペースも半角スペースもダメです。<br>
+行頭「＃」はコメントアウトです。行頭以外ではコメントアウトになりません。<br>
+「（変数名）」で変数を参照できます。「（現在時）」と「（現在時）」は環境変数です。</p>
+
+<h1>
+<span id="変数" class="fragment"></span><a href="#%E5%A4%89%E6%95%B0"><i class="fa fa-link"></i></a>変数</h1>
+
+<p>トーク内ではジャンプの他、変数宣言もできます。<br>
+金剛の放置ボイスを作ってみましょう。</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>＊OnSatoriBoot
+＄放置時間【タブ】０
+
+＊OnMouseClick
+＄放置時間＝０
+
+＊OnMinuteChange
+＄放置時間＝（放置時間）＋１
+＞放置時【タブ】（放置時間）＞５
+
+＊放置時
+＄放置時間＝０
+：目を離さないでって言ったのにー
+提督ぅー。何してるデース！
+</pre></div></div>
+
+<p>「＄変数名【タブ】式」で変数代入できます。型は基本的に文字列しかないです。<br>
+「＄変数名＝式」で代入すると、式である文字列が計算可能であれば計算してから代入されます。計算できなければそのまま文字列が代入されます。特にエラーとか吐きません。</p>
+
+<h1>
+<span id="単語群" class="fragment"></span><a href="#%E5%8D%98%E8%AA%9E%E7%BE%A4"><i class="fa fa-link"></i></a>単語群</h1>
+
+<p>単語群を使うことで語彙を広げることもできます。</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>＊遠征選択時
+：Wow！（つづきのセリフ）！
+
+＠つづきのセリフ
+Congratulations
+提督にプレゼンツネー
+</pre></div></div>
+
+<p>「＠ラベル名」で単語群を定義できます。<br>
+「（単語群名）」で単語群を呼ぶと、単語群の中からランダムに単語が選ばれます。<br>
+これを使うと<a href="http://tanakh.jp/tools/copipe-gen-gen.html" rel="nofollow noopener" target="_blank">コピペジェネレータ・ジェネレータ</a>みたいなトークを簡単に作ることができます。</p>
+
+<p>艦これのキャラクターのセリフは全て上記の機能だけで記述することができます。</p>
+
+<h1>
+<span id="関数" class="fragment"></span><a href="#%E9%96%A2%E6%95%B0"><i class="fa fa-link"></i></a>関数</h1>
+
+<p>「（関数名、引数）」というように括弧に引数をつけることで内部関数を呼び出すこともできます。</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>＊OnMouseClick
+：（call、足し算、1、1）
+
+＊足し算
+：（A0）＋（A1）は（call、add、（A0）、（A1））だよー。
+
+＠add
+（calc、（A0）＋（A1））
+</pre></div></div>
+
+<p>callという内部関数はトークや単語群を引数付きで呼び出す関数です。<br>
+またcalcは式を計算式としてパースして結果を返す関数です。</p>
+
+<p>さて、この関数を使うことでLispのようなプログラム（見た目だけ）をかけるようになるのですが、詳しくはこちらで。<br>
+- <a href="http://emily.shillest.net/specwiki/index.php?%E3%83%AC%E3%82%B4%E3%82%AD%E3%83%81%2F%E9%87%8C%E3%80%85%E8%87%AA%E4%BD%9C%E9%96%A2%E6%95%B0%E3%81%BE%E3%81%A8%E3%82%81" rel="nofollow noopener" target="_blank">レゴキチ/里々自作関数まとめ</a><br>
+- <a href="http://blog.bugyo.tk/lyrical/archives/181" rel="nofollow noopener" target="_blank">うかべん 資料 - リリカル☆Lisp開発日記</a></p>
+
+<hr>
+
+<p>興味をもたれたらこちら<br>
+- <a href="http://soliton.sub.jp/satori/" rel="nofollow noopener" target="_blank">里々wiki</a></p>

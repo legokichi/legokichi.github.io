@@ -1,0 +1,1 @@
+{"created_at":"2019-12-14T07:51:25+09:00","id":"dcd7d1ecd6c9b5c877d7","updated_at":"2019-12-15T04:09:30+09:00","title":"wasm-pack で JS の Promise を await できる非同期 Rust を書いて node.js で動かす","tags":["Rust","WebAssembly","wasm-bindgen","wasm-pack"]}

@@ -1,0 +1,150 @@
+
+<h1>
+<span id="sakurascriptインタプリタをfreeモナドで実装する" class="fragment"></span><a href="#sakurascript%E3%82%A4%E3%83%B3%E3%82%BF%E3%83%97%E3%83%AA%E3%82%BF%E3%82%92free%E3%83%A2%E3%83%8A%E3%83%89%E3%81%A7%E5%AE%9F%E8%A3%85%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>SakuraScriptインタプリタをFreeモナドで実装する</h1>
+
+<p>この記事は <a href="http://www.adventar.org/calendars/1472" rel="nofollow noopener" target="_blank">伺か Advent Calendar 2016</a>の4日目の記事です。</p>
+
+<p>Free モナドを使えばインタプリタが簡単に実装できると聞いて PureScript で Aff を使いがてら簡易的な SakuraScript インタプリタを書いてみた。</p>
+
+<p>Free モナドとはなんなのかについては参考リンクを参照。</p>
+
+<h2>
+<span id="コード" class="fragment"></span><a href="#%E3%82%B3%E3%83%BC%E3%83%89"><i class="fa fa-link"></i></a>コード</h2>
+
+<div class="code-frame" data-lang="haskell"><div class="highlight"><pre><span class="kr">module</span> <span class="nn">Main</span> <span class="kr">where</span>
+
+<span class="kr">import</span> <span class="nn">Prelude</span> 
+
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff</span> <span class="p">(</span><span class="kt">Eff</span><span class="p">)</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff.Exception</span> <span class="p">(</span><span class="kt">EXCEPTION</span><span class="p">)</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff.Console</span> <span class="p">(</span><span class="kt">CONSOLE</span><span class="p">)</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff.Class</span> <span class="p">(</span><span class="nf">liftEff</span><span class="p">)</span>
+
+<span class="kr">import</span> <span class="nn">Test.Unit.Console</span> <span class="p">(</span><span class="kt">TESTOUTPUT</span><span class="p">,</span> <span class="nf">print</span><span class="p">)</span>
+
+<span class="kr">import</span> <span class="nn">Control.Monad.Aff</span> <span class="p">(</span><span class="kt">Aff</span><span class="p">,</span> <span class="nf">forkAff</span><span class="p">,</span> <span class="nf">launchAff</span><span class="p">,</span> <span class="nf">later'</span><span class="p">)</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Aff.Console</span> <span class="p">(</span><span class="nf">log</span><span class="p">)</span>
+
+<span class="kr">import</span> <span class="nn">Control.Monad.Free</span> <span class="p">(</span><span class="kt">Free</span><span class="p">,</span> <span class="nf">foldFree</span><span class="p">,</span> <span class="nf">liftF</span><span class="p">)</span>
+
+<span class="kr">import</span> <span class="nn">Data.Maybe</span> <span class="p">(</span><span class="kt">Maybe</span><span class="p">(</span><span class="o">..</span><span class="p">))</span>
+<span class="kr">import</span> <span class="nn">Data.String</span> <span class="p">(</span><span class="nf">split</span><span class="p">,</span> <span class="kt">Pattern</span><span class="p">(</span><span class="o">..</span><span class="p">))</span>
+<span class="kr">import</span> <span class="nn">Data.Array</span> <span class="p">(</span><span class="nf">foldM</span><span class="p">)</span>
+<span class="kr">import</span> <span class="nn">Data.NaturalTransformation</span> <span class="p">(</span><span class="kt">NaturalTransformation</span><span class="p">)</span>
+
+
+
+<span class="kr">data</span> <span class="kt">SakuraScriptF</span> <span class="n">a</span> <span class="o">=</span>
+    <span class="kt">ChangeScope</span> <span class="kt">Int</span> <span class="n">a</span>
+  <span class="o">|</span> <span class="kt">ChangeSurface</span> <span class="kt">Int</span> <span class="n">a</span>
+  <span class="o">|</span> <span class="kt">Talk</span> <span class="kt">String</span> <span class="n">a</span>
+  <span class="o">|</span> <span class="kt">Wait</span> <span class="kt">Int</span> <span class="n">a</span>
+  <span class="o">|</span> <span class="kt">YenE</span> <span class="n">a</span>
+
+<span class="kr">type</span> <span class="kt">SakuraScript</span> <span class="n">a</span> <span class="o">=</span> <span class="kt">Free</span> <span class="kt">SakuraScriptF</span> <span class="n">a</span>
+
+<span class="c1">--                           + type NaturalTransformation f g = forall a. f a -&gt; g a</span>
+<span class="cd">--                           |                                    + data Aff :: # ! -&gt; * -&gt; *</span>
+<span class="cd">--                           |                                    |</span>
+<span class="n">sakuraScriptN</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">eff</span><span class="o">.</span> <span class="kt">NaturalTransformation</span> <span class="kt">SakuraScriptF</span> <span class="p">(</span><span class="kt">Aff</span> <span class="p">(</span><span class="n">console</span> <span class="o">::</span> <span class="kt">CONSOLE</span><span class="p">,</span> <span class="n">testOutput</span> <span class="o">::</span> <span class="kt">TESTOUTPUT</span> <span class="o">|</span> <span class="n">eff</span><span class="p">))</span>
+<span class="n">sakuraScriptN</span> <span class="p">(</span><span class="kt">Wait</span> <span class="n">n</span> <span class="n">a</span><span class="p">)</span>          <span class="o">=</span> <span class="n">const</span> <span class="n">a</span> <span class="o">&lt;$&gt;</span> <span class="kr">do</span>
+                                      <span class="n">log</span> <span class="p">(</span><span class="s">"</span><span class="se">\\</span><span class="s">_w["</span> <span class="o">&lt;&gt;</span> <span class="p">(</span><span class="n">show</span> <span class="n">n</span><span class="p">)</span> <span class="o">&lt;&gt;</span> <span class="s">"]"</span><span class="p">)</span>
+                                      <span class="n">later'</span> <span class="n">n</span> <span class="kr">do</span> <span class="n">pure</span> <span class="n">unit</span>
+<span class="cd">--                                    |</span>
+<span class="c1">--                                    + later' :: forall e a. Int -&gt; Aff e a -&gt; Aff e a</span>
+<span class="c1">--                                    : Runs the specified asynchronous computation later, by the specified number of milliseconds.</span>
+<span class="n">sakuraScriptN</span> <span class="p">(</span><span class="kt">Talk</span> <span class="n">s</span> <span class="n">a</span><span class="p">)</span>          <span class="o">=</span> <span class="n">const</span> <span class="n">a</span> <span class="o">&lt;$&gt;</span> <span class="kr">do</span>
+                                      <span class="kr">let</span> <span class="n">arr</span> <span class="o">=</span> <span class="p">(</span><span class="n">split</span> <span class="p">(</span><span class="kt">Pattern</span> <span class="s">""</span><span class="p">)</span> <span class="n">s</span><span class="p">)</span>
+                                      <span class="n">foldM</span> <span class="n">wait</span> <span class="n">unit</span> <span class="n">arr</span> <span class="c1">-- 1文字づつ出力</span>
+                                      <span class="n">log</span> <span class="s">""</span> <span class="c1">-- 改行</span>
+                                      <span class="kr">where</span> 
+                                        <span class="n">wait</span> <span class="kr">_</span> <span class="n">c</span> <span class="o">=</span> <span class="n">later'</span> <span class="mi">50</span> <span class="kr">do</span> <span class="n">liftEff</span> <span class="o">$</span> <span class="n">print</span> <span class="n">c</span> <span class="c1">-- 改行せず文字出力</span>
+<span class="n">sakuraScriptN</span> <span class="p">(</span><span class="kt">ChangeScope</span> <span class="n">n</span> <span class="n">a</span><span class="p">)</span>   <span class="o">=</span> <span class="n">const</span> <span class="n">a</span> <span class="o">&lt;$&gt;</span> <span class="n">log</span> <span class="p">(</span><span class="s">"</span><span class="se">\\</span><span class="s">p["</span> <span class="o">&lt;&gt;</span> <span class="p">(</span><span class="n">show</span> <span class="n">n</span><span class="p">)</span> <span class="o">&lt;&gt;</span> <span class="s">"]"</span><span class="p">)</span>
+<span class="n">sakuraScriptN</span> <span class="p">(</span><span class="kt">ChangeSurface</span> <span class="n">n</span> <span class="n">a</span><span class="p">)</span> <span class="o">=</span> <span class="n">const</span> <span class="n">a</span> <span class="o">&lt;$&gt;</span> <span class="n">log</span> <span class="p">(</span><span class="s">"</span><span class="se">\\</span><span class="s">s["</span> <span class="o">&lt;&gt;</span> <span class="p">(</span><span class="n">show</span> <span class="n">n</span><span class="p">)</span> <span class="o">&lt;&gt;</span> <span class="s">"]"</span><span class="p">)</span>
+<span class="cd">--                                  |       |   |                     |</span>
+<span class="cd">--                                  |       |   |                     + append :: a -&gt; a -&gt; a</span>
+<span class="cd">--                                  |       |   + log :: forall eff. String -&gt; Aff (console :: CONSOLE | eff) Unit</span>
+<span class="cd">--                                  |       + map :: forall a b. (a -&gt; b) -&gt; f a -&gt; f b</span>
+<span class="c1">--                                  + const :: forall a b. a -&gt; b -&gt; a</span>
+<span class="c1">--                                  : Returns its first argument and ignores its second.</span>
+<span class="n">sakuraScriptN</span> <span class="p">(</span><span class="kt">YenE</span> <span class="n">a</span><span class="p">)</span>            <span class="o">=</span> <span class="n">const</span> <span class="n">a</span> <span class="o">&lt;$&gt;</span> <span class="n">log</span> <span class="s">"</span><span class="se">\\</span><span class="s">e"</span>
+
+
+<span class="n">run</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">eff</span><span class="o">.</span> <span class="kt">NaturalTransformation</span> <span class="kt">SakuraScript</span> <span class="p">(</span><span class="kt">Aff</span> <span class="p">(</span><span class="n">console</span> <span class="o">::</span> <span class="kt">CONSOLE</span><span class="p">,</span> <span class="n">testOutput</span> <span class="o">::</span> <span class="kt">TESTOUTPUT</span> <span class="o">|</span> <span class="n">eff</span><span class="p">))</span>
+<span class="n">run</span> <span class="o">=</span> <span class="n">foldFree</span> <span class="n">sakuraScriptN</span>
+<span class="cd">--    |</span>
+<span class="c1">--    + foldFree :: forall f m. MonadRec m =&gt; (f ~&gt; m) -&gt; (Free f) ~&gt; m</span>
+
+<span class="n">onBoot</span> <span class="o">::</span> <span class="kt">SakuraScript</span> <span class="kt">Unit</span>
+<span class="n">onBoot</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">liftF</span> <span class="p">(</span><span class="kt">ChangeScope</span> <span class="mi">1</span> <span class="n">unit</span><span class="p">)</span>
+  <span class="n">liftF</span> <span class="p">(</span><span class="kt">ChangeSurface</span> <span class="mi">10</span> <span class="n">unit</span><span class="p">)</span>
+  <span class="n">liftF</span> <span class="p">(</span><span class="kt">Talk</span> <span class="s">"なんや、えらい難しい言語やな。"</span> <span class="n">unit</span><span class="p">)</span>
+  <span class="n">liftF</span> <span class="p">(</span><span class="kt">Wait</span> <span class="mi">1000</span> <span class="n">unit</span><span class="p">)</span>
+  <span class="n">liftF</span> <span class="p">(</span><span class="kt">ChangeScope</span> <span class="mi">0</span> <span class="n">unit</span><span class="p">)</span>
+  <span class="n">liftF</span> <span class="p">(</span><span class="kt">ChangeSurface</span> <span class="mi">0</span> <span class="n">unit</span><span class="p">)</span>
+  <span class="n">liftF</span> <span class="p">(</span><span class="kt">Talk</span> <span class="s">"そうだねー。"</span> <span class="n">unit</span><span class="p">)</span>
+  <span class="n">liftF</span> <span class="p">(</span><span class="kt">YenE</span> <span class="n">unit</span><span class="p">)</span>
+<span class="cd">-- |</span>
+<span class="c1">-- + liftF :: forall f. f ~&gt; Free f</span>
+
+
+<span class="n">main</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">eff</span><span class="o">.</span> <span class="kt">Eff</span> <span class="p">(</span> <span class="n">console</span> <span class="o">::</span> <span class="kt">CONSOLE</span> <span class="p">,</span> <span class="n">err</span> <span class="o">::</span> <span class="kt">EXCEPTION</span><span class="p">,</span> <span class="n">testOutput</span> <span class="o">::</span> <span class="kt">TESTOUTPUT</span> <span class="o">|</span> <span class="n">eff</span> <span class="p">)</span> <span class="kt">Unit</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">void</span> <span class="o">$</span> <span class="n">launchAff</span> <span class="kr">do</span>
+<span class="cd">-- |     |</span>
+<span class="cd">-- |     + launchAff :: forall e a. Aff e a -&gt; Eff (err :: EXCEPTION | e) (Canceler e)</span>
+<span class="cd">-- |     : Converts the asynchronous computation into a synchronous one. All values are ignored, and if the computation produces an error, it is thrown.</span>
+<span class="c1">-- + void :: forall f a. Functor f =&gt; f a -&gt; f Unit</span>
+    <span class="n">forkAff</span> <span class="kr">do</span>
+      <span class="n">run</span> <span class="o">$</span> <span class="n">onBoot</span>
+<span class="cd">--  |</span>
+<span class="c1">--  + forkAff :: forall e a. Aff e a -&gt; Aff e (Canceler e)</span>
+<span class="c1">--  : Forks the specified asynchronous computation so subsequent computations will not block on the result of the computation.</span>
+<span class="c1">--  : Returns a canceler that can be used to attempt cancellation of the forked computation.</span>
+
+</pre></div></div>
+
+<h2>
+<span id="結果" class="fragment"></span><a href="#%E7%B5%90%E6%9E%9C"><i class="fa fa-link"></i></a>結果</h2>
+
+<div class="code-frame" data-lang="shell-session"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>psc <span class="nt">--version</span>
+<span class="go">0.10.2
+</span><span class="gp">$</span><span class="w"> </span>pulp run
+<span class="go">* Building project in ***/purs-free
+Compiling Main
+* Build successful.
+\p[1]
+\s[10]
+なんや、えらい難しい言語やな。
+\_w[1000]
+\p[0]
+\s[0]
+そうだねー。
+\e
+
+</span></pre></div></div>
+
+<h2>
+<span id="小学生並みの感想" class="fragment"></span><a href="#%E5%B0%8F%E5%AD%A6%E7%94%9F%E4%B8%A6%E3%81%BF%E3%81%AE%E6%84%9F%E6%83%B3"><i class="fa fa-link"></i></a>小学生並みの感想</h2>
+
+<ul>
+<li>文字列結合は <code>&lt;&gt;</code> で Semigroup にある</li>
+<li>
+<code>~&gt;</code> とは一体何なのか？(Naturalで、自然変換です。型オペレータも定義できるので</li>
+<li>
+<code>YenE</code> で処理を打ち切りたかったが方法が分からなかった。 Nothing とか使えばいいのだろうか？</li>
+<li>
+<code>∷</code> や <code>→</code> や <code>∀</code> が使えるようになったようだ？</li>
+<li>改行なし出力のために <code>Test.Unit.Console</code> を使った</li>
+</ul>
+
+<h2>
+<span id="参考" class="fragment"></span><a href="#%E5%8F%82%E8%80%83"><i class="fa fa-link"></i></a>参考</h2>
+
+<ul>
+<li><a href="http://d.hatena.ne.jp/fumiexcel/20121111/1352614885" class="autolink" rel="nofollow noopener" target="_blank">http://d.hatena.ne.jp/fumiexcel/20121111/1352614885</a></li>
+<li><a href="http://d.hatena.ne.jp/its_out_of_tune/comment/20121111/1352632815" class="autolink" rel="nofollow noopener" target="_blank">http://d.hatena.ne.jp/its_out_of_tune/comment/20121111/1352632815</a></li>
+<li><a href="https://github.com/purescript/purescript-free" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/purescript/purescript-free</a></li>
+<li><a href="http://ssp.shillest.net/ukadoc/manual/list_sakura_script.html" class="autolink" rel="nofollow noopener" target="_blank">http://ssp.shillest.net/ukadoc/manual/list_sakura_script.html</a></li>
+</ul>

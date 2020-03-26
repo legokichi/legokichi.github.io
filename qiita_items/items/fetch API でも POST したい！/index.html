@@ -1,0 +1,45 @@
+
+<h1>
+<span id="fetch-api-でも-post-したい" class="fragment"></span><a href="#fetch-api-%E3%81%A7%E3%82%82-post-%E3%81%97%E3%81%9F%E3%81%84"><i class="fa fa-link"></i></a>fetch API でも POST したい！</h1>
+
+<p>ちなみに fetch API は WHATWG HTML Living Standard で定義されていて、W3C HTML 5.1 でもなければ ECMAScript2017 でもないです。</p>
+
+<p>2017年現在 Safari や IE では未サポートなので <a href="https://github.com/github/fetch" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/github/fetch</a> などの polyfill を使うと良いです。</p>
+
+<h2>
+<span id="post-applicationx-www-form-urlencoded" class="fragment"></span><a href="#post-applicationx-www-form-urlencoded"><i class="fa fa-link"></i></a>post (application/x-www-form-urlencoded)</h2>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="kd">const</span> <span class="nx">obj</span> <span class="o">=</span> <span class="p">{</span><span class="na">hello</span><span class="p">:</span> <span class="dl">"</span><span class="s2">world</span><span class="dl">"</span><span class="p">};</span>
+<span class="kd">const</span> <span class="nx">method</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">POST</span><span class="dl">"</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">body</span> <span class="o">=</span> <span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="nx">obj</span><span class="p">).</span><span class="nx">map</span><span class="p">((</span><span class="nx">key</span><span class="p">)</span><span class="o">=&gt;</span><span class="nx">key</span><span class="o">+</span><span class="dl">"</span><span class="s2">=</span><span class="dl">"</span><span class="o">+</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">obj</span><span class="p">[</span><span class="nx">key</span><span class="p">])).</span><span class="nx">join</span><span class="p">(</span><span class="dl">"</span><span class="s2">&amp;</span><span class="dl">"</span><span class="p">);</span>
+<span class="kd">const</span> <span class="nx">headers</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="dl">'</span><span class="s1">Accept</span><span class="dl">'</span><span class="p">:</span> <span class="dl">'</span><span class="s1">application/json</span><span class="dl">'</span><span class="p">,</span>
+  <span class="dl">'</span><span class="s1">Content-Type</span><span class="dl">'</span><span class="p">:</span> <span class="dl">'</span><span class="s1">application/x-www-form-urlencoded; charset=utf-8</span><span class="dl">'</span>
+<span class="p">};</span>
+<span class="nx">fetch</span><span class="p">(</span><span class="dl">"</span><span class="s2">./new</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span><span class="nx">method</span><span class="p">,</span> <span class="nx">headers</span><span class="p">,</span> <span class="nx">body</span><span class="p">}).</span><span class="nx">then</span><span class="p">((</span><span class="nx">res</span><span class="p">)</span><span class="o">=&gt;</span> <span class="nx">res</span><span class="p">.</span><span class="nx">json</span><span class="p">()).</span><span class="nx">then</span><span class="p">(</span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">).</span><span class="k">catch</span><span class="p">(</span><span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">);</span>
+</pre></div></div>
+
+<h2>
+<span id="post-multipartform-data" class="fragment"></span><a href="#post-multipartform-data"><i class="fa fa-link"></i></a>post (multipart/form-data)</h2>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="kd">const</span> <span class="nx">obj</span> <span class="o">=</span> <span class="p">{</span><span class="na">hello</span><span class="p">:</span> <span class="dl">"</span><span class="s2">world</span><span class="dl">"</span><span class="p">};</span>
+<span class="kd">const</span> <span class="nx">method</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">POST</span><span class="dl">"</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">body</span> <span class="o">=</span> <span class="nb">Object</span><span class="p">.</span><span class="nx">keys</span><span class="p">(</span><span class="nx">obj</span><span class="p">).</span><span class="nx">reduce</span><span class="p">((</span><span class="nx">o</span><span class="p">,</span><span class="nx">key</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">(</span><span class="nx">o</span><span class="p">.</span><span class="kd">set</span><span class="p">(</span><span class="nx">key</span><span class="p">,</span> <span class="nx">obj</span><span class="p">[</span><span class="nx">key</span><span class="p">]),</span> <span class="nx">o</span><span class="p">),</span> <span class="k">new</span> <span class="nx">FormData</span><span class="p">());</span>
+<span class="kd">const</span> <span class="nx">headers</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="dl">'</span><span class="s1">Accept</span><span class="dl">'</span><span class="p">:</span> <span class="dl">'</span><span class="s1">application/json</span><span class="dl">'</span>
+<span class="p">};</span>
+<span class="nx">fetch</span><span class="p">(</span><span class="dl">"</span><span class="s2">./new</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span><span class="nx">method</span><span class="p">,</span> <span class="nx">headers</span><span class="p">,</span> <span class="nx">body</span><span class="p">}).</span><span class="nx">then</span><span class="p">((</span><span class="nx">res</span><span class="p">)</span><span class="o">=&gt;</span> <span class="nx">res</span><span class="p">.</span><span class="nx">json</span><span class="p">()).</span><span class="nx">then</span><span class="p">(</span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">).</span><span class="k">catch</span><span class="p">(</span><span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">);</span>
+</pre></div></div>
+
+<h2>
+<span id="post-aplicationjson" class="fragment"></span><a href="#post-aplicationjson"><i class="fa fa-link"></i></a>post (aplication/json)</h2>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="kd">const</span> <span class="nx">obj</span> <span class="o">=</span> <span class="p">{</span><span class="na">hello</span><span class="p">:</span> <span class="dl">"</span><span class="s2">world</span><span class="dl">"</span><span class="p">};</span>
+<span class="kd">const</span> <span class="nx">method</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">POST</span><span class="dl">"</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">body</span> <span class="o">=</span> <span class="nx">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">(</span><span class="nx">obj</span><span class="p">);</span>
+<span class="kd">const</span> <span class="nx">headers</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="dl">'</span><span class="s1">Accept</span><span class="dl">'</span><span class="p">:</span> <span class="dl">'</span><span class="s1">application/json</span><span class="dl">'</span><span class="p">,</span>
+  <span class="dl">'</span><span class="s1">Content-Type</span><span class="dl">'</span><span class="p">:</span> <span class="dl">'</span><span class="s1">application/json</span><span class="dl">'</span>
+<span class="p">};</span>
+<span class="nx">fetch</span><span class="p">(</span><span class="dl">"</span><span class="s2">./new</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span><span class="nx">method</span><span class="p">,</span> <span class="nx">headers</span><span class="p">,</span> <span class="nx">body</span><span class="p">}).</span><span class="nx">then</span><span class="p">((</span><span class="nx">res</span><span class="p">)</span><span class="o">=&gt;</span> <span class="nx">res</span><span class="p">.</span><span class="nx">json</span><span class="p">()).</span><span class="nx">then</span><span class="p">(</span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">).</span><span class="k">catch</span><span class="p">(</span><span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">);</span>
+</pre></div></div>

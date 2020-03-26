@@ -1,0 +1,719 @@
+
+<h1>
+<span id="非同期-io-について" class="fragment"></span><a href="#%E9%9D%9E%E5%90%8C%E6%9C%9F-io-%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6"><i class="fa fa-link"></i></a>非同期 IO について</h1>
+
+<hr>
+
+<h2>
+<span id="おしながき" class="fragment"></span><a href="#%E3%81%8A%E3%81%97%E3%81%AA%E3%81%8C%E3%81%8D"><i class="fa fa-link"></i></a>おしながき</h2>
+
+<ol>
+<li>C10K 問題 について</li>
+<li>非同期 IO とは何か</li>
+<li>async-await</li>
+<li>非同期 IO のこれから</li>
+</ol>
+
+<hr>
+
+<h2>
+<span id="1-c10k-問題-について" class="fragment"></span><a href="#1-c10k-%E5%95%8F%E9%A1%8C-%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6"><i class="fa fa-link"></i></a>1. C10K 問題 について</h2>
+
+<hr>
+
+<h3>
+<span id="時は-2002-年" class="fragment"></span><a href="#%E6%99%82%E3%81%AF-2002-%E5%B9%B4"><i class="fa fa-link"></i></a>時は 2002 年</h3>
+
+<hr>
+
+<h3>
+<span id="web-勃興期" class="fragment"></span><a href="#web-%E5%8B%83%E8%88%88%E6%9C%9F"><i class="fa fa-link"></i></a>Web 勃興期</h3>
+
+<hr>
+
+<h3>
+<span id="牧歌的時代の終わり" class="fragment"></span><a href="#%E7%89%A7%E6%AD%8C%E7%9A%84%E6%99%82%E4%BB%A3%E3%81%AE%E7%B5%82%E3%82%8F%E3%82%8A"><i class="fa fa-link"></i></a>牧歌的時代の終わり</h3>
+
+<hr>
+
+<h3>
+<span id="http-サーバ" class="fragment"></span><a href="#http-%E3%82%B5%E3%83%BC%E3%83%90"><i class="fa fa-link"></i></a>HTTP サーバ</h3>
+
+<hr>
+
+<h3>
+<span id="10000-クライアントからの同時接続" class="fragment"></span><a href="#10000-%E3%82%AF%E3%83%A9%E3%82%A4%E3%82%A2%E3%83%B3%E3%83%88%E3%81%8B%E3%82%89%E3%81%AE%E5%90%8C%E6%99%82%E6%8E%A5%E7%B6%9A"><i class="fa fa-link"></i></a>10000 クライアントからの同時接続</h3>
+
+<hr>
+
+<h3>
+<span id="どう実装するか" class="fragment"></span><a href="#%E3%81%A9%E3%81%86%E5%AE%9F%E8%A3%85%E3%81%99%E3%82%8B%E3%81%8B"><i class="fa fa-link"></i></a>どう実装するか</h3>
+
+<hr>
+
+<h3>
+<span id="当時の-web-サーバ" class="fragment"></span><a href="#%E5%BD%93%E6%99%82%E3%81%AE-web-%E3%82%B5%E3%83%BC%E3%83%90"><i class="fa fa-link"></i></a>当時の Web サーバ</h3>
+
+<ul>
+<li><strong>Apache</strong></li>
+<li>クライアント毎に 1 プロセス</li>
+<li>クライアント毎に 1 スレッド</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="クライアント毎に-1-プロセス" class="fragment"></span><a href="#%E3%82%AF%E3%83%A9%E3%82%A4%E3%82%A2%E3%83%B3%E3%83%88%E6%AF%8E%E3%81%AB-1-%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9"><i class="fa fa-link"></i></a>クライアント毎に 1 プロセス</h3>
+
+<ul>
+<li>10000 プロセス も起動したら OS が死ぬ</li>
+<li>CPU|メモリ が足りない</li>
+<li>PID の上限</li>
+<li>etc...</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="クライアント毎に-1-スレッド" class="fragment"></span><a href="#%E3%82%AF%E3%83%A9%E3%82%A4%E3%82%A2%E3%83%B3%E3%83%88%E6%AF%8E%E3%81%AB-1-%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89"><i class="fa fa-link"></i></a>クライアント毎に 1 スレッド</h3>
+
+<ul>
+<li>10000 thread も起動したら OS が死ぬ</li>
+<li>CPU|memoryが足りない</li>
+<li>thread数の上限</li>
+<li>virtual memory の上限</li>
+<li>etc...</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="これからの時代2002年当時" class="fragment"></span><a href="#%E3%81%93%E3%82%8C%E3%81%8B%E3%82%89%E3%81%AE%E6%99%82%E4%BB%A32002%E5%B9%B4%E5%BD%93%E6%99%82"><i class="fa fa-link"></i></a>これからの時代(2002年当時)</h3>
+
+<ul>
+<li><strong>nginx</strong></li>
+<li>複数の thread で複数の client を受け持つ</li>
+<li>
+<strong>非同期</strong> <strong>並列</strong> イベント駆動
+
+<ul>
+<li>非同期: 非同期イベント駆動</li>
+<li>並列: 軽量スレッド</li>
+</ul>
+</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="--" class="fragment"></span><a href="#--"><i class="fa fa-link"></i></a><a href="https://qiita-user-contents.imgix.net/https%3A%2F%2Fupload.wikimedia.org%2Fwikipedia%2Fcommons%2Fthumb%2Fa%2Faf%2FGen_bijection.svg%2F200px-Gen_bijection.svg.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=88b48d5d96003f3e3e4ff50f0ecd16d5" target="_blank" rel="nofollow noopener"><img src="https://qiita-user-contents.imgix.net/https%3A%2F%2Fupload.wikimedia.org%2Fwikipedia%2Fcommons%2Fthumb%2Fa%2Faf%2FGen_bijection.svg%2F200px-Gen_bijection.svg.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=88b48d5d96003f3e3e4ff50f0ecd16d5" alt="" data-canonical-src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Gen_bijection.svg/200px-Gen_bijection.svg.png" srcset="https://qiita-user-contents.imgix.net/https%3A%2F%2Fupload.wikimedia.org%2Fwikipedia%2Fcommons%2Fthumb%2Fa%2Faf%2FGen_bijection.svg%2F200px-Gen_bijection.svg.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;w=1400&amp;fit=max&amp;s=8a2049c7afede367f96adaae2a3e1419 1x" loading="lazy"></a> → <a href="https://qiita-user-contents.imgix.net/https%3A%2F%2Fupload.wikimedia.org%2Fwikipedia%2Fcommons%2Fthumb%2F6%2F6c%2FSurjection.svg%2F200px-Surjection.svg.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=a127cc0b2b9bce755912e0b9fc469328" target="_blank" rel="nofollow noopener"><img src="https://qiita-user-contents.imgix.net/https%3A%2F%2Fupload.wikimedia.org%2Fwikipedia%2Fcommons%2Fthumb%2F6%2F6c%2FSurjection.svg%2F200px-Surjection.svg.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=a127cc0b2b9bce755912e0b9fc469328" alt="" data-canonical-src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Surjection.svg/200px-Surjection.svg.png" srcset="https://qiita-user-contents.imgix.net/https%3A%2F%2Fupload.wikimedia.org%2Fwikipedia%2Fcommons%2Fthumb%2F6%2F6c%2FSurjection.svg%2F200px-Surjection.svg.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;w=1400&amp;fit=max&amp;s=65c9015eb7bdc54994d9ea5740794205 1x" loading="lazy"></a>
+</h3>
+
+<hr>
+
+<h3>
+<span id="c10k-前後史" class="fragment"></span><a href="#c10k-%E5%89%8D%E5%BE%8C%E5%8F%B2"><i class="fa fa-link"></i></a>C10K 前後史</h3>
+
+<hr>
+
+<ul>
+<li>1973: Actor(Scala, Erlang の起源)</li>
+<li>1977: future-promise</li>
+<li>1978: CSP(Go の起源)</li>
+<li>1983: C++</li>
+<li>1986: Erlang</li>
+<li>1990: Haskell 1.0</li>
+<li>1991: Concurrent ML</li>
+</ul>
+
+<hr>
+
+<ul>
+<li>1994: PHP, Java, python1, Perl5, Common Lisp</li>
+<li>1995: Apache, JavaScript, Ruby, Haskell 1.3(monad)</li>
+<li>1996: Shockwave Flash, Concurrent Haskell</li>
+<li>1997: IE4</li>
+</ul>
+
+<hr>
+
+<ul>
+<li>2000: libevent(poll|select)</li>
+<li>2001: POSIX AIO(POSIX 1003.1b), IE6</li>
+<li>2002: <strong>C10K 問題提議</strong>
+</li>
+<li>2003: libaio(Linux AIO, Linux2.6), Scala</li>
+<li>2004: <strong>nginx(AIO)</strong>, Rails, Firefox1</li>
+</ul>
+
+<hr>
+
+<ul>
+<li>2005: gevent(eventlet), GoogleMap, F#</li>
+<li>2006: Firefox 2.0, jQuery1.0</li>
+<li>2007: libev, Clojure(STM), LINQ(C#3.0)</li>
+<li>
+<strong>2008</strong>: <strong>epoll (Linux 2.6.28)</strong>, boost(1.35) asio , Task(C#4.0), node.js(libuv), Google Chrome</li>
+<li>2009: go, CoffeeScript, iPhone3GS, ReactiveX(C#5.0)</li>
+</ul>
+
+<hr>
+
+<ul>
+<li>2010: C#5.0(async)</li>
+<li>2011: java nio(jdk1.7), Kotlin, React, Deferred(jQuery1.5)</li>
+<li>2012: Elixir, TypeScript</li>
+<li>2013: Promise</li>
+<li>2014: Swift, Flux, asyncio(Python3.4)</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="c10k-まとめ" class="fragment"></span><a href="#c10k-%E3%81%BE%E3%81%A8%E3%82%81"><i class="fa fa-link"></i></a>C10K まとめ</h3>
+
+<ul>
+<li>10000 コネクションさばきたい</li>
+<li>非同期や並列アーキテクチャが模索された時代があった</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="2-非同期-io-とは何か" class="fragment"></span><a href="#2-%E9%9D%9E%E5%90%8C%E6%9C%9F-io-%E3%81%A8%E3%81%AF%E4%BD%95%E3%81%8B"><i class="fa fa-link"></i></a>2. 非同期 IO とは何か</h2>
+
+<hr>
+
+<h3>
+<span id="io-とは" class="fragment"></span><a href="#io-%E3%81%A8%E3%81%AF"><i class="fa fa-link"></i></a>IO とは</h3>
+
+<ul>
+<li>Disk IO</li>
+<li>Network IO</li>
+<li>IO は CPU の時間に比べてとても遅い</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="io-の種類" class="fragment"></span><a href="#io-%E3%81%AE%E7%A8%AE%E9%A1%9E"><i class="fa fa-link"></i></a>IO の種類</h3>
+
+<ul>
+<li>同期ブロッキング</li>
+<li>同期ノンブロッキング</li>
+<li>非同期ブロッキング</li>
+<li>非同期ノンブロッキング</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="同期ブロッキング" class="fragment"></span><a href="#%E5%90%8C%E6%9C%9F%E3%83%96%E3%83%AD%E3%83%83%E3%82%AD%E3%83%B3%E3%82%B0"><i class="fa fa-link"></i></a>同期ブロッキング</h3>
+
+<ul>
+<li>プロセスがカーネルにシステムコールする</li>
+<li>プロセスはカーネルの返事を <strong>待つ</strong>
+</li>
+<li>プロセスのスレッドのプログラムカウンタは止まる</li>
+<li>例: read, write システムコール</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="同期ノンブロッキング" class="fragment"></span><a href="#%E5%90%8C%E6%9C%9F%E3%83%8E%E3%83%B3%E3%83%96%E3%83%AD%E3%83%83%E3%82%AD%E3%83%B3%E3%82%B0"><i class="fa fa-link"></i></a>同期ノンブロッキング</h3>
+
+<ul>
+<li>プロセスがカーネルにシステムコールする</li>
+<li>プロセスはカーネルの返事を <strong>待たない</strong>
+</li>
+<li>プロセスは任意のタイミングで IO の状態をカーネルに問い合わせる(polling)</li>
+<li>例: O_NONBLOCK を指定した read, write, poll, select システムコール</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="非同期ブロッキング" class="fragment"></span><a href="#%E9%9D%9E%E5%90%8C%E6%9C%9F%E3%83%96%E3%83%AD%E3%83%83%E3%82%AD%E3%83%B3%E3%82%B0"><i class="fa fa-link"></i></a>非同期ブロッキング</h3>
+
+<ul>
+<li>プロセスはカーネルにシステムコールでIO処理をたくさん登録して返事を <strong>待つ</strong>
+</li>
+<li>カーネルは <strong>どれかが終わったら</strong> 返事する</li>
+<li>同期ブロッキングに比べてたくさんの IO 処理を同時に待てる (多重 IO)</li>
+<li>ex. epoll システムコール</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="非同期ノンブロッキング" class="fragment"></span><a href="#%E9%9D%9E%E5%90%8C%E6%9C%9F%E3%83%8E%E3%83%B3%E3%83%96%E3%83%AD%E3%83%83%E3%82%AD%E3%83%B3%E3%82%B0"><i class="fa fa-link"></i></a>非同期ノンブロッキング</h3>
+
+<ul>
+<li>プロセスはカーネルにシステムコールをたくさん投げる</li>
+<li>プロセスはカーネルからのシグナルが発生するまで他のことをする</li>
+<li>シグナル処理は高コストという問題も</li>
+<li>ex. POSIX AIO, Linux AIO</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="非同期-io-の実現方法" class="fragment"></span><a href="#%E9%9D%9E%E5%90%8C%E6%9C%9F-io-%E3%81%AE%E5%AE%9F%E7%8F%BE%E6%96%B9%E6%B3%95"><i class="fa fa-link"></i></a>非同期 IO の実現方法</h3>
+
+<ul>
+<li>1スレッドで複数の IO 呼び出しを処理を <strong>しない</strong>
+</li>
+<li>1スレッドで複数の IO 呼び出しを処理を <strong>する</strong>
+</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="単一スレッドで複数の-io-呼び出しを処理を-しない" class="fragment"></span><a href="#%E5%8D%98%E4%B8%80%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89%E3%81%A7%E8%A4%87%E6%95%B0%E3%81%AE-io-%E5%91%BC%E3%81%B3%E5%87%BA%E3%81%97%E3%82%92%E5%87%A6%E7%90%86%E3%82%92-%E3%81%97%E3%81%AA%E3%81%84"><i class="fa fa-link"></i></a>単一スレッドで複数の IO 呼び出しを処理を <strong>しない</strong>
+</h3>
+
+<ul>
+<li>同期ブロッキングを使い、複数スレッドで並列化</li>
+<li>Python や Ruby のスレッドに GIL (Global Interpreter Lock) がついているのは IO 待ちのためのスレッドだから</li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="gil-のない言語では" class="fragment"></span><a href="#gil-%E3%81%AE%E3%81%AA%E3%81%84%E8%A8%80%E8%AA%9E%E3%81%A7%E3%81%AF"><i class="fa fa-link"></i></a>GIL のない言語では</h4>
+
+<ul>
+<li>go は GIL がない代わりに channel と mutex がある</li>
+<li>Clojure は GIL の代わりに STM がある</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="単一スレッドで複数の-io-呼び出しを処理を-する" class="fragment"></span><a href="#%E5%8D%98%E4%B8%80%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89%E3%81%A7%E8%A4%87%E6%95%B0%E3%81%AE-io-%E5%91%BC%E3%81%B3%E5%87%BA%E3%81%97%E3%82%92%E5%87%A6%E7%90%86%E3%82%92-%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>単一スレッドで複数の IO 呼び出しを処理を <strong>する</strong>
+</h3>
+
+<ul>
+<li>同期ノンブロッキング(O_NONBLOCK)して、カーネルに次回のイベントを poll(libevent)</li>
+<li>POSIX AIO で非同期ノンブロッキングして、シグナルでカーネルからの通知を受け取る(nginx aio)</li>
+<li>epoll で複数のIOをまとめて取り扱う(nodejs)</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="非同期-ファイル-io-について" class="fragment"></span><a href="#%E9%9D%9E%E5%90%8C%E6%9C%9F-%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB-io-%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6"><i class="fa fa-link"></i></a>非同期 ファイル IO について</h3>
+
+<ul>
+<li>epoll はファイル IO を非同期で扱えない</li>
+<li>linux でのファイル IO はスレッドプールで実現されている</li>
+<li>Linux AIO はパフォーマンスの問題や開発が止まっているから使われていない</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="非同期-io-まとめ" class="fragment"></span><a href="#%E9%9D%9E%E5%90%8C%E6%9C%9F-io-%E3%81%BE%E3%81%A8%E3%82%81"><i class="fa fa-link"></i></a>非同期 IO まとめ</h3>
+
+<ul>
+<li>同期ブロッキング - 普通のIO</li>
+<li>同期ノンブロッキング - 古い非同期(O_NONBLOCK)</li>
+<li>非同期ブロッキング - モダンな非同期(epoll)</li>
+<li>非同期ノンブロッキング - 開発停滞(Linux AIO)</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="3-イベント駆動と-async-await" class="fragment"></span><a href="#3-%E3%82%A4%E3%83%99%E3%83%B3%E3%83%88%E9%A7%86%E5%8B%95%E3%81%A8-async-await"><i class="fa fa-link"></i></a>3. イベント駆動と async-await</h2>
+
+<hr>
+
+<h3>
+<span id="イベント駆動とは" class="fragment"></span><a href="#%E3%82%A4%E3%83%99%E3%83%B3%E3%83%88%E9%A7%86%E5%8B%95%E3%81%A8%E3%81%AF"><i class="fa fa-link"></i></a>イベント駆動とは</h3>
+
+<ul>
+<li>イベントループで次に発火するイベントを決める</li>
+<li>コールバックスタイルのイベントリスナにイベントを通知する</li>
+<li>シングルスレッドで多重 IO が扱える</li>
+<li>イベントループのスレッドでの処理時間を抑えないとパフォーマンスが出ない</li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="イベントループ擬似コード" class="fragment"></span><a href="#%E3%82%A4%E3%83%99%E3%83%B3%E3%83%88%E3%83%AB%E3%83%BC%E3%83%97%E6%93%AC%E4%BC%BC%E3%82%B3%E3%83%BC%E3%83%89"><i class="fa fa-link"></i></a>イベントループ擬似コード</h4>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="kd">const</span> <span class="nx">waitingEvents</span> <span class="o">=</span> <span class="p">[];</span>
+<span class="kd">const</span> <span class="nx">callbacks</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="dl">"</span><span class="s2">main</span><span class="dl">"</span><span class="p">:</span> <span class="p">()</span><span class="o">=&gt;</span><span class="p">{</span>
+    <span class="nx">waitingEvents</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="dl">"</span><span class="s2">foo</span><span class="dl">"</span><span class="p">);</span>
+    <span class="nx">callbacks</span><span class="p">[</span><span class="dl">"</span><span class="s2">foo</span><span class="dl">"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span>
+      <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">foo</span><span class="dl">"</span><span class="p">,</span> <span class="nx">event</span><span class="p">);</span>
+    <span class="p">};</span>
+  <span class="p">}</span>
+<span class="p">};</span>
+
+<span class="c1">// event loop</span>
+<span class="k">while</span><span class="p">(</span><span class="kc">true</span><span class="p">){</span>
+  <span class="kd">const</span> <span class="nx">currentEvent</span> <span class="o">=</span> <span class="nx">epollLike</span><span class="p">(</span><span class="nx">waitingEvents</span><span class="p">);</span>
+  <span class="nx">currentEvent</span><span class="p">.</span><span class="nx">forEach</span><span class="p">(([</span><span class="nx">eventName</span><span class="p">,</span> <span class="nx">event</span><span class="p">])</span><span class="o">=&gt;</span><span class="p">{</span>
+    <span class="nx">callbacks</span><span class="p">[</span><span class="nx">eventName</span><span class="p">](</span><span class="nx">event</span><span class="p">);</span>
+  <span class="p">});</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="コールバックスタイル" class="fragment"></span><a href="#%E3%82%B3%E3%83%BC%E3%83%AB%E3%83%90%E3%83%83%E3%82%AF%E3%82%B9%E3%82%BF%E3%82%A4%E3%83%AB"><i class="fa fa-link"></i></a>コールバックスタイル</h3>
+
+<hr>
+
+<p><a href="https://qiita-user-contents.imgix.net/https%3A%2F%2Fqiita-image-store.s3.amazonaws.com%2F0%2F13484%2F2fd00f51-a975-168f-0d57-36faf579e8e7.jpeg?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=c1cc138a2f377a747de48e0a3676a017" target="_blank" rel="nofollow noopener"><img src="https://qiita-user-contents.imgix.net/https%3A%2F%2Fqiita-image-store.s3.amazonaws.com%2F0%2F13484%2F2fd00f51-a975-168f-0d57-36faf579e8e7.jpeg?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=c1cc138a2f377a747de48e0a3676a017" alt="plhe5cqmsz7ss4mrwqix.jpg" data-canonical-src="https://qiita-image-store.s3.amazonaws.com/0/13484/2fd00f51-a975-168f-0d57-36faf579e8e7.jpeg" srcset="https://qiita-user-contents.imgix.net/https%3A%2F%2Fqiita-image-store.s3.amazonaws.com%2F0%2F13484%2F2fd00f51-a975-168f-0d57-36faf579e8e7.jpeg?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;w=1400&amp;fit=max&amp;s=2489e5c45f59b55cfd8fc0b869b60178 1x" loading="lazy"></a></p>
+
+<hr>
+
+<p>＿人人人人人人人人人人人＿<br>
+＞　突然のCallback Hell　＜<br>
+￣Y^Y^Y^Y^Y^Y^Y^Y^Y^Y￣</p>
+
+<hr>
+
+<h3>
+<span id="async-await-の必要性" class="fragment"></span><a href="#async-await-%E3%81%AE%E5%BF%85%E8%A6%81%E6%80%A7"><i class="fa fa-link"></i></a>async-await の必要性</h3>
+
+<p><a href="https://qiita-user-contents.imgix.net/https%3A%2F%2Fqiita-image-store.s3.amazonaws.com%2F0%2F13484%2F96f6e60b-2383-e495-70b5-a38e5634fe9e.gif?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=0a11f3c91ce2ebf36ef6cf40a0817b7b" target="_blank" rel="nofollow noopener"><img src="https://qiita-user-contents.imgix.net/https%3A%2F%2Fqiita-image-store.s3.amazonaws.com%2F0%2F13484%2F96f6e60b-2383-e495-70b5-a38e5634fe9e.gif?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=0a11f3c91ce2ebf36ef6cf40a0817b7b" alt="js-callbacks-promises-asyncawait.gif" data-canonical-src="https://qiita-image-store.s3.amazonaws.com/0/13484/96f6e60b-2383-e495-70b5-a38e5634fe9e.gif" srcset="https://qiita-user-contents.imgix.net/https%3A%2F%2Fqiita-image-store.s3.amazonaws.com%2F0%2F13484%2F96f6e60b-2383-e495-70b5-a38e5634fe9e.gif?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;w=1400&amp;fit=max&amp;s=854ffdc34376ce802747d5974bf4ba1a 1x" loading="lazy"></a></p>
+
+<hr>
+
+<h3>
+<span id="callback-hell-からの脱出" class="fragment"></span><a href="#callback-hell-%E3%81%8B%E3%82%89%E3%81%AE%E8%84%B1%E5%87%BA"><i class="fa fa-link"></i></a>callback hell からの脱出</h3>
+
+<ul>
+<li>継続渡し形式(コールバック)から</li>
+<li>直接形式(yield|async-await)へ</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="yield--async-await-の実現方法" class="fragment"></span><a href="#yield--async-await-%E3%81%AE%E5%AE%9F%E7%8F%BE%E6%96%B9%E6%B3%95"><i class="fa fa-link"></i></a>yield | async-await の実現方法</h3>
+
+<ul>
+<li>軽量スレッド</li>
+<li>継続</li>
+<li>ステートマシン</li>
+<li>マクロ</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="軽量スレッド" class="fragment"></span><a href="#%E8%BB%BD%E9%87%8F%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89"><i class="fa fa-link"></i></a>軽量スレッド</h3>
+
+<ul>
+<li>スレッド生成のコストはでかい</li>
+<li>そもそもスタックフレームはでかい</li>
+<li>IO イベントを待つために省メモリな軽量スレッドを使う</li>
+<li>goroutine, C# Task, Java Green thread, GHC Haskell, Elixir, Boost Fiber</li>
+</ul>
+
+<hr>
+
+<div class="code-frame" data-lang="c++"><div class="highlight"><pre><span class="kt">int</span> <span class="nf">read_chunk</span><span class="p">(</span> <span class="n">NonblockingAPI</span> <span class="o">&amp;</span> <span class="n">api</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="o">&amp;</span> <span class="n">data</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="kt">size_t</span> <span class="n">desired</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">int</span> <span class="n">error</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span> <span class="n">EWOULDBLOCK</span> <span class="o">==</span> <span class="p">(</span> <span class="n">error</span> <span class="o">=</span> <span class="n">api</span><span class="p">.</span><span class="n">read</span><span class="p">(</span> <span class="n">data</span><span class="p">,</span> <span class="n">desired</span><span class="p">)</span> <span class="p">)</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// ここで他のファイバーに処理を譲る</span>
+        <span class="n">boost</span><span class="o">::</span><span class="n">this_fiber</span><span class="o">::</span><span class="n">yield</span><span class="p">();</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">error</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="継続" class="fragment"></span><a href="#%E7%B6%99%E7%B6%9A"><i class="fa fa-link"></i></a>継続</h3>
+
+<ul>
+<li>Generator, Coroutine</li>
+<li>
+<strong>スタックポインタとプログラム・カウンタを実行時に書き換える</strong> ことでシングルスレッドで擬似マルチスレッドできる</li>
+<li>JavaScript, Python, Rust, Ruby, Boost Context, scheme call/cc</li>
+</ul>
+
+<hr>
+
+<div class="code-frame" data-lang="cpp"><div class="highlight"><pre><span class="n">context</span> <span class="n">ctx</span><span class="p">;</span>
+<span class="n">asio</span><span class="o">::</span><span class="n">io_service</span> <span class="n">io_service</span><span class="p">;</span>
+
+<span class="kt">void</span> <span class="nf">f</span><span class="p">(){</span>
+  <span class="n">socket_</span><span class="p">.</span><span class="n">async_connect</span><span class="p">(</span>
+    <span class="n">ip</span><span class="o">::</span><span class="n">tcp</span><span class="o">::</span><span class="n">endpoint</span><span class="p">(</span><span class="n">ip</span><span class="o">::</span><span class="n">address</span><span class="o">::</span><span class="n">from_string</span><span class="p">(</span><span class="s">"127.0.0.1"</span><span class="p">),</span> <span class="mi">31400</span><span class="p">),</span>
+    <span class="p">[](</span><span class="k">auto</span> <span class="n">ec</span><span class="p">){</span> <span class="n">ctx</span><span class="p">.</span><span class="n">resume</span><span class="p">();</span> <span class="p">});</span>
+  <span class="n">ctx</span><span class="p">.</span><span class="n">suspend</span><span class="p">();</span>
+  <span class="c1">// next...</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(){</span>
+  <span class="k">auto</span> <span class="n">ctx</span> <span class="o">=</span> <span class="n">context</span><span class="p">{</span><span class="n">f</span><span class="p">};</span>
+  <span class="n">ctx</span><span class="p">.</span><span class="n">start</span><span class="p">();</span>
+  <span class="n">io_service</span><span class="p">.</span><span class="n">run</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="状態マシン" class="fragment"></span><a href="#%E7%8A%B6%E6%85%8B%E3%83%9E%E3%82%B7%E3%83%B3"><i class="fa fa-link"></i></a>状態マシン</h3>
+
+<ul>
+<li>Coroutine エミュレータ</li>
+<li>Boost Coroutine, C# の async-await, Babel|TS の generator の ES5 向けコンパイル</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="コンパイル前" class="fragment"></span><a href="#%E3%82%B3%E3%83%B3%E3%83%91%E3%82%A4%E3%83%AB%E5%89%8D"><i class="fa fa-link"></i></a>コンパイル前</h3>
+
+<div class="code-frame" data-lang="ts"><div class="highlight"><pre><span class="k">async</span> <span class="kd">function</span> <span class="nx">a</span><span class="p">()</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">a</span> <span class="o">=</span> <span class="k">await</span> <span class="k">new</span> <span class="nb">Promise</span><span class="p">((</span><span class="nx">resolve</span><span class="p">,</span> <span class="nx">reject</span><span class="p">)</span><span class="o">=&gt;</span>
+      <span class="nx">setTimeout</span><span class="p">(()</span><span class="o">=&gt;</span><span class="p">{</span> <span class="nx">resolve</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span> <span class="p">},</span> <span class="mi">1000</span><span class="p">)</span> <span class="p">);</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="コンパイル後" class="fragment"></span><a href="#%E3%82%B3%E3%83%B3%E3%83%91%E3%82%A4%E3%83%AB%E5%BE%8C"><i class="fa fa-link"></i></a>コンパイル後</h3>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">__awaiter</span> <span class="o">=</span> <span class="p">(</span><span class="k">this</span> <span class="o">&amp;&amp;</span> <span class="k">this</span><span class="p">.</span><span class="nx">__awaiter</span><span class="p">)</span> <span class="o">||</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">thisArg</span><span class="p">,</span> <span class="nx">_arguments</span><span class="p">,</span> <span class="nx">P</span><span class="p">,</span> <span class="nx">generator</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">new</span> <span class="p">(</span><span class="nx">P</span> <span class="o">||</span> <span class="p">(</span><span class="nx">P</span> <span class="o">=</span> <span class="nb">Promise</span><span class="p">))(</span><span class="kd">function</span> <span class="p">(</span><span class="nx">resolve</span><span class="p">,</span> <span class="nx">reject</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">function</span> <span class="nx">fulfilled</span><span class="p">(</span><span class="nx">value</span><span class="p">)</span> <span class="p">{</span> <span class="k">try</span> <span class="p">{</span> <span class="nx">step</span><span class="p">(</span><span class="nx">generator</span><span class="p">.</span><span class="nx">next</span><span class="p">(</span><span class="nx">value</span><span class="p">));</span> <span class="p">}</span> <span class="k">catch</span> <span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="p">{</span> <span class="nx">reject</span><span class="p">(</span><span class="nx">e</span><span class="p">);</span> <span class="p">}</span> <span class="p">}</span>
+        <span class="kd">function</span> <span class="nx">rejected</span><span class="p">(</span><span class="nx">value</span><span class="p">)</span> <span class="p">{</span> <span class="k">try</span> <span class="p">{</span> <span class="nx">step</span><span class="p">(</span><span class="nx">generator</span><span class="p">[</span><span class="dl">"</span><span class="s2">throw</span><span class="dl">"</span><span class="p">](</span><span class="nx">value</span><span class="p">));</span> <span class="p">}</span> <span class="k">catch</span> <span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="p">{</span> <span class="nx">reject</span><span class="p">(</span><span class="nx">e</span><span class="p">);</span> <span class="p">}</span> <span class="p">}</span>
+        <span class="kd">function</span> <span class="nx">step</span><span class="p">(</span><span class="nx">result</span><span class="p">)</span> <span class="p">{</span> <span class="nx">result</span><span class="p">.</span><span class="nx">done</span> <span class="p">?</span> <span class="nx">resolve</span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">value</span><span class="p">)</span> <span class="p">:</span> <span class="k">new</span> <span class="nx">P</span><span class="p">(</span><span class="kd">function</span> <span class="p">(</span><span class="nx">resolve</span><span class="p">)</span> <span class="p">{</span> <span class="nx">resolve</span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">value</span><span class="p">);</span> <span class="p">}).</span><span class="nx">then</span><span class="p">(</span><span class="nx">fulfilled</span><span class="p">,</span> <span class="nx">rejected</span><span class="p">);</span> <span class="p">}</span>
+        <span class="nx">step</span><span class="p">((</span><span class="nx">generator</span> <span class="o">=</span> <span class="nx">generator</span><span class="p">.</span><span class="nx">apply</span><span class="p">(</span><span class="nx">thisArg</span><span class="p">,</span> <span class="nx">_arguments</span> <span class="o">||</span> <span class="p">[])).</span><span class="nx">next</span><span class="p">());</span>
+    <span class="p">});</span>
+<span class="p">};</span>
+<span class="kd">var</span> <span class="nx">__generator</span> <span class="o">=</span> <span class="p">(</span><span class="k">this</span> <span class="o">&amp;&amp;</span> <span class="k">this</span><span class="p">.</span><span class="nx">__generator</span><span class="p">)</span> <span class="o">||</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">thisArg</span><span class="p">,</span> <span class="nx">body</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">_</span> <span class="o">=</span> <span class="p">{</span> <span class="na">label</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="na">sent</span><span class="p">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span> <span class="k">if</span> <span class="p">(</span><span class="nx">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">t</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span> <span class="k">return</span> <span class="nx">t</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span> <span class="p">},</span> <span class="na">trys</span><span class="p">:</span> <span class="p">[],</span> <span class="na">ops</span><span class="p">:</span> <span class="p">[]</span> <span class="p">},</span> <span class="nx">f</span><span class="p">,</span> <span class="nx">y</span><span class="p">,</span> <span class="nx">t</span><span class="p">,</span> <span class="nx">g</span><span class="p">;</span>
+    <span class="k">return</span> <span class="nx">g</span> <span class="o">=</span> <span class="p">{</span> <span class="na">next</span><span class="p">:</span> <span class="nx">verb</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="dl">"</span><span class="s2">throw</span><span class="dl">"</span><span class="p">:</span> <span class="nx">verb</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="dl">"</span><span class="s2">return</span><span class="dl">"</span><span class="p">:</span> <span class="nx">verb</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="p">},</span> <span class="k">typeof</span> <span class="nb">Symbol</span> <span class="o">===</span> <span class="dl">"</span><span class="s2">function</span><span class="dl">"</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="nx">g</span><span class="p">[</span><span class="nb">Symbol</span><span class="p">.</span><span class="nx">iterator</span><span class="p">]</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span> <span class="k">return</span> <span class="k">this</span><span class="p">;</span> <span class="p">}),</span> <span class="nx">g</span><span class="p">;</span>
+    <span class="kd">function</span> <span class="nx">verb</span><span class="p">(</span><span class="nx">n</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">v</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="nx">step</span><span class="p">([</span><span class="nx">n</span><span class="p">,</span> <span class="nx">v</span><span class="p">]);</span> <span class="p">};</span> <span class="p">}</span>
+    <span class="kd">function</span> <span class="nx">step</span><span class="p">(</span><span class="nx">op</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nx">f</span><span class="p">)</span> <span class="k">throw</span> <span class="k">new</span> <span class="nx">TypeError</span><span class="p">(</span><span class="dl">"</span><span class="s2">Generator is already executing.</span><span class="dl">"</span><span class="p">);</span>
+        <span class="k">while</span> <span class="p">(</span><span class="nx">_</span><span class="p">)</span> <span class="k">try</span> <span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nx">f</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="nx">y</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="nx">t</span> <span class="o">=</span> <span class="nx">y</span><span class="p">[</span><span class="nx">op</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mi">2</span> <span class="p">?</span> <span class="dl">"</span><span class="s2">return</span><span class="dl">"</span> <span class="p">:</span> <span class="nx">op</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">?</span> <span class="dl">"</span><span class="s2">throw</span><span class="dl">"</span> <span class="p">:</span> <span class="dl">"</span><span class="s2">next</span><span class="dl">"</span><span class="p">])</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="p">(</span><span class="nx">t</span> <span class="o">=</span> <span class="nx">t</span><span class="p">.</span><span class="nx">call</span><span class="p">(</span><span class="nx">y</span><span class="p">,</span> <span class="nx">op</span><span class="p">[</span><span class="mi">1</span><span class="p">])).</span><span class="nx">done</span><span class="p">)</span> <span class="k">return</span> <span class="nx">t</span><span class="p">;</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nx">y</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nx">t</span><span class="p">)</span> <span class="nx">op</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="nx">t</span><span class="p">.</span><span class="nx">value</span><span class="p">];</span>
+            <span class="k">switch</span> <span class="p">(</span><span class="nx">op</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="p">{</span>
+                <span class="k">case</span> <span class="mi">0</span><span class="p">:</span> <span class="k">case</span> <span class="mi">1</span><span class="p">:</span> <span class="nx">t</span> <span class="o">=</span> <span class="nx">op</span><span class="p">;</span> <span class="k">break</span><span class="p">;</span>
+                <span class="k">case</span> <span class="mi">4</span><span class="p">:</span> <span class="nx">_</span><span class="p">.</span><span class="nx">label</span><span class="o">++</span><span class="p">;</span> <span class="k">return</span> <span class="p">{</span> <span class="na">value</span><span class="p">:</span> <span class="nx">op</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="na">done</span><span class="p">:</span> <span class="kc">false</span> <span class="p">};</span>
+                <span class="k">case</span> <span class="mi">5</span><span class="p">:</span> <span class="nx">_</span><span class="p">.</span><span class="nx">label</span><span class="o">++</span><span class="p">;</span> <span class="nx">y</span> <span class="o">=</span> <span class="nx">op</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span> <span class="nx">op</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">];</span> <span class="k">continue</span><span class="p">;</span>
+                <span class="k">case</span> <span class="mi">7</span><span class="p">:</span> <span class="nx">op</span> <span class="o">=</span> <span class="nx">_</span><span class="p">.</span><span class="nx">ops</span><span class="p">.</span><span class="nx">pop</span><span class="p">();</span> <span class="nx">_</span><span class="p">.</span><span class="nx">trys</span><span class="p">.</span><span class="nx">pop</span><span class="p">();</span> <span class="k">continue</span><span class="p">;</span>
+                <span class="nl">default</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="nx">t</span> <span class="o">=</span> <span class="nx">_</span><span class="p">.</span><span class="nx">trys</span><span class="p">,</span> <span class="nx">t</span> <span class="o">=</span> <span class="nx">t</span><span class="p">.</span><span class="nx">length</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="nx">t</span><span class="p">[</span><span class="nx">t</span><span class="p">.</span><span class="nx">length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="nx">op</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">===</span> <span class="mi">6</span> <span class="o">||</span> <span class="nx">op</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">===</span> <span class="mi">2</span><span class="p">))</span> <span class="p">{</span> <span class="nx">_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="k">continue</span><span class="p">;</span> <span class="p">}</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="nx">op</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">===</span> <span class="mi">3</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="o">!</span><span class="nx">t</span> <span class="o">||</span> <span class="p">(</span><span class="nx">op</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="nx">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&amp;&amp;</span> <span class="nx">op</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="nx">t</span><span class="p">[</span><span class="mi">3</span><span class="p">])))</span> <span class="p">{</span> <span class="nx">_</span><span class="p">.</span><span class="nx">label</span> <span class="o">=</span> <span class="nx">op</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span> <span class="k">break</span><span class="p">;</span> <span class="p">}</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="nx">op</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">===</span> <span class="mi">6</span> <span class="o">&amp;&amp;</span> <span class="nx">_</span><span class="p">.</span><span class="nx">label</span> <span class="o">&lt;</span> <span class="nx">t</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="p">{</span> <span class="nx">_</span><span class="p">.</span><span class="nx">label</span> <span class="o">=</span> <span class="nx">t</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span> <span class="nx">t</span> <span class="o">=</span> <span class="nx">op</span><span class="p">;</span> <span class="k">break</span><span class="p">;</span> <span class="p">}</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="nx">t</span> <span class="o">&amp;&amp;</span> <span class="nx">_</span><span class="p">.</span><span class="nx">label</span> <span class="o">&lt;</span> <span class="nx">t</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="p">{</span> <span class="nx">_</span><span class="p">.</span><span class="nx">label</span> <span class="o">=</span> <span class="nx">t</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span> <span class="nx">_</span><span class="p">.</span><span class="nx">ops</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">op</span><span class="p">);</span> <span class="k">break</span><span class="p">;</span> <span class="p">}</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="nx">t</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="nx">_</span><span class="p">.</span><span class="nx">ops</span><span class="p">.</span><span class="nx">pop</span><span class="p">();</span>
+                    <span class="nx">_</span><span class="p">.</span><span class="nx">trys</span><span class="p">.</span><span class="nx">pop</span><span class="p">();</span> <span class="k">continue</span><span class="p">;</span>
+            <span class="p">}</span>
+            <span class="nx">op</span> <span class="o">=</span> <span class="nx">body</span><span class="p">.</span><span class="nx">call</span><span class="p">(</span><span class="nx">thisArg</span><span class="p">,</span> <span class="nx">_</span><span class="p">);</span>
+        <span class="p">}</span> <span class="k">catch</span> <span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="p">{</span> <span class="nx">op</span> <span class="o">=</span> <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="nx">e</span><span class="p">];</span> <span class="nx">y</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="p">}</span> <span class="k">finally</span> <span class="p">{</span> <span class="nx">f</span> <span class="o">=</span> <span class="nx">t</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="p">}</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nx">op</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mi">5</span><span class="p">)</span> <span class="k">throw</span> <span class="nx">op</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span> <span class="k">return</span> <span class="p">{</span> <span class="na">value</span><span class="p">:</span> <span class="nx">op</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">?</span> <span class="nx">op</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:</span> <span class="k">void</span> <span class="mi">0</span><span class="p">,</span> <span class="na">done</span><span class="p">:</span> <span class="kc">true</span> <span class="p">};</span>
+    <span class="p">}</span>
+<span class="p">};</span>
+<span class="kd">function</span> <span class="nx">a</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">__awaiter</span><span class="p">(</span><span class="k">this</span><span class="p">,</span> <span class="k">void</span> <span class="mi">0</span><span class="p">,</span> <span class="k">void</span> <span class="mi">0</span><span class="p">,</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+        <span class="kd">var</span> <span class="nx">a</span><span class="p">;</span>
+        <span class="k">return</span> <span class="nx">__generator</span><span class="p">(</span><span class="k">this</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">_a</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">switch</span> <span class="p">(</span><span class="nx">_a</span><span class="p">.</span><span class="nx">label</span><span class="p">)</span> <span class="p">{</span>
+                <span class="k">case</span> <span class="mi">0</span><span class="p">:</span> <span class="k">return</span> <span class="p">[</span><span class="mi">4</span> <span class="cm">/*yield*/</span><span class="p">,</span> <span class="k">new</span> <span class="nb">Promise</span><span class="p">(</span><span class="kd">function</span> <span class="p">(</span><span class="nx">resolve</span><span class="p">,</span> <span class="nx">reject</span><span class="p">)</span> <span class="p">{</span>
+                        <span class="k">return</span> <span class="nx">setTimeout</span><span class="p">(</span><span class="kd">function</span> <span class="p">()</span> <span class="p">{</span> <span class="nx">resolve</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span> <span class="p">},</span> <span class="mi">1000</span><span class="p">);</span>
+                    <span class="p">})];</span>
+                <span class="k">case</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="nx">a</span> <span class="o">=</span> <span class="nx">_a</span><span class="p">.</span><span class="nx">sent</span><span class="p">();</span>
+                    <span class="k">return</span> <span class="p">[</span><span class="mi">2</span> <span class="cm">/*return*/</span><span class="p">];</span>
+            <span class="p">}</span>
+        <span class="p">});</span>
+    <span class="p">});</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="マクロ" class="fragment"></span><a href="#%E3%83%9E%E3%82%AF%E3%83%AD"><i class="fa fa-link"></i></a>マクロ</h3>
+
+<ul>
+<li>コンパイル前にコールバックネストに変換される</li>
+<li>haskell, purescript, clojure</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="閑話休題" class="fragment"></span><a href="#%E9%96%91%E8%A9%B1%E4%BC%91%E9%A1%8C"><i class="fa fa-link"></i></a>閑話休題</h3>
+
+<hr>
+
+<h3>
+<span id="fiber-coroutine-generator-goroutine-の違い" class="fragment"></span><a href="#fiber-coroutine-generator-goroutine-%E3%81%AE%E9%81%95%E3%81%84"><i class="fa fa-link"></i></a>Fiber, Coroutine, Generator, Goroutine の違い</h3>
+
+<hr>
+
+<h4>
+<span id="fiber-とか" class="fragment"></span><a href="#fiber-%E3%81%A8%E3%81%8B"><i class="fa fa-link"></i></a>Fiber とか</h4>
+
+<ul>
+<li>User Land Thread</li>
+<li>Light Weight Thread</li>
+<li>Green Thread</li>
+<li>OS thread の代替物。スケジューラ がある。</li>
+<li>スレッドプールで処理されることもある</li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="generator-とか" class="fragment"></span><a href="#generator-%E3%81%A8%E3%81%8B"><i class="fa fa-link"></i></a>Generator とか</h4>
+
+<ul>
+<li>Generator
+
+<ul>
+<li>Iterator を生成するもの</li>
+</ul>
+</li>
+<li>Iterator
+
+<ul>
+<li>next() で次の値が取り出せるもの</li>
+</ul>
+</li>
+<li>Coroutine
+
+<ul>
+<li>Generator で実現できるもの。スケジューラは含まれていない</li>
+</ul>
+</li>
+</ul>
+
+<hr>
+
+<h4>
+<span id="goroutine" class="fragment"></span><a href="#goroutine"><i class="fa fa-link"></i></a>Goroutine</h4>
+
+<ul>
+<li>go のランタイムにある非同期並列 Fiber の scheduler</li>
+<li>他の言語の軽量スレッドと違い IO イベントループに依存しないことで IO bound と CPU bound な処理の使い分けを scheduler でがんばる</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="イベント駆動と-async-await-まとめ" class="fragment"></span><a href="#%E3%82%A4%E3%83%99%E3%83%B3%E3%83%88%E9%A7%86%E5%8B%95%E3%81%A8-async-await-%E3%81%BE%E3%81%A8%E3%82%81"><i class="fa fa-link"></i></a>イベント駆動と async-await まとめ</h3>
+
+<ul>
+<li>イベント駆動はコールバックスタイルになる</li>
+<li>コールバックスタイルはコールバック地獄を生み出す</li>
+<li>コールバック地獄は async-await で解決できる</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="4-非同期-io-のこれから" class="fragment"></span><a href="#4-%E9%9D%9E%E5%90%8C%E6%9C%9F-io-%E3%81%AE%E3%81%93%E3%82%8C%E3%81%8B%E3%82%89"><i class="fa fa-link"></i></a>4. 非同期 IO のこれから</h2>
+
+<hr>
+
+<h3>
+<span id="非同期-io-のこれから" class="fragment"></span><a href="#%E9%9D%9E%E5%90%8C%E6%9C%9F-io-%E3%81%AE%E3%81%93%E3%82%8C%E3%81%8B%E3%82%89"><i class="fa fa-link"></i></a>非同期 IO のこれから</h3>
+
+<ul>
+<li>非同期例外とタスクキャンセル</li>
+<li>promise-future, async-await はモナド</li>
+<li>Stream は promise-future の一般化</li>
+<li>Stream はモナド</li>
+<li>関数型リアクティブプログラミング</li>
+</ul>
+
+<hr>
+
+<p>時間切れ</p>
+
+<hr>
+
+<h2>
+<span id="参考資料" class="fragment"></span><a href="#%E5%8F%82%E8%80%83%E8%B3%87%E6%96%99"><i class="fa fa-link"></i></a>参考資料</h2>
+
+<hr>
+
+<ul>
+<li><a href="http://cml.cs.uchicago.edu/pages/cml.html" class="autolink" rel="nofollow noopener" target="_blank">http://cml.cs.uchicago.edu/pages/cml.html</a></li>
+<li><a href="https://www.oreilly.co.jp/community/blog/2010/03/pthread-epoll-inet-server-part1.html" class="autolink" rel="nofollow noopener" target="_blank">https://www.oreilly.co.jp/community/blog/2010/03/pthread-epoll-inet-server-part1.html</a></li>
+<li><a href="https://www.oreilly.co.jp/community/blog/2010/03/pthread-epoll-inet-server-part2.html" class="autolink" rel="nofollow noopener" target="_blank">https://www.oreilly.co.jp/community/blog/2010/03/pthread-epoll-inet-server-part2.html</a></li>
+<li><a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4024.pdf" class="autolink" rel="nofollow noopener" target="_blank">http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4024.pdf</a></li>
+<li><a href="https://stackoverflow.com/questions/42983095/coroutine-vs-fiber-difference-clarification" class="autolink" rel="nofollow noopener" target="_blank">https://stackoverflow.com/questions/42983095/coroutine-vs-fiber-difference-clarification</a></li>
+<li><a href="https://softwareengineering.stackexchange.com/questions/254140/is-there-a-difference-between-fibers-coroutines-and-green-threads-and-if-that-i" class="autolink" rel="nofollow noopener" target="_blank">https://softwareengineering.stackexchange.com/questions/254140/is-there-a-difference-between-fibers-coroutines-and-green-threads-and-if-that-i</a></li>
+<li><a href="http://d.hatena.ne.jp/fjnl/touch/20111005/1317802868" class="autolink" rel="nofollow noopener" target="_blank">http://d.hatena.ne.jp/fjnl/touch/20111005/1317802868</a></li>
+<li><a href="https://lists.boost.org/Archives/boost/2011/03/178613.php" class="autolink" rel="nofollow noopener" target="_blank">https://lists.boost.org/Archives/boost/2011/03/178613.php</a></li>
+<li><a href="https://cpplover.blogspot.jp/2012/10/blog-post_28.html" class="autolink" rel="nofollow noopener" target="_blank">https://cpplover.blogspot.jp/2012/10/blog-post_28.html</a></li>
+<li><a href="https://postd.cc/performance-without-the-event-loop/" class="autolink" rel="nofollow noopener" target="_blank">https://postd.cc/performance-without-the-event-loop/</a></li>
+<li><a href="https://github.com/crossbeam-rs/crossbeam/issues/64" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/crossbeam-rs/crossbeam/issues/64</a></li>
+<li><a href="https://docs.rs/rayon/0.9.0/rayon/fn.spawn.html" class="autolink" rel="nofollow noopener" target="_blank">https://docs.rs/rayon/0.9.0/rayon/fn.spawn.html</a></li>
+<li><a href="https://github.com/crossbeam-rs/rfcs/blob/master/text/2017-04-30-roadmap.md" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/crossbeam-rs/rfcs/blob/master/text/2017-04-30-roadmap.md</a></li>
+<li><a href="https://github.com/crossbeam-rs/rfcs/blob/master/text/2017-11-09-channel.md" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/crossbeam-rs/rfcs/blob/master/text/2017-11-09-channel.md</a></li>
+<li><a href="https://rust-lang-nursery.github.io/rust-cookbook/basics.html#ex-run-piped-external-commands" class="autolink" rel="nofollow noopener" target="_blank">https://rust-lang-nursery.github.io/rust-cookbook/basics.html#ex-run-piped-external-commands</a></li>
+<li><a href="https://docs.rs/tokio-process/0.2.0/tokio_process/" class="autolink" rel="nofollow noopener" target="_blank">https://docs.rs/tokio-process/0.2.0/tokio_process/</a></li>
+<li><a href="https://rust-lang-nursery.github.io/rust-cookbook/basics.html#access-a-file-randomly-using-a-memory-map" class="autolink" rel="nofollow noopener" target="_blank">https://rust-lang-nursery.github.io/rust-cookbook/basics.html#access-a-file-randomly-using-a-memory-map</a></li>
+<li><a href="https://manishearth.github.io/blog/2018/01/10/whats-tokio-and-async-io-all-about/" class="autolink" rel="nofollow noopener" target="_blank">https://manishearth.github.io/blog/2018/01/10/whats-tokio-and-async-io-all-about/</a></li>
+<li><a href="https://qiita.com/YukiMiyatake/items/91d90d53d8e1e135da62" class="autolink" id="reference-01091cebbb04bf24c1eb">https://qiita.com/YukiMiyatake/items/91d90d53d8e1e135da62</a></li>
+<li><a href="https://qiita.com/takc923/items/de68671ea889d8df6904" class="autolink" id="reference-3fef72128ed4313af696">https://qiita.com/takc923/items/de68671ea889d8df6904</a></li>
+<li>
+<a href="https://qiita.com/CountryMan/items/fedc6a677721e077af25" class="autolink">https://qiita.com/CountryMan/items/fedc6a677721e077af25</a><br>
+</li>
+<li><a href="http://www.hyuki.com/yukiwiki/wiki.cgi?TheC10kProblem" class="autolink" rel="nofollow noopener" target="_blank">http://www.hyuki.com/yukiwiki/wiki.cgi?TheC10kProblem</a></li>
+<li><a href="http://ufcpp.net/study/csharp/sp5_async.html" class="autolink" rel="nofollow noopener" target="_blank">http://ufcpp.net/study/csharp/sp5_async.html</a></li>
+<li><a href="https://www.infoq.com/jp/news/2017/05/async-streams" class="autolink" rel="nofollow noopener" target="_blank">https://www.infoq.com/jp/news/2017/05/async-streams</a></li>
+<li><a href="https://qiita.com/mishima/items/f242808c76fd5b4cf3b1" class="autolink" id="reference-99030070e9a164493c58">https://qiita.com/mishima/items/f242808c76fd5b4cf3b1</a></li>
+<li><a href="https://cycle.js.org" class="autolink" rel="nofollow noopener" target="_blank">https://cycle.js.org</a></li>
+<li><a href="https://cycle.js.org/dialogue.html" class="autolink" rel="nofollow noopener" target="_blank">https://cycle.js.org/dialogue.html</a></li>
+<li><a href="https://github.com/staltz/xstream" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/staltz/xstream</a></li>
+<li><a href="https://pursuit.purescript.org/packages/purescript-xstream/1.0.0/docs/Control.XStream" class="autolink" rel="nofollow noopener" target="_blank">https://pursuit.purescript.org/packages/purescript-xstream/1.0.0/docs/Control.XStream</a></li>
+<li><a href="https://pursuit.purescript.org/packages/purescript-signal/9.0.0/docs/Signal" class="autolink" rel="nofollow noopener" target="_blank">https://pursuit.purescript.org/packages/purescript-signal/9.0.0/docs/Signal</a></li>
+<li><a href="https://qiita.com/jooex/items/7292a706cdd99987fa28" class="autolink" id="reference-1f3932ee58a98efb4560">https://qiita.com/jooex/items/7292a706cdd99987fa28</a></li>
+<li><a href="http://package.elm-lang.org/packages/Apanatshka/elm-signal-extra/5.7.0/Signal-Stream" class="autolink" rel="nofollow noopener" target="_blank">http://package.elm-lang.org/packages/Apanatshka/elm-signal-extra/5.7.0/Signal-Stream</a></li>
+<li><a href="https://giisyu.gitbooks.io/elm_usui_book/content/src/elmArchitecture/cmdSub.html" class="autolink" rel="nofollow noopener" target="_blank">https://giisyu.gitbooks.io/elm_usui_book/content/src/elmArchitecture/cmdSub.html</a></li>
+<li><a href="https://hackage.haskell.org/package/Stream-0.4.7.2/docs/Data-Stream.html" class="autolink" rel="nofollow noopener" target="_blank">https://hackage.haskell.org/package/Stream-0.4.7.2/docs/Data-Stream.html</a></li>
+<li><a href="https://github.com/slamdata/purescript-halogen" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/slamdata/purescript-halogen</a></li>
+<li><a href="https://docs.rs/futures/0.1.18/futures/stream/index.html" class="autolink" rel="nofollow noopener" target="_blank">https://docs.rs/futures/0.1.18/futures/stream/index.html</a></li>
+<li><a href="https://github.com/ghc/ghc/blob/12ae1fa51b2f59e37d6100359b494bee2192ef0a/rts/Schedule.c#L200" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/ghc/ghc/blob/12ae1fa51b2f59e37d6100359b494bee2192ef0a/rts/Schedule.c#L200</a></li>
+<li><a href="https://github.com/ghc/ghc/blob/master/rts/posix/Select.c#L150" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/ghc/ghc/blob/master/rts/posix/Select.c#L150</a></li>
+<li><a href="https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/IOManager" class="autolink" rel="nofollow noopener" target="_blank">https://ghc.haskell.org/trac/ghc/wiki/Commentary/Rts/IOManager</a></li>
+<li><a href="https://www.reddit.com/r/haskell/comments/4vz3gs/polling_on_sockets/d638n9q/" class="autolink" rel="nofollow noopener" target="_blank">https://www.reddit.com/r/haskell/comments/4vz3gs/polling_on_sockets/d638n9q/</a></li>
+<li><a href="https://www.reddit.com/r/haskell/comments/6b3dlt/techempower_benchmarks_14_released_with_servant/" class="autolink" rel="nofollow noopener" target="_blank">https://www.reddit.com/r/haskell/comments/6b3dlt/techempower_benchmarks_14_released_with_servant/</a></li>
+<li><a href="http://d.hatena.ne.jp/fjnl/touch/20111005/1317802868" class="autolink" rel="nofollow noopener" target="_blank">http://d.hatena.ne.jp/fjnl/touch/20111005/1317802868</a></li>
+<li><a href="https://stackoverflow.com/questions/11423426/how-does-libuv-compare-to-boost-asio" class="autolink" rel="nofollow noopener" target="_blank">https://stackoverflow.com/questions/11423426/how-does-libuv-compare-to-boost-asio</a></li>
+<li><a href="https://stackoverflow.com/questions/8776416/getting-to-know-the-basics-of-asynchronous-programming-on-nix" class="autolink" rel="nofollow noopener" target="_blank">https://stackoverflow.com/questions/8776416/getting-to-know-the-basics-of-asynchronous-programming-on-nix</a></li>
+<li><a href="https://lists.boost.org/Archives/boost/2011/03/178613.php" class="autolink" rel="nofollow noopener" target="_blank">https://lists.boost.org/Archives/boost/2011/03/178613.php</a></li>
+<li><a href="https://cpplover.blogspot.jp/2012/10/blog-post_28.html" class="autolink" rel="nofollow noopener" target="_blank">https://cpplover.blogspot.jp/2012/10/blog-post_28.html</a></li>
+<li><a href="https://coelhorjc.wordpress.com/2014/12/18/using-non-blocking-and-asynchronous-io-ck10-problem-in-linux-and-windows-with-epool-iocp-aiolibaio-libeventlibevlibuv-boost-asio/" class="autolink" rel="nofollow noopener" target="_blank">https://coelhorjc.wordpress.com/2014/12/18/using-non-blocking-and-asynchronous-io-ck10-problem-in-linux-and-windows-with-epool-iocp-aiolibaio-libeventlibevlibuv-boost-asio/</a></li>
+<li><a href="http://blog.matsumoto-r.jp/?p=2051" class="autolink" rel="nofollow noopener" target="_blank">http://blog.matsumoto-r.jp/?p=2051</a></li>
+<li><a href="http://kimitok.hateblo.jp/entry/2014/04/01/230114" class="autolink" rel="nofollow noopener" target="_blank">http://kimitok.hateblo.jp/entry/2014/04/01/230114</a></li>
+<li><a href="http://ascii.jp/elem/000/001/440/1440099/" class="autolink" rel="nofollow noopener" target="_blank">http://ascii.jp/elem/000/001/440/1440099/</a></li>
+<li><a href="https://github.com/Rufflewind/tokio-file-unix" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/Rufflewind/tokio-file-unix</a></li>
+<li><a href="https://github.com/tokio-rs/tokio-core/blob/master/examples/compress.rs" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/tokio-rs/tokio-core/blob/master/examples/compress.rs</a></li>
+<li><a href="https://jvns.ca/blog/2017/06/03/async-io-on-linux--select--poll--and-epoll/" class="autolink" rel="nofollow noopener" target="_blank">https://jvns.ca/blog/2017/06/03/async-io-on-linux--select--poll--and-epoll/</a></li>
+<li><a href="http://docs.libuv.org/en/v1.x/design.html" class="autolink" rel="nofollow noopener" target="_blank">http://docs.libuv.org/en/v1.x/design.html</a></li>
+<li><a href="http://docs.libuv.org/en/v1.x/threadpool.html#threadpool" class="autolink" rel="nofollow noopener" target="_blank">http://docs.libuv.org/en/v1.x/threadpool.html#threadpool</a></li>
+<li><a href="https://blog.libtorrent.org/2012/10/asynchronous-disk-io/" class="autolink" rel="nofollow noopener" target="_blank">https://blog.libtorrent.org/2012/10/asynchronous-disk-io/</a></li>
+<li><a href="http://www.kotha.net/ghcguide_ja/7.0.4/lang-parallel.html" class="autolink" rel="nofollow noopener" target="_blank">http://www.kotha.net/ghcguide_ja/7.0.4/lang-parallel.html</a></li>
+<li><a href="https://wiki.haskell.org/Concurrency" class="autolink" rel="nofollow noopener" target="_blank">https://wiki.haskell.org/Concurrency</a></li>
+<li><a href="https://social.msdn.microsoft.com/Forums/en-US/8247aa40-1e46-4a3f-b23a-a1b5501acf1e/f-vs-rx" class="autolink" rel="nofollow noopener" target="_blank">https://social.msdn.microsoft.com/Forums/en-US/8247aa40-1e46-4a3f-b23a-a1b5501acf1e/f-vs-rx</a></li>
+<li><a href="https://www.slideshare.net/zoetrope/reactive-systems-back-pressure" class="autolink" rel="nofollow noopener" target="_blank">https://www.slideshare.net/zoetrope/reactive-systems-back-pressure</a></li>
+<li><a href="https://gist.github.com/fand/b465ca6785c502478384" class="autolink" rel="nofollow noopener" target="_blank">https://gist.github.com/fand/b465ca6785c502478384</a></li>
+</ul>

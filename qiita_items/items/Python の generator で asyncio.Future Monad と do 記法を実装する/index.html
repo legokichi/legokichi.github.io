@@ -1,0 +1,177 @@
+
+<h1>
+<span id="python-の-generator-で-monad-と-do-記法を実装する" class="fragment"></span><a href="#python-%E3%81%AE-generator-%E3%81%A7-monad-%E3%81%A8-do-%E8%A8%98%E6%B3%95%E3%82%92%E5%AE%9F%E8%A3%85%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>Python の generator で Monad と do 記法を実装する</h1>
+
+<h2>
+<span id="monad-を定義する" class="fragment"></span><a href="#monad-%E3%82%92%E5%AE%9A%E7%BE%A9%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>Monad を定義する</h2>
+
+<div class="code-frame" data-lang="py"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span><span class="p">,</span> <span class="n">abstractmethod</span>
+
+<span class="k">class</span> <span class="nc">Monad</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">ABCMeta</span><span class="p">):</span>
+    <span class="o">@</span><span class="nb">classmethod</span>
+    <span class="k">def</span> <span class="nf">pure</span><span class="p">(</span><span class="n">cls</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nb">NotImplementedError</span><span class="p">()</span>
+    <span class="o">@</span><span class="nb">classmethod</span>
+    <span class="k">def</span> <span class="nf">bind</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nb">NotImplementedError</span><span class="p">()</span>
+</pre></div></div>
+
+<h2>
+<span id="do-構文を定義する" class="fragment"></span><a href="#do-%E6%A7%8B%E6%96%87%E3%82%92%E5%AE%9A%E7%BE%A9%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>do 構文を定義する</h2>
+
+<div class="code-frame" data-lang="py"><div class="highlight"><pre><span class="k">def</span> <span class="nf">do</span><span class="p">(</span><span class="n">genfn</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">functools</span>
+    <span class="o">@</span><span class="n">functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">genfn</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">doimpl</span><span class="p">():</span>
+        <span class="n">gen</span> <span class="o">=</span> <span class="n">genfn</span><span class="p">()</span>
+        <span class="k">def</span> <span class="nf">recur</span><span class="p">(</span><span class="n">gen</span><span class="p">,</span> <span class="n">prev</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">ma</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">prev</span><span class="p">)</span>
+            <span class="k">except</span> <span class="nb">StopIteration</span> <span class="k">as</span> <span class="n">last</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">last</span><span class="o">.</span><span class="n">value</span>
+            <span class="n">done</span> <span class="o">=</span> <span class="bp">True</span> <span class="k">if</span> <span class="n">ma</span> <span class="o">==</span> <span class="bp">None</span> <span class="k">else</span> <span class="bp">False</span>
+            <span class="k">def</span> <span class="nf">cb</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">done</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">recur</span><span class="p">(</span><span class="n">gen</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">ma</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">pure</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">ma</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="n">cb</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">recur</span><span class="p">(</span><span class="n">gen</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">doimpl</span>
+</pre></div></div>
+
+<h2>
+<span id="maybe" class="fragment"></span><a href="#maybe"><i class="fa fa-link"></i></a>Maybe</h2>
+
+<h3>
+<span id="maybe-モナドを定義する" class="fragment"></span><a href="#maybe-%E3%83%A2%E3%83%8A%E3%83%89%E3%82%92%E5%AE%9A%E7%BE%A9%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>Maybe モナドを定義する</h3>
+
+<div class="code-frame" data-lang="py"><div class="highlight"><pre><span class="k">class</span> <span class="nc">Maybe</span><span class="p">(</span><span class="n">Monad</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span> 
+        <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="n">a</span>
+    <span class="k">def</span> <span class="nf">is_just</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">!=</span> <span class="bp">None</span>
+    <span class="k">def</span> <span class="nf">is_nothing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">==</span> <span class="bp">None</span>
+    <span class="k">def</span> <span class="nf">just</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Maybe</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">nothing</span><span class="p">(</span><span class="n">cls</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Maybe</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">bind</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cont</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_just</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">cont</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">nothing</span><span class="p">()</span>
+    <span class="o">@</span><span class="nb">classmethod</span>
+    <span class="k">def</span> <span class="nf">pure</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">cls</span><span class="o">.</span><span class="n">just</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+</pre></div></div>
+
+<h3>
+<span id="maybe-モナドを使ってみる" class="fragment"></span><a href="#maybe-%E3%83%A2%E3%83%8A%E3%83%89%E3%82%92%E4%BD%BF%E3%81%A3%E3%81%A6%E3%81%BF%E3%82%8B"><i class="fa fa-link"></i></a>Maybe モナドを使ってみる</h3>
+
+<div class="code-frame" data-lang="python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="o">@</span><span class="n">do</span>
+    <span class="k">def</span> <span class="nf">genfn</span><span class="p">():</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">Maybe</span><span class="o">.</span><span class="n">just</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">a</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">Maybe</span><span class="o">.</span><span class="n">just</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">b</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">Maybe</span><span class="o">.</span><span class="n">just</span><span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">c</span> <span class="o">==</span> <span class="mi">3</span>
+        <span class="k">return</span> <span class="n">Maybe</span><span class="o">.</span><span class="n">pure</span><span class="p">(</span><span class="n">c</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">opt</span> <span class="o">=</span> <span class="n">genfn</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">opt</span><span class="o">.</span><span class="n">is_just</span><span class="p">():</span>
+        <span class="k">assert</span> <span class="n">opt</span><span class="o">.</span><span class="n">a</span> <span class="o">==</span> <span class="mi">4</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="bp">False</span>
+<span class="n">main</span><span class="p">()</span>
+</pre></div></div>
+
+<h2>
+<span id="asyncio-の-future-でモナドを作る" class="fragment"></span><a href="#asyncio-%E3%81%AE-future-%E3%81%A7%E3%83%A2%E3%83%8A%E3%83%89%E3%82%92%E4%BD%9C%E3%82%8B"><i class="fa fa-link"></i></a>asyncio の Future でモナドを作る</h2>
+
+<h3>
+<span id="asyncio-の実装について" class="fragment"></span><a href="#asyncio-%E3%81%AE%E5%AE%9F%E8%A3%85%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6"><i class="fa fa-link"></i></a>asyncio の実装について</h3>
+
+<ul>
+<li>
+<code>@asyncio.coroutine</code> の実装は本質的には <code>@do</code> と同じ</li>
+<li>ただし python3 の future は JavaScript の <code>Promise.prototype.then</code> のようなコールバックではなくコルーチンとして実装されている</li>
+<li>そのため <code>ret = yield from fut</code> のように使う</li>
+<li>あるいは <code>ensure_future</code> でコルーチンから Future へ変換できる</li>
+<li>
+<code>bind</code> の実装には <code>add_done_callback</code> が使えそう
+
+<ul>
+<li>ただし <code>add_done_callback</code> は JS の <code>Promise.prototype.then</code> のように新しい Future 値を返さない(Noneを返す)のでチェーンできない</li>
+</ul>
+</li>
+<li>同様に <code>Promise.resolve</code> は <code>fut.set_result</code> が対応するがこれも None を返すなど面倒。</li>
+<li>加えて lambda が構文を持てないので可読性が悪い</li>
+<li>python は JS のように動的にメソッドを追加できない (2.x のころは MethodType でできた) ので Future をそのまま使おうとすると do を書き換える必要があり</li>
+</ul>
+
+<div class="code-frame" data-lang="py"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">asyncio</span> <span class="kn">import</span> <span class="n">Future</span><span class="p">,</span> <span class="n">ensure_future</span><span class="p">,</span> <span class="n">sleep</span><span class="p">,</span> <span class="n">get_event_loop</span>
+
+<span class="k">def</span> <span class="nf">do</span><span class="p">(</span><span class="n">genfn</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">functools</span>
+    <span class="o">@</span><span class="n">functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">genfn</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">doimpl</span><span class="p">():</span>
+        <span class="n">gen</span> <span class="o">=</span> <span class="n">genfn</span><span class="p">()</span>
+        <span class="n">final</span> <span class="o">=</span> <span class="n">Future</span><span class="p">()</span>
+        <span class="k">def</span> <span class="nf">recur</span><span class="p">(</span><span class="n">gen</span><span class="p">,</span> <span class="n">prev</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">ma</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">prev</span><span class="p">)</span>
+            <span class="k">except</span> <span class="nb">StopIteration</span> <span class="k">as</span> <span class="n">last</span><span class="p">:</span>
+                <span class="n">final</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="n">last</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">result</span><span class="p">())</span>
+                <span class="k">return</span> <span class="n">final</span>
+            <span class="n">_fut</span> <span class="o">=</span> <span class="n">Future</span><span class="p">()</span>
+            <span class="k">def</span> <span class="nf">_cb</span><span class="p">(</span><span class="n">fut</span><span class="p">):</span>
+                <span class="n">_fut</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="n">recur</span><span class="p">(</span><span class="n">gen</span><span class="p">,</span> <span class="p">(</span><span class="n">fut</span><span class="p">)))</span>
+                <span class="k">return</span> <span class="n">_fut</span>
+            <span class="n">ma</span><span class="o">.</span><span class="n">add_done_callback</span><span class="p">(</span><span class="n">_cb</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">_fut</span>
+        <span class="n">recur</span><span class="p">(</span><span class="n">gen</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">final</span>
+    <span class="k">return</span> <span class="n">doimpl</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="o">@</span><span class="n">do</span>
+    <span class="k">def</span> <span class="nf">genfn</span><span class="p">():</span>
+        <span class="k">yield</span> <span class="n">ensure_future</span><span class="p">(</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">print</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">yield</span> <span class="n">ensure_future</span><span class="p">(</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="k">print</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">yield</span> <span class="n">ensure_future</span><span class="p">(</span><span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+        <span class="k">print</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">fut</span> <span class="o">=</span> <span class="n">Future</span><span class="p">()</span>
+        <span class="n">fut</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fut</span>
+    <span class="n">fut</span> <span class="o">=</span> <span class="n">genfn</span><span class="p">()</span>
+    <span class="n">loop</span> <span class="o">=</span> <span class="n">get_event_loop</span><span class="p">()</span>
+    <span class="n">ensure_future</span><span class="p">(</span><span class="n">fut</span><span class="p">)</span>
+    <span class="n">loop</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="n">fut</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">fut</span><span class="o">.</span><span class="n">result</span><span class="p">()</span> <span class="o">==</span> <span class="mi">4</span>
+
+<span class="n">main</span><span class="p">()</span>
+</pre></div></div>
+
+<h2>
+<span id="感想" class="fragment"></span><a href="#%E6%84%9F%E6%83%B3"><i class="fa fa-link"></i></a>感想</h2>
+
+<ul>
+<li>python のことがますます嫌いになりました</li>
+</ul>
+
+<h2>
+<span id="reference" class="fragment"></span><a href="#reference"><i class="fa fa-link"></i></a>reference</h2>
+
+<ul>
+<li><a href="https://qiita.com/DUxCA/items/0582e71f4e6984548933" class="autolink" id="reference-2917280a71e6b9198a56">https://qiita.com/DUxCA/items/0582e71f4e6984548933</a></li>
+<li><a href="http://postd.cc/python-generators-coroutines-native-coroutines-and-async-await/" class="autolink" rel="nofollow noopener" target="_blank">http://postd.cc/python-generators-coroutines-native-coroutines-and-async-await/</a></li>
+<li><a href="https://qiita.com/mtb_beta/items/d257519b018b8cd0cc2e" class="autolink" id="reference-51b527efecf407497fba">https://qiita.com/mtb_beta/items/d257519b018b8cd0cc2e</a></li>
+<li><a href="https://docs.python.jp/3/library/asyncio-task.html#example-chain-coroutines" class="autolink" rel="nofollow noopener" target="_blank">https://docs.python.jp/3/library/asyncio-task.html#example-chain-coroutines</a></li>
+<li><a href="https://docs.python.jp/3/library/asyncio-task.html#asyncio.Task" class="autolink" rel="nofollow noopener" target="_blank">https://docs.python.jp/3/library/asyncio-task.html#asyncio.Task</a></li>
+<li><a href="https://github.com/python/cpython/blob/789e359f51d2b27bea01b8c6c3bf090aaedf8839/Lib/asyncio/coroutines.py#L104" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/python/cpython/blob/789e359f51d2b27bea01b8c6c3bf090aaedf8839/Lib/asyncio/coroutines.py#L104</a></li>
+</ul>

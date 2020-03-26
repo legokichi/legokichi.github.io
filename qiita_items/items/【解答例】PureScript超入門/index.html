@@ -1,0 +1,585 @@
+<p><a href="http://qiita.com/7shi/items/145f1234f8ec2af923ef" id="reference-54aa296753122ff69dd9">Haskell 超入門</a>の問題をPureScript 0.7 でやってみました。<br>
+<a href="http://qiita.com/7shi/items/0ece8c3394e1328267ed" id="reference-bd238448fdd1e788fb05">【解答例】Haskell 超入門</a>のHaskellでの解答例と並べて比べてみましょう。</p>
+
+<h2>
+<span id="フィボナッチ数" class="fragment"></span><a href="#%E3%83%95%E3%82%A3%E3%83%9C%E3%83%8A%E3%83%83%E3%83%81%E6%95%B0"><i class="fa fa-link"></i></a>フィボナッチ数</h2>
+
+<blockquote>
+<p>【問1】任意のn番目のフィボナッチ数を計算する関数fibをパターンマッチで実装してください。<br>
+【問2】問1で実装した関数をガードで書き直してください。<br>
+【問3】問1で実装した関数を<code>case-of</code>で書き直してください。</p>
+</blockquote>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">Haskell</span></div>
+<div class="highlight"><pre><span class="n">fib</span> <span class="mi">0</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">fib</span> <span class="mi">1</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">fib</span> <span class="n">n</span> <span class="o">|</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="o">=</span> <span class="n">fib</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">fib</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">Haskell</span></div>
+<div class="highlight"><pre><span class="n">fib</span> <span class="n">n</span>
+    <span class="o">|</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="o">|</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="o">|</span> <span class="n">n</span> <span class="o">&gt;</span>  <span class="mi">1</span> <span class="o">=</span> <span class="n">fib</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">fib</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">Haskell</span></div>
+<div class="highlight"><pre><span class="n">fib</span> <span class="n">n</span> <span class="o">=</span> <span class="kr">case</span> <span class="n">n</span> <span class="kr">of</span>
+    <span class="mi">0</span> <span class="o">-&gt;</span> <span class="mi">0</span>
+    <span class="mi">1</span> <span class="o">-&gt;</span> <span class="mi">1</span>
+    <span class="kr">_</span> <span class="o">|</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="o">-&gt;</span> <span class="n">fib</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">fib</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">PureScript</span></div>
+<div class="highlight"><pre><span class="kr">module</span> <span class="nn">Q1</span> <span class="kr">where</span>
+
+<span class="kr">import</span> <span class="nn">Prelude</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff.Console</span>
+
+<span class="cd">-- | using patern match</span>
+<span class="n">fib</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Int</span>
+<span class="n">fib</span> <span class="n">n</span>
+  <span class="o">|</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">=</span> <span class="mi">1</span>
+  <span class="o">|</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span> <span class="o">=</span> <span class="mi">1</span>
+  <span class="o">|</span> <span class="n">n</span> <span class="o">&gt;</span>  <span class="mi">1</span> <span class="o">=</span> <span class="n">fib</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">fib</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+<span class="cd">-- | using guards</span>
+<span class="n">fib2</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Int</span>
+<span class="n">fib2</span> <span class="n">n</span>
+  <span class="o">|</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">=</span> <span class="mi">1</span>
+  <span class="o">|</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span> <span class="o">=</span> <span class="mi">1</span>
+  <span class="o">|</span> <span class="n">n</span> <span class="o">&gt;</span>  <span class="mi">1</span> <span class="o">=</span> <span class="n">fib2</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">fib2</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+<span class="cd">-- | using case of</span>
+<span class="n">fib3</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Int</span>
+<span class="n">fib3</span> <span class="n">n</span> <span class="o">=</span> <span class="kr">case</span> <span class="n">n</span> <span class="kr">of</span>
+    <span class="mi">0</span> <span class="o">-&gt;</span> <span class="mi">1</span>
+    <span class="mi">1</span> <span class="o">-&gt;</span> <span class="mi">1</span>
+    <span class="kr">_</span> <span class="o">|</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="o">-&gt;</span> <span class="n">fib3</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">fib3</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+<span class="cd">-- | &gt; Q1.main</span>
+<span class="cd">-- | 89</span>
+<span class="cd">-- | 89</span>
+<span class="cd">-- | 89</span>
+<span class="cd">-- | unit</span>
+<span class="n">main</span><span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Eff</span> <span class="p">(</span><span class="n">console</span> <span class="o">::</span> <span class="kt">CONSOLE</span> <span class="o">|</span> <span class="n">a</span><span class="p">)</span> <span class="kt">Unit</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">fib</span> <span class="mi">10</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">fib2</span> <span class="mi">10</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">fib3</span> <span class="mi">10</span>
+</pre></div>
+</div>
+
+<p>ここまでは順調ですね。</p>
+
+<h1>
+<span id="再実装" class="fragment"></span><a href="#%E5%86%8D%E5%AE%9F%E8%A3%85"><i class="fa fa-link"></i></a>再実装</h1>
+
+<blockquote>
+<p>【問4】<code>sum</code>, <code>product</code>, <code>take</code>, <code>drop</code>, <code>reverse</code>と同じ機能の関数を再実装してください。関数名には'を付けてください。</p>
+</blockquote>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">Haskell</span></div>
+<div class="highlight"><pre><span class="n">sum'</span> <span class="kt">[]</span>     <span class="o">=</span> <span class="mi">0</span>
+<span class="n">sum'</span> <span class="p">(</span><span class="n">x</span><span class="o">:</span><span class="n">xs</span><span class="p">)</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">sum'</span> <span class="n">xs</span>
+
+<span class="n">product'</span> <span class="kt">[]</span>     <span class="o">=</span> <span class="mi">1</span>
+<span class="n">product'</span> <span class="p">(</span><span class="n">x</span><span class="o">:</span><span class="n">xs</span><span class="p">)</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="n">product'</span> <span class="n">xs</span>
+
+<span class="n">take'</span> <span class="kr">_</span> <span class="kt">[]</span>        <span class="o">=</span> <span class="kt">[]</span>
+<span class="n">take'</span> <span class="n">n</span> <span class="kr">_</span> <span class="o">|</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="o">=</span> <span class="kt">[]</span>
+<span class="n">take'</span> <span class="n">n</span> <span class="p">(</span><span class="n">x</span><span class="o">:</span><span class="n">xs</span><span class="p">)</span>    <span class="o">=</span> <span class="n">x</span> <span class="o">:</span> <span class="n">take'</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="n">xs</span>
+
+<span class="n">drop'</span> <span class="kr">_</span> <span class="kt">[]</span>         <span class="o">=</span> <span class="kt">[]</span>
+<span class="n">drop'</span> <span class="n">n</span> <span class="n">xs</span> <span class="o">|</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="o">=</span> <span class="n">xs</span>
+<span class="n">drop'</span> <span class="n">n</span> <span class="p">(</span><span class="kr">_</span><span class="o">:</span><span class="n">xs</span><span class="p">)</span>     <span class="o">=</span> <span class="n">drop'</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="n">xs</span>
+
+<span class="n">reverse'</span> <span class="kt">[]</span>     <span class="o">=</span> <span class="kt">[]</span>
+<span class="n">reverse'</span> <span class="p">(</span><span class="n">x</span><span class="o">:</span><span class="n">xs</span><span class="p">)</span> <span class="o">=</span> <span class="n">reverse'</span> <span class="n">xs</span> <span class="o">++</span> <span class="p">[</span><span class="n">x</span><span class="p">]</span>
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">PureScript</span></div>
+<div class="highlight"><pre><span class="kr">module</span> <span class="nn">Q2</span> <span class="kr">where</span>
+
+<span class="kr">import</span> <span class="nn">Prelude</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff.Console</span>
+<span class="kr">import</span> <span class="nn">Data.Foldable</span>
+<span class="kr">import</span> <span class="nn">Data.Array</span>
+<span class="kr">import</span> <span class="nn">Data.Maybe</span>
+<span class="kr">import</span> <span class="nn">Data.Int</span>
+
+<span class="n">sum'</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="p">(</span><span class="kt">Ring</span> <span class="n">a</span><span class="p">)</span><span class="o">=&gt;</span> <span class="kt">Array</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span>
+<span class="n">sum'</span> <span class="n">arr</span> <span class="o">=</span> <span class="kr">case</span> <span class="n">uncons</span> <span class="n">arr</span> <span class="kr">of</span>
+  <span class="kt">Just</span> <span class="p">{</span> <span class="n">head</span><span class="o">:</span> <span class="n">x</span><span class="p">,</span> <span class="n">tail</span><span class="o">:</span> <span class="n">xs</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">x</span> <span class="o">+</span> <span class="n">sum'</span> <span class="n">xs</span>
+  <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="n">zero</span>
+
+<span class="n">product'</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="p">(</span><span class="kt">Ring</span> <span class="n">a</span><span class="p">)</span><span class="o">=&gt;</span>  <span class="kt">Array</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span>
+<span class="n">product'</span> <span class="n">arr</span> <span class="o">=</span> <span class="kr">case</span> <span class="n">uncons</span> <span class="n">arr</span> <span class="kr">of</span>
+  <span class="kt">Just</span> <span class="p">{</span> <span class="n">head</span><span class="o">:</span> <span class="n">x</span><span class="p">,</span> <span class="n">tail</span><span class="o">:</span> <span class="n">xs</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">x</span> <span class="o">*</span> <span class="n">product'</span> <span class="n">xs</span>
+  <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="n">one</span>
+
+<span class="n">take'</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Array</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Array</span> <span class="n">a</span>
+<span class="n">take'</span> <span class="mi">0</span> <span class="n">arr</span> <span class="o">=</span> <span class="kt">[]</span>
+<span class="n">take'</span> <span class="n">n</span> <span class="n">arr</span> <span class="o">=</span> <span class="kr">case</span> <span class="n">uncons</span> <span class="n">arr</span> <span class="kr">of</span>
+  <span class="kt">Just</span> <span class="p">{</span> <span class="n">head</span><span class="o">:</span> <span class="n">x</span><span class="p">,</span> <span class="n">tail</span><span class="o">:</span> <span class="n">xs</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">x</span> <span class="o">:</span> <span class="n">take'</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="n">xs</span>
+  <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="kt">[]</span>
+
+<span class="n">drop'</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Array</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Array</span> <span class="n">a</span>
+<span class="n">drop'</span> <span class="mi">0</span> <span class="n">arr</span> <span class="o">=</span> <span class="n">arr</span>
+<span class="n">drop'</span> <span class="n">n</span> <span class="n">arr</span> <span class="o">=</span> <span class="kr">case</span> <span class="n">uncons</span> <span class="n">arr</span> <span class="kr">of</span>
+  <span class="kt">Just</span> <span class="p">{</span> <span class="n">head</span><span class="o">:</span> <span class="n">x</span><span class="p">,</span> <span class="n">tail</span><span class="o">:</span> <span class="n">xs</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">drop'</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="n">xs</span>
+  <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="kt">[]</span>
+
+<span class="n">reverse'</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Array</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Array</span> <span class="n">a</span>
+<span class="n">reverse'</span> <span class="n">arr</span> <span class="o">=</span> <span class="kr">case</span> <span class="n">uncons</span> <span class="n">arr</span> <span class="kr">of</span>
+  <span class="kt">Just</span> <span class="p">{</span> <span class="n">head</span><span class="o">:</span> <span class="n">x</span><span class="p">,</span> <span class="n">tail</span><span class="o">:</span> <span class="n">xs</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">reverse'</span> <span class="n">xs</span><span class="p">)</span> <span class="p">`</span><span class="n">snoc</span><span class="p">`</span> <span class="n">x</span>
+  <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="kt">[]</span>
+
+<span class="cd">-- | &gt; Q2.main</span>
+<span class="cd">-- | 15</span>
+<span class="cd">-- | 120</span>
+<span class="cd">-- | [3]</span>
+<span class="cd">-- | [1,2]</span>
+<span class="cd">-- | [5,4,3,2,1]</span>
+<span class="cd">-- | unit</span>
+<span class="n">main</span><span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Eff</span> <span class="p">(</span><span class="n">console</span> <span class="o">::</span> <span class="kt">CONSOLE</span> <span class="o">|</span> <span class="n">a</span><span class="p">)</span> <span class="kt">Unit</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">show</span> <span class="o">$</span> <span class="n">sum'</span> <span class="o">$</span> <span class="n">range</span> <span class="mi">1</span> <span class="mi">5</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">product'</span> <span class="o">$</span> <span class="n">range</span> <span class="mi">1</span> <span class="mi">5</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">drop'</span> <span class="mi">2</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">take'</span> <span class="mi">2</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">reverse'</span> <span class="o">$</span> <span class="n">range</span> <span class="mi">1</span> <span class="mi">5</span>
+</pre></div>
+</div>
+
+<p><a href="https://github.com/purescript/purescript/wiki/0.7-Migration-Guide" rel="nofollow noopener" target="_blank">PureScript 0.7で(x:xs)という糖衣構文が廃止された</a>ため、明示的にArrayを扱わなければならなくなりました。</p>
+
+<h2>
+<span id="追記" class="fragment"></span><a href="#%E8%BF%BD%E8%A8%98"><i class="fa fa-link"></i></a>追記</h2>
+
+<p>コメント欄でのkakkun61さんにArrayよりもSequenceやList使った方が良いのでは？という指摘を受けたのでこれらも書いてみました</p>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">PureScript</span></div>
+<div class="highlight"><pre><span class="kr">module</span> <span class="nn">Q2</span> <span class="kr">where</span>
+
+<span class="kr">import</span> <span class="nn">Prelude</span> <span class="k">hiding</span> <span class="p">(</span><span class="nf">map</span><span class="p">,</span> <span class="nf">append</span><span class="p">)</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff.Console</span>
+<span class="kr">import</span> <span class="nn">Data.Foldable</span>
+<span class="kr">import</span> <span class="nn">Data.Array</span> <span class="p">(</span><span class="nf">range</span><span class="p">)</span>
+<span class="kr">import</span> <span class="k">qualified</span> <span class="nn">Data.Sequence</span> <span class="k">as</span> <span class="n">S</span>
+<span class="kr">import</span> <span class="nn">Data.Maybe</span>
+<span class="kr">import</span> <span class="nn">Data.Int</span>
+<span class="kr">import</span> <span class="nn">Data.Tuple</span>
+<span class="kr">import</span> <span class="k">qualified</span> <span class="nn">Data.List</span> <span class="k">as</span> <span class="n">L</span>
+
+<span class="n">sum'</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="p">(</span><span class="kt">Ring</span> <span class="n">a</span><span class="p">)</span><span class="o">=&gt;</span> <span class="kt">S</span><span class="o">.</span><span class="kt">Seq</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span>
+<span class="n">sum'</span> <span class="n">arr</span> <span class="o">=</span> <span class="kr">case</span> <span class="kt">S</span><span class="o">.</span><span class="n">uncons</span> <span class="n">arr</span> <span class="kr">of</span>
+  <span class="kt">Just</span> <span class="n">tpl</span> <span class="o">-&gt;</span>
+    <span class="kr">let</span> <span class="n">x</span> <span class="o">=</span> <span class="n">fst</span> <span class="n">tpl</span>
+        <span class="n">xs</span> <span class="o">=</span> <span class="n">snd</span> <span class="n">tpl</span> <span class="kr">in</span>
+      <span class="n">x</span> <span class="o">+</span> <span class="n">sum'</span> <span class="n">xs</span>
+  <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="n">zero</span>
+
+<span class="n">product'</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="p">(</span><span class="kt">Ring</span> <span class="n">a</span><span class="p">)</span><span class="o">=&gt;</span> <span class="kt">L</span><span class="o">.</span><span class="kt">List</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="n">a</span>
+<span class="n">product'</span> <span class="n">arr</span> <span class="o">=</span> <span class="kr">case</span> <span class="kt">L</span><span class="o">.</span><span class="n">uncons</span> <span class="n">arr</span> <span class="kr">of</span>
+  <span class="kt">Just</span> <span class="p">{</span> <span class="n">head</span><span class="o">:</span> <span class="n">x</span><span class="p">,</span> <span class="n">tail</span><span class="o">:</span> <span class="n">xs</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">x</span> <span class="o">*</span> <span class="n">product'</span> <span class="n">xs</span>
+  <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="n">one</span>
+
+<span class="n">main</span><span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Eff</span> <span class="p">(</span><span class="n">console</span> <span class="o">::</span> <span class="kt">CONSOLE</span> <span class="o">|</span> <span class="n">a</span><span class="p">)</span> <span class="kt">Unit</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">show</span> <span class="o">$</span> <span class="n">sum'</span> <span class="o">$</span> <span class="kt">S</span><span class="o">.</span><span class="n">toSeq</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">product'</span> <span class="o">$</span> <span class="kt">L</span><span class="o">.</span><span class="n">toList</span> <span class="o">$</span> <span class="n">range</span> <span class="mi">1</span> <span class="mi">5</span>
+</pre></div>
+</div>
+
+<h1>
+<span id="階乗" class="fragment"></span><a href="#%E9%9A%8E%E4%B9%97"><i class="fa fa-link"></i></a>階乗</h1>
+
+<blockquote>
+<p>【問5】<code>product</code>を使って<code>fact</code>（階乗）を実装してください。</p>
+</blockquote>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">Haskell</span></div>
+<div class="highlight"><pre><span class="n">fact</span> <span class="n">n</span> <span class="o">=</span> <span class="n">product</span> <span class="p">[</span><span class="mi">1</span><span class="o">..</span><span class="n">n</span><span class="p">]</span>
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">PureScript</span></div>
+<div class="highlight"><pre><span class="kr">module</span> <span class="nn">Q3</span> <span class="kr">where</span>
+
+<span class="kr">import</span> <span class="nn">Prelude</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff.Console</span>
+<span class="kr">import</span> <span class="nn">Data.Foldable</span>
+<span class="kr">import</span> <span class="nn">Data.Array</span>
+
+<span class="n">fact</span> <span class="o">::</span> <span class="kt">Int</span> <span class="o">-&gt;</span> <span class="kt">Int</span>
+<span class="n">fact</span> <span class="n">n</span> <span class="o">=</span> <span class="n">product</span> <span class="o">$</span> <span class="n">range</span> <span class="mi">1</span> <span class="n">n</span>
+
+<span class="cd">-- | ```purescript</span>
+<span class="cd">-- | &gt; Q3.main</span>
+<span class="cd">-- | 120</span>
+<span class="cd">-- | unit</span>
+<span class="cd">-- | ```</span>
+<span class="n">main</span><span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Eff</span> <span class="p">(</span><span class="n">console</span> <span class="o">::</span> <span class="kt">CONSOLE</span> <span class="o">|</span> <span class="n">a</span><span class="p">)</span> <span class="kt">Unit</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">fact</span> <span class="mi">5</span>
+</pre></div>
+</div>
+
+<h1>
+<span id="垂線の交点" class="fragment"></span><a href="#%E5%9E%82%E7%B7%9A%E3%81%AE%E4%BA%A4%E7%82%B9"><i class="fa fa-link"></i></a>垂線の交点</h1>
+
+<blockquote>
+<p>【問6】点 $(p,q)$ から直線 $ax+by=c$ に下した垂線の交点を求める関数perpPointを作成してください。aとbが両方ゼロになると解なしですが、チェックせずに無視してください。</p>
+</blockquote>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">Haskell</span></div>
+<div class="highlight"><pre><span class="n">perpPoint</span> <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+    <span class="kr">where</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span> <span class="o">*</span> <span class="n">c</span> <span class="o">+</span> <span class="n">b</span> <span class="o">*</span> <span class="n">d</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">a</span> <span class="o">*</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span> <span class="o">*</span> <span class="n">b</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="p">(</span><span class="n">b</span> <span class="o">*</span> <span class="n">c</span> <span class="o">-</span> <span class="n">a</span> <span class="o">*</span> <span class="n">d</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">a</span> <span class="o">*</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span> <span class="o">*</span> <span class="n">b</span><span class="p">)</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">b</span> <span class="o">*</span> <span class="n">p</span> <span class="o">-</span> <span class="n">a</span> <span class="o">*</span> <span class="n">q</span>
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">PureScript</span></div>
+<div class="highlight"><pre><span class="kr">module</span> <span class="nn">Q4</span> <span class="kr">where</span>
+
+<span class="kr">import</span> <span class="nn">Prelude</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff.Console</span>
+<span class="kr">import</span> <span class="nn">Data.Tuple</span>
+<span class="kr">import</span> <span class="nn">Data.Tuple.Nested</span>
+
+<span class="cd">-- | usage:</span>
+<span class="cd">-- | ```purescript</span>
+<span class="cd">-- | &gt;  Hoge.perpPoint (Data.Tuple.Nested.tuple3 1.0 (-1.0) 0.0) $ Data.Tuple.Nested.tuple2 0.0 2.0</span>
+<span class="cd">-- | Tuple (1.0) (1.0)</span>
+<span class="cd">-- | ```</span>
+<span class="n">perpPoint</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="p">(</span><span class="kt">Num</span> <span class="n">a</span><span class="p">)</span><span class="o">=&gt;</span> <span class="kt">Tuple3</span> <span class="n">a</span> <span class="n">a</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Tuple2</span> <span class="n">a</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Tuple2</span> <span class="n">a</span> <span class="n">a</span>
+<span class="n">perpPoint</span> <span class="n">tri</span> <span class="n">dou</span> <span class="o">=</span>
+  <span class="n">tuple2</span> <span class="n">x</span> <span class="n">y</span>
+  <span class="kr">where</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">fst</span> <span class="o">$</span> <span class="n">fst</span> <span class="n">tri</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">snd</span> <span class="o">$</span> <span class="n">fst</span> <span class="n">tri</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">snd</span> <span class="n">tri</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">fst</span> <span class="n">dou</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">snd</span> <span class="n">dou</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">b</span><span class="o">*</span><span class="n">p</span> <span class="o">-</span> <span class="n">a</span><span class="o">*</span><span class="n">q</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="p">(</span><span class="n">b</span><span class="o">*</span><span class="n">c</span> <span class="o">-</span> <span class="n">a</span><span class="o">*</span><span class="n">d</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">a</span><span class="o">*</span><span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="o">*</span><span class="n">b</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span><span class="o">*</span><span class="n">c</span> <span class="o">+</span> <span class="n">b</span><span class="o">*</span><span class="n">d</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">a</span><span class="o">*</span><span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="o">*</span><span class="n">b</span><span class="p">)</span>
+
+<span class="n">main</span><span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Eff</span> <span class="p">(</span><span class="n">console</span> <span class="o">::</span> <span class="kt">CONSOLE</span> <span class="o">|</span> <span class="n">a</span><span class="p">)</span> <span class="kt">Unit</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">perpPoint</span> <span class="p">(</span><span class="n">tuple3</span> <span class="mf">1.0</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">)</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">$</span> <span class="n">tuple2</span> <span class="mf">0.0</span> <span class="mf">2.0</span>
+</pre></div>
+</div>
+
+<p>タプルも糖衣構文ないので辛いです。</p>
+
+<h1>
+<span id="rot13" class="fragment"></span><a href="#rot13"><i class="fa fa-link"></i></a>ROT13</h1>
+
+<blockquote>
+<p>【問7】<a href="http://ja.wikipedia.org/wiki/ROT13" rel="nofollow noopener" target="_blank">ROT13</a>を実装してください。</p>
+</blockquote>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">Haskell</span></div>
+<div class="highlight"><pre><span class="n">rot13ch</span> <span class="n">ch</span>
+    <span class="o">|</span>  <span class="sc">'A'</span> <span class="o">&lt;=</span> <span class="n">ch</span> <span class="o">&amp;&amp;</span> <span class="n">ch</span> <span class="o">&lt;=</span> <span class="sc">'M'</span>
+    <span class="o">||</span> <span class="sc">'a'</span> <span class="o">&lt;=</span> <span class="n">ch</span> <span class="o">&amp;&amp;</span> <span class="n">ch</span> <span class="o">&lt;=</span> <span class="sc">'m'</span> <span class="o">=</span> <span class="n">chr</span> <span class="o">$</span> <span class="n">ord</span> <span class="n">ch</span> <span class="o">+</span> <span class="mi">13</span>
+    <span class="o">|</span>  <span class="sc">'N'</span> <span class="o">&lt;=</span> <span class="n">ch</span> <span class="o">&amp;&amp;</span> <span class="n">ch</span> <span class="o">&lt;=</span> <span class="sc">'Z'</span>
+    <span class="o">||</span> <span class="sc">'n'</span> <span class="o">&lt;=</span> <span class="n">ch</span> <span class="o">&amp;&amp;</span> <span class="n">ch</span> <span class="o">&lt;=</span> <span class="sc">'z'</span> <span class="o">=</span> <span class="n">chr</span> <span class="o">$</span> <span class="n">ord</span> <span class="n">ch</span> <span class="o">-</span> <span class="mi">13</span>
+    <span class="o">|</span> <span class="n">otherwise</span> <span class="o">=</span> <span class="n">ch</span>
+
+<span class="n">rot13</span> <span class="s">""</span>     <span class="o">=</span> <span class="s">""</span>
+<span class="n">rot13</span> <span class="p">(</span><span class="n">x</span><span class="o">:</span><span class="n">xs</span><span class="p">)</span> <span class="o">=</span> <span class="n">rot13ch</span> <span class="n">x</span> <span class="o">:</span> <span class="n">rot13</span> <span class="n">xs</span>
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">PureScript</span></div>
+<div class="highlight"><pre><span class="kr">module</span> <span class="nn">Q5</span> <span class="kr">where</span>
+
+<span class="kr">import</span> <span class="nn">Prelude</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff.Console</span>
+<span class="kr">import</span> <span class="nn">Data.Char</span>
+<span class="kr">import</span> <span class="k">qualified</span> <span class="nn">Data.String</span> <span class="k">as</span> <span class="n">Str</span>
+<span class="kr">import</span> <span class="nn">Data.Array</span>
+<span class="kr">import</span> <span class="nn">Data.Maybe</span>
+
+<span class="n">rot13</span> <span class="o">::</span> <span class="kt">String</span> <span class="o">-&gt;</span> <span class="kt">String</span>
+<span class="n">rot13</span> <span class="s">""</span> <span class="o">=</span> <span class="s">""</span>
+<span class="n">rot13</span> <span class="n">str</span> <span class="o">=</span> <span class="kr">case</span> <span class="kt">Str</span><span class="o">.</span><span class="n">uncons</span> <span class="n">str</span> <span class="kr">of</span>
+  <span class="kt">Just</span> <span class="p">{</span> <span class="n">head</span><span class="o">:</span> <span class="n">chr</span><span class="p">,</span> <span class="n">tail</span><span class="o">:</span> <span class="n">_str</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">toString</span> <span class="o">$</span> <span class="n">rot13ch</span> <span class="n">chr</span><span class="p">)</span> <span class="o">++</span> <span class="n">rot13</span> <span class="n">_str</span>
+  <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="s">""</span>
+
+<span class="n">rot13ch</span> <span class="o">::</span> <span class="kt">Char</span> <span class="o">-&gt;</span> <span class="kt">Char</span>
+<span class="n">rot13ch</span> <span class="o">=</span> <span class="nf">\</span><span class="n">chr</span> <span class="o">-&gt;</span>
+  <span class="kr">let</span> <span class="n">n</span> <span class="o">=</span> <span class="n">toCharCode</span> <span class="n">chr</span> <span class="kr">in</span>
+  <span class="kr">case</span> <span class="n">n</span> <span class="kr">of</span>
+      <span class="kr">_</span> <span class="o">|</span> <span class="mi">65</span>  <span class="o">&lt;=</span> <span class="n">n</span> <span class="o">&amp;&amp;</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">78</span>  <span class="o">-&gt;</span> <span class="n">fromCharCode</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">13</span><span class="p">)</span>
+      <span class="kr">_</span> <span class="o">|</span> <span class="mi">78</span>  <span class="o">&lt;=</span> <span class="n">n</span> <span class="o">&amp;&amp;</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">90</span>  <span class="o">-&gt;</span> <span class="n">fromCharCode</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">13</span><span class="p">)</span>
+      <span class="kr">_</span> <span class="o">|</span> <span class="mi">97</span>  <span class="o">&lt;=</span> <span class="n">n</span> <span class="o">&amp;&amp;</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">110</span> <span class="o">-&gt;</span> <span class="n">fromCharCode</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">13</span><span class="p">)</span>
+      <span class="kr">_</span> <span class="o">|</span> <span class="mi">110</span> <span class="o">&lt;=</span> <span class="n">n</span> <span class="o">&amp;&amp;</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">123</span> <span class="o">-&gt;</span> <span class="n">fromCharCode</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">13</span><span class="p">)</span>
+      <span class="kr">_</span> <span class="o">|</span> <span class="n">otherwise</span>           <span class="o">-&gt;</span> <span class="n">chr</span>
+
+<span class="cd">-- | &gt; Q5.main</span>
+<span class="cd">-- | "Uryyb, Jbeyq!"</span>
+<span class="cd">-- | "Hello, World!"</span>
+<span class="cd">-- | unit</span>
+<span class="n">main</span><span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Eff</span> <span class="p">(</span><span class="n">console</span> <span class="o">::</span> <span class="kt">CONSOLE</span> <span class="o">|</span> <span class="n">a</span><span class="p">)</span> <span class="kt">Unit</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="kr">let</span> <span class="n">hello13</span> <span class="o">=</span> <span class="n">rot13</span> <span class="s">"Hello, World!"</span>
+  <span class="n">print</span> <span class="n">hello13</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">rot13</span> <span class="n">hello13</span>
+</pre></div>
+</div>
+
+<h1>
+<span id="バブルソート" class="fragment"></span><a href="#%E3%83%90%E3%83%96%E3%83%AB%E3%82%BD%E3%83%BC%E3%83%88"><i class="fa fa-link"></i></a>バブルソート</h1>
+
+<blockquote>
+<p>【問8】<a href="http://www.ics.kagoshima-u.ac.jp/%7Efuchida/edu/algorithm/sort-algorithm/bubble-sort.html" rel="nofollow noopener" target="_blank">バブルソート</a>を実装してください。</p>
+</blockquote>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">Haskell</span></div>
+<div class="highlight"><pre><span class="n">bswap</span> <span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">]</span>
+<span class="n">bswap</span> <span class="p">(</span><span class="n">x</span><span class="o">:</span><span class="n">xs</span><span class="p">)</span>
+    <span class="o">|</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="n">y</span>     <span class="o">=</span> <span class="n">y</span><span class="o">:</span><span class="n">x</span><span class="o">:</span><span class="n">ys</span>
+    <span class="o">|</span> <span class="n">otherwise</span> <span class="o">=</span> <span class="n">x</span><span class="o">:</span><span class="n">y</span><span class="o">:</span><span class="n">ys</span>
+    <span class="kr">where</span>
+        <span class="p">(</span><span class="n">y</span><span class="o">:</span><span class="n">ys</span><span class="p">)</span> <span class="o">=</span> <span class="n">bswap</span> <span class="n">xs</span>
+
+<span class="n">bsort</span> <span class="kt">[]</span> <span class="o">=</span> <span class="kt">[]</span>
+<span class="n">bsort</span> <span class="n">xs</span> <span class="o">=</span> <span class="n">y</span> <span class="o">:</span> <span class="n">bsort</span> <span class="n">ys</span>
+    <span class="kr">where</span>
+        <span class="p">(</span><span class="n">y</span><span class="o">:</span><span class="n">ys</span><span class="p">)</span> <span class="o">=</span> <span class="n">bswap</span> <span class="n">xs</span>
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">PureScript</span></div>
+<div class="highlight"><pre><span class="kr">module</span> <span class="nn">Q6</span> <span class="kr">where</span>
+
+<span class="kr">import</span> <span class="nn">Prelude</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff.Console</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff</span>
+<span class="kr">import</span> <span class="nn">Data.Array</span>
+<span class="kr">import</span> <span class="nn">Data.Maybe</span>
+
+<span class="cd">-- | bubble sort</span>
+<span class="cd">-- | ```purescript</span>
+<span class="cd">-- | &gt; Hoge.bsort [5.0,1.0,3.0,2.0,4.0,0.0]</span>
+<span class="cd">-- | [0.0,1.0,2.0,3.0,4.0,5.0]</span>
+<span class="cd">-- | ```</span>
+<span class="n">bsort</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="p">(</span><span class="kt">Ord</span> <span class="n">a</span><span class="p">)</span><span class="o">=&gt;</span> <span class="kt">Array</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Array</span> <span class="n">a</span>
+<span class="n">bsort</span> <span class="n">xs</span> <span class="o">=</span>
+  <span class="kr">case</span> <span class="n">uncons</span> <span class="o">$</span> <span class="n">bswap</span> <span class="n">xs</span> <span class="kr">of</span>
+    <span class="kt">Just</span> <span class="p">{</span> <span class="n">head</span><span class="o">:</span> <span class="n">y</span><span class="p">,</span> <span class="n">tail</span><span class="o">:</span> <span class="n">ys</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">y</span> <span class="o">:</span> <span class="n">bsort</span> <span class="n">ys</span>
+    <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="kt">[]</span>
+
+<span class="cd">-- | ```purescript</span>
+<span class="cd">-- | Hoge.bswap [5.0,1.0,3.0,2.0,4.0,0.0]</span>
+<span class="cd">-- | [0.0,5.0,1.0,3.0,2.0,4.0]</span>
+<span class="cd">-- | ```</span>
+<span class="n">bswap</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="p">(</span><span class="kt">Ord</span> <span class="n">a</span><span class="p">)</span><span class="o">=&gt;</span> <span class="kt">Array</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Array</span> <span class="n">a</span>
+<span class="n">bswap</span> <span class="n">xs</span> <span class="o">=</span> <span class="kr">case</span> <span class="n">uncons</span> <span class="n">xs</span> <span class="kr">of</span>
+  <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="n">xs</span>
+  <span class="kt">Just</span> <span class="p">{</span> <span class="n">head</span><span class="o">:</span> <span class="n">y</span><span class="p">,</span> <span class="n">tail</span><span class="o">:</span> <span class="n">ys</span> <span class="p">}</span> <span class="o">-&gt;</span>
+    <span class="kr">let</span> <span class="n">zs</span> <span class="o">=</span> <span class="n">bswap</span> <span class="n">ys</span> <span class="kr">in</span>
+    <span class="kr">case</span> <span class="n">uncons</span> <span class="n">zs</span> <span class="kr">of</span>
+      <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="n">xs</span>
+      <span class="kt">Just</span> <span class="p">{</span> <span class="n">head</span><span class="o">:</span> <span class="n">a</span><span class="p">,</span> <span class="n">tail</span><span class="o">:</span> <span class="n">as</span> <span class="p">}</span> <span class="o">-&gt;</span>
+        <span class="kr">if</span> <span class="n">y</span> <span class="o">&gt;</span> <span class="n">a</span>
+        <span class="kr">then</span> <span class="n">a</span><span class="o">:</span><span class="n">y</span><span class="o">:</span><span class="n">as</span>
+        <span class="kr">else</span> <span class="n">y</span><span class="o">:</span><span class="n">a</span><span class="o">:</span><span class="n">as</span>
+
+<span class="cd">-- | ```purescript</span>
+<span class="cd">-- | &gt; Q6.main</span>
+<span class="cd">-- | [1,4,3,2,5]</span>
+<span class="cd">-- | [1,2,3,4,5]</span>
+<span class="cd">-- | [1,2,3,4,5]</span>
+<span class="cd">-- | [1,2,3,4,5,6,7,8,9]</span>
+<span class="cd">-- | unit</span>
+<span class="cd">-- | ```</span>
+<span class="n">main</span><span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Eff</span> <span class="p">(</span><span class="n">console</span> <span class="o">::</span> <span class="kt">CONSOLE</span> <span class="o">|</span> <span class="n">a</span><span class="p">)</span> <span class="kt">Unit</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">bswap</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">bsort</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">bsort</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">bsort</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+</pre></div>
+</div>
+
+<p>配列のパターンマッチができないのでつらい。</p>
+
+<h1>
+<span id="マージソート" class="fragment"></span><a href="#%E3%83%9E%E3%83%BC%E3%82%B8%E3%82%BD%E3%83%BC%E3%83%88"><i class="fa fa-link"></i></a>マージソート</h1>
+
+<blockquote>
+<p>【問9】マージソートを実装してください。</p>
+</blockquote>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">Haskell</span></div>
+<div class="highlight"><pre><span class="n">merge</span> <span class="n">xs</span> <span class="kt">[]</span> <span class="o">=</span> <span class="n">xs</span>
+<span class="n">merge</span> <span class="kt">[]</span> <span class="n">ys</span> <span class="o">=</span> <span class="n">ys</span>
+<span class="n">merge</span> <span class="p">(</span><span class="n">x</span><span class="o">:</span><span class="n">xs</span><span class="p">)</span> <span class="p">(</span><span class="n">y</span><span class="o">:</span><span class="n">ys</span><span class="p">)</span>
+    <span class="o">|</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="n">y</span>     <span class="o">=</span> <span class="n">x</span> <span class="o">:</span> <span class="n">merge</span> <span class="n">xs</span> <span class="p">(</span><span class="n">y</span><span class="o">:</span><span class="n">ys</span><span class="p">)</span>
+    <span class="o">|</span> <span class="n">otherwise</span> <span class="o">=</span> <span class="n">y</span> <span class="o">:</span> <span class="n">merge</span> <span class="p">(</span><span class="n">x</span><span class="o">:</span><span class="n">xs</span><span class="p">)</span> <span class="n">ys</span>
+
+<span class="n">msort</span> <span class="kt">[]</span>  <span class="o">=</span> <span class="kt">[]</span>
+<span class="n">msort</span> <span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">]</span>
+<span class="n">msort</span> <span class="n">xs</span>  <span class="o">=</span> <span class="n">merge</span> <span class="p">(</span><span class="n">msort</span> <span class="p">(</span><span class="n">take</span> <span class="n">h</span> <span class="n">xs</span><span class="p">))</span> <span class="p">(</span><span class="n">msort</span> <span class="p">(</span><span class="n">drop</span> <span class="n">h</span> <span class="n">xs</span><span class="p">))</span>
+    <span class="kr">where</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="p">(</span><span class="n">length</span> <span class="n">xs</span><span class="p">)</span> <span class="p">`</span><span class="n">div</span><span class="p">`</span> <span class="mi">2</span>
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">PureScript</span></div>
+<div class="highlight"><pre><span class="kr">module</span> <span class="nn">Q7</span> <span class="kr">where</span>
+
+<span class="kr">import</span> <span class="nn">Prelude</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff.Console</span>
+<span class="kr">import</span> <span class="nn">Data.Array</span>
+<span class="kr">import</span> <span class="nn">Data.Maybe</span>
+
+<span class="n">merge</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="p">(</span><span class="kt">Ord</span> <span class="n">a</span><span class="p">)</span><span class="o">=&gt;</span> <span class="kt">Array</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Array</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Array</span> <span class="n">a</span>
+<span class="n">merge</span> <span class="n">xs</span> <span class="n">ys</span>
+  <span class="o">|</span> <span class="n">length</span> <span class="n">ys</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">=</span> <span class="n">xs</span>
+  <span class="o">|</span> <span class="n">length</span> <span class="n">xs</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">=</span> <span class="n">ys</span>
+  <span class="o">|</span> <span class="n">otherwise</span>      <span class="o">=</span>
+    <span class="kr">case</span> <span class="n">uncons</span> <span class="n">xs</span> <span class="kr">of</span>
+      <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="kt">[]</span>
+      <span class="kt">Just</span> <span class="p">{</span><span class="n">head</span><span class="o">:</span> <span class="n">a</span><span class="p">,</span> <span class="n">tail</span><span class="o">:</span> <span class="n">as</span><span class="p">}</span> <span class="o">-&gt;</span>
+        <span class="kr">case</span> <span class="n">uncons</span> <span class="n">ys</span> <span class="kr">of</span>
+          <span class="kt">Nothing</span> <span class="o">-&gt;</span> <span class="kt">[]</span>
+          <span class="kt">Just</span> <span class="p">{</span><span class="n">head</span><span class="o">:</span> <span class="n">b</span><span class="p">,</span> <span class="n">tail</span><span class="o">:</span> <span class="n">bs</span><span class="p">}</span> <span class="o">-&gt;</span>
+            <span class="kr">if</span> <span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span>
+            <span class="kr">then</span> <span class="n">a</span> <span class="o">:</span> <span class="n">merge</span> <span class="n">as</span> <span class="p">(</span><span class="n">b</span><span class="o">:</span><span class="n">bs</span><span class="p">)</span>
+            <span class="kr">else</span> <span class="n">b</span> <span class="o">:</span> <span class="n">merge</span> <span class="p">(</span><span class="n">a</span><span class="o">:</span><span class="n">as</span><span class="p">)</span> <span class="n">bs</span>
+
+<span class="n">msort</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="p">(</span><span class="kt">Ord</span> <span class="n">a</span><span class="p">)</span><span class="o">=&gt;</span> <span class="kt">Array</span> <span class="n">a</span> <span class="o">-&gt;</span> <span class="kt">Array</span> <span class="n">a</span>
+<span class="n">msort</span> <span class="n">xs</span>
+  <span class="o">|</span> <span class="n">length</span> <span class="n">xs</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">=</span> <span class="kt">[]</span>
+  <span class="o">|</span> <span class="n">length</span> <span class="n">xs</span> <span class="o">==</span> <span class="mi">1</span> <span class="o">=</span> <span class="n">xs</span>
+  <span class="o">|</span> <span class="n">otherwise</span>      <span class="o">=</span> <span class="n">merge</span> <span class="p">(</span><span class="n">msort</span> <span class="p">(</span><span class="n">take</span> <span class="n">h</span> <span class="n">xs</span><span class="p">))</span> <span class="p">(</span><span class="n">msort</span> <span class="p">(</span><span class="n">drop</span> <span class="n">h</span> <span class="n">xs</span><span class="p">))</span>
+  <span class="kr">where</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="p">(</span><span class="n">length</span> <span class="n">xs</span><span class="p">)</span> <span class="p">`</span><span class="n">div</span><span class="p">`</span> <span class="mi">2</span>
+
+<span class="cd">-- | ```purescript</span>
+<span class="cd">-- | &gt; Q7.main</span>
+<span class="cd">-- | [1,2,3,4,5,6,7,8,9]</span>
+<span class="cd">-- | unit</span>
+<span class="cd">-- | ```</span>
+<span class="n">main</span><span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Eff</span> <span class="p">(</span><span class="n">console</span> <span class="o">::</span> <span class="kt">CONSOLE</span> <span class="o">|</span> <span class="n">a</span><span class="p">)</span> <span class="kt">Unit</span>
+<span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">msort</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+</pre></div>
+</div>
+
+<p>配列のパターンマッチができないのでつらい。</p>
+
+<h1>
+<span id="直角三角形の三辺" class="fragment"></span><a href="#%E7%9B%B4%E8%A7%92%E4%B8%89%E8%A7%92%E5%BD%A2%E3%81%AE%E4%B8%89%E8%BE%BA"><i class="fa fa-link"></i></a>直角三角形の三辺</h1>
+
+<blockquote>
+<p>【問11】三辺の長さが各20以下の整数で構成される直角三角形を列挙してください。並び順による重複を排除する必要はありません。</p>
+</blockquote>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">Haskell</span></div>
+<div class="highlight"><pre><span class="n">main</span> <span class="o">=</span> <span class="kr">do</span>
+    <span class="n">print</span> <span class="p">[(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+          <span class="o">|</span> <span class="n">a</span> <span class="o">&lt;-</span> <span class="p">[</span><span class="mi">1</span><span class="o">..</span><span class="mi">20</span><span class="p">],</span> <span class="n">b</span> <span class="o">&lt;-</span> <span class="p">[</span><span class="mi">1</span><span class="o">..</span><span class="mi">20</span><span class="p">],</span> <span class="n">c</span> <span class="o">&lt;-</span> <span class="p">[</span><span class="mi">1</span><span class="o">..</span><span class="mi">20</span><span class="p">]</span>
+          <span class="p">,</span> <span class="n">a</span> <span class="o">*</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span> <span class="o">*</span> <span class="n">b</span> <span class="o">==</span> <span class="n">c</span> <span class="o">*</span> <span class="n">c</span>
+          <span class="p">]</span>
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">PureScript</span></div>
+<div class="highlight"><pre><span class="kr">module</span> <span class="nn">Q9</span> <span class="kr">where</span>
+
+<span class="kr">import</span> <span class="nn">Prelude</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff</span>
+<span class="kr">import</span> <span class="nn">Control.Monad.Eff.Console</span>
+<span class="kr">import</span> <span class="nn">Data.Foldable</span>
+<span class="kr">import</span> <span class="nn">Data.Array</span>
+<span class="kr">import</span> <span class="nn">Data.Tuple</span>
+<span class="kr">import</span> <span class="nn">Data.Tuple.Nested</span>
+
+<span class="cd">-- | right triangle</span>
+<span class="cd">-- | ```purescript</span>
+<span class="cd">-- | &gt; Hoge.triangle</span>
+<span class="cd">-- | "[Tuple (Tuple (3) (4)) (5),Tuple (Tuple (4) (3)) (5),Tuple (Tuple (5) (12)) (13),Tuple (Tuple (6) (8)) (10),Tuple (Tuple (8) (6)) (10),Tuple (Tuple (8) (15)) (17),Tuple (Tuple (9) (12)) (15),Tuple (Tuple (12) (5)) (13),Tuple (Tuple (12) (9)) (15),Tuple (Tuple (12) (16)) (20),Tuple (Tuple (15) (8)) (17),Tuple (Tuple (16) (12)) (20)]"</span>
+<span class="cd">-- | unit</span>
+<span class="cd">-- | ```</span>
+<span class="n">triangle</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Eff</span> <span class="p">(</span><span class="n">console</span> <span class="o">::</span> <span class="kt">CONSOLE</span> <span class="o">|</span> <span class="n">a</span><span class="p">)</span> <span class="kt">Unit</span>
+<span class="n">triangle</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">show</span> <span class="n">z</span>
+  <span class="kr">where</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">range</span> <span class="mi">1</span> <span class="mi">20</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">concat</span> <span class="o">$</span>
+      <span class="n">concat</span> <span class="o">$</span>
+        <span class="n">map</span> <span class="p">(</span><span class="nf">\</span><span class="n">i</span> <span class="o">-&gt;</span>
+          <span class="n">map</span> <span class="p">(</span><span class="nf">\</span><span class="n">j</span> <span class="o">-&gt;</span>
+            <span class="n">map</span> <span class="p">(</span><span class="nf">\</span><span class="n">k</span> <span class="o">-&gt;</span>
+              <span class="n">tuple3</span> <span class="n">i</span> <span class="n">j</span> <span class="n">k</span><span class="p">)</span> <span class="n">x</span><span class="p">)</span> <span class="n">x</span><span class="p">)</span> <span class="n">x</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">filter</span> <span class="p">(</span><span class="nf">\</span><span class="n">tri</span> <span class="o">-&gt;</span>
+      <span class="kr">let</span> <span class="n">a</span> <span class="o">=</span> <span class="n">fst</span> <span class="o">$</span> <span class="n">fst</span> <span class="n">tri</span>
+          <span class="n">b</span> <span class="o">=</span> <span class="n">snd</span> <span class="o">$</span> <span class="n">fst</span> <span class="n">tri</span>
+          <span class="n">c</span> <span class="o">=</span> <span class="n">snd</span> <span class="o">$</span> <span class="n">tri</span> <span class="kr">in</span>
+          <span class="n">a</span><span class="o">*</span><span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="o">*</span><span class="n">b</span> <span class="o">==</span> <span class="n">c</span><span class="o">*</span><span class="n">c</span>
+      <span class="p">)</span> <span class="n">y</span>
+</pre></div>
+</div>
+
+<p>配列内包表記がないのがつらいです。</p>
+
+<h2>
+<span id="追記-1" class="fragment"></span><a href="#%E8%BF%BD%E8%A8%98-1"><i class="fa fa-link"></i></a>追記</h2>
+
+<p>コメント欄にてkakkun61さんの通り<a href="http://hiruberuto.bitbucket.org/purescript/chapter08.html" rel="nofollow noopener" target="_blank">配列内包表記</a>についての記事があったので参考にして作ってみたら、だいぶマシになりました。なるほど</p>
+
+<div class="code-frame" data-lang="hs">
+<div class="code-lang"><span class="bold">PureScript</span></div>
+<div class="highlight"><pre><span class="n">triangle</span> <span class="o">::</span> <span class="n">forall</span> <span class="n">a</span><span class="o">.</span> <span class="kt">Eff</span> <span class="p">(</span><span class="n">console</span> <span class="o">::</span> <span class="kt">CONSOLE</span> <span class="o">|</span> <span class="n">a</span><span class="p">)</span> <span class="kt">Unit</span>
+<span class="n">triangle</span> <span class="o">=</span> <span class="kr">do</span>
+  <span class="n">print</span> <span class="o">$</span> <span class="n">show</span> <span class="kr">do</span>
+    <span class="n">a</span> <span class="o">&lt;-</span> <span class="n">range</span> <span class="mi">1</span> <span class="mi">20</span>
+    <span class="n">b</span> <span class="o">&lt;-</span> <span class="n">range</span> <span class="mi">1</span> <span class="mi">20</span>
+    <span class="n">c</span> <span class="o">&lt;-</span> <span class="n">range</span> <span class="mi">1</span> <span class="mi">20</span>
+    <span class="kr">if</span> <span class="n">a</span><span class="o">*</span><span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="o">*</span><span class="n">b</span> <span class="o">==</span> <span class="n">c</span><span class="o">*</span><span class="n">c</span> <span class="kr">then</span> <span class="n">return</span> <span class="o">$</span> <span class="n">tuple3</span> <span class="n">a</span> <span class="n">b</span> <span class="n">c</span> <span class="kr">else</span> <span class="kt">[]</span>
+</pre></div>
+</div>
+
+<h1>
+<span id="連絡" class="fragment"></span><a href="#%E9%80%A3%E7%B5%A1"><i class="fa fa-link"></i></a>連絡</h1>
+
+<p>もっと良い方法がありましたらコメントください</p>

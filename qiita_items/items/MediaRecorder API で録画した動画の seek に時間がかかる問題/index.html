@@ -1,0 +1,255 @@
+
+<h1>
+<span id="mediarecorder-api-で録画した動画の-seek-に時間がかかる問題" class="fragment"></span><a href="#mediarecorder-api-%E3%81%A7%E9%8C%B2%E7%94%BB%E3%81%97%E3%81%9F%E5%8B%95%E7%94%BB%E3%81%AE-seek-%E3%81%AB%E6%99%82%E9%96%93%E3%81%8C%E3%81%8B%E3%81%8B%E3%82%8B%E5%95%8F%E9%A1%8C"><i class="fa fa-link"></i></a>MediaRecorder API で録画した動画の seek に時間がかかる問題</h1>
+
+<h2>
+<span id="問題" class="fragment"></span><a href="#%E5%95%8F%E9%A1%8C"><i class="fa fa-link"></i></a>問題</h2>
+
+<p>Chrome の MediaRecorderAPI で保存した動画は <code>video.controls</code> が <a href="https://bugs.chromium.org/p/chromium/issues/detail?id=569840" rel="nofollow noopener" target="_blank">seekable ではなく</a> 、そのまま <code>HTMLVideoElement</code> に読み込ませるとシークできなくなる。<br>
+<a href="http://qiita.com/DUxCA/items/14a8d39dbaa90c2a5ccb" id="reference-8940e98e176bf0c70f60">前回の記事</a> の通り、  <code>video.duration</code> に大きな数字を入れることで <code>video.controls</code> は一応 seekable になる。</p>
+
+<div class="code-frame" data-lang="ts"><div class="highlight"><pre><span class="kd">const</span> <span class="nx">video</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">createElement</span><span class="p">(</span><span class="dl">"</span><span class="s2">video</span><span class="dl">"</span><span class="p">);</span>
+<span class="kd">let</span> <span class="nx">now</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="nx">video</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="dl">"</span><span class="s2">loadeddata</span><span class="dl">"</span><span class="p">,</span> <span class="p">()</span><span class="o">=&gt;</span><span class="p">{</span>
+  <span class="nx">video</span><span class="p">.</span><span class="nx">currentTime</span> <span class="o">=</span> <span class="mi">24</span><span class="o">*</span><span class="mi">60</span><span class="o">*</span><span class="mi">60</span><span class="o">*</span><span class="mi">1000</span><span class="p">;</span>
+  <span class="nx">now</span> <span class="o">=</span> <span class="nx">performance</span><span class="p">.</span><span class="nx">now</span><span class="p">();</span>
+<span class="p">});</span>
+<span class="nx">video</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="dl">"</span><span class="s2">seeked</span><span class="dl">"</span><span class="p">,</span> <span class="p">()</span><span class="o">=&gt;</span><span class="p">{</span>
+  <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="dl">"</span><span class="s2">seeked</span><span class="dl">"</span><span class="p">,</span> <span class="nx">performance</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span> <span class="o">-</span> <span class="nx">now</span><span class="p">);</span>
+  <span class="nb">document</span><span class="p">.</span><span class="nx">body</span><span class="p">.</span><span class="nx">appendChild</span><span class="p">(</span><span class="nx">video</span><span class="p">);</span>
+<span class="p">});</span>
+<span class="nx">video</span><span class="p">.</span><span class="nx">src</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">recorded_by_media_recorder_api.webm</span><span class="dl">"</span><span class="p">;</span>
+<span class="nx">video</span><span class="p">.</span><span class="nx">controls</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+</pre></div></div>
+
+<p>しかし、 1時間近く録画して生成した大きな webm 動画に関しては、 <strong><code>video.controls</code> を利用した seek が非常に遅くなる問題が発生する</strong>。</p>
+
+<h2>
+<span id="原因" class="fragment"></span><a href="#%E5%8E%9F%E5%9B%A0"><i class="fa fa-link"></i></a>原因</h2>
+
+<ol>
+<li>MediaRecorder API で 録画した webm の コンテナである <a href="https://www.matroska.org/technical/specs/index.html" rel="nofollow noopener" target="_blank">EBML</a> のヘッダ領域に <code>SeekHead</code> 要素が <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=969290" rel="nofollow noopener" target="_blank">ない</a> ので <code>loadedmetadata</code> 時点では <code>duration</code> 情報は一切ない。</li>
+<li>
+<a href="http://qiita.com/DUxCA/items/14a8d39dbaa90c2a5ccb">上述のハック</a> では <code>HTMLVideoElement</code> が <a href="https://triple-underscore.github.io/RFC7233-ja.html" rel="nofollow noopener" target="_blank">HTTP/1.1 Range Request</a> をしながらファイルの先頭から順番に読み込んでいき、 EBML の <code>Segment &gt; Cluster &gt; Timecode</code> 要素と <code>Segment &gt; Cluster &gt; SimpleBlock</code> 要素を <a href="https://dev.w3.org/html5/pf-summary/video.html" rel="nofollow noopener" target="_blank">逐次読み込んで時刻情報を得ていく</a> ので、極めて効率が悪い。
+f</li>
+</ol>
+
+<h2>
+<span id="対処法" class="fragment"></span><a href="#%E5%AF%BE%E5%87%A6%E6%B3%95"><i class="fa fa-link"></i></a>対処法</h2>
+
+<h3>
+<span id="1-その場しのぎあらかじめ動画全体を読み込んでおく" class="fragment"></span><a href="#1-%E3%81%9D%E3%81%AE%E5%A0%B4%E3%81%97%E3%81%AE%E3%81%8E%E3%81%82%E3%82%89%E3%81%8B%E3%81%98%E3%82%81%E5%8B%95%E7%94%BB%E5%85%A8%E4%BD%93%E3%82%92%E8%AA%AD%E3%81%BF%E8%BE%BC%E3%82%93%E3%81%A7%E3%81%8A%E3%81%8F"><i class="fa fa-link"></i></a>1. その場しのぎ「あらかじめ動画全体を読み込んでおく」</h3>
+
+<p>Range Request で逐次解析するのが極端な遅さの原因なので、あらかじめ動画ファイルをメモリに乗せておけばよい。</p>
+
+<div class="code-frame" data-lang="ts"><div class="highlight"><pre><span class="kd">const</span> <span class="nx">xhr</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">XMLHttpRequest</span><span class="p">();</span>
+<span class="nx">xhr</span><span class="p">.</span><span class="nx">responseType</span> <span class="o">=</span> <span class="nx">responseType</span><span class="p">;</span>
+<span class="nx">xhr</span><span class="p">.</span><span class="nx">open</span><span class="p">(</span><span class="dl">"</span><span class="s2">GET</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">foo.webm</span><span class="dl">"</span><span class="p">);</span>
+<span class="nx">xhr</span><span class="p">.</span><span class="nx">send</span><span class="p">();</span>
+<span class="nx">xhr</span><span class="p">.</span><span class="nx">onreadystatechange</span> <span class="o">=</span> <span class="p">()</span><span class="o">=&gt;</span><span class="p">{</span>
+  <span class="k">if</span><span class="p">(</span><span class="nx">xhr</span><span class="p">.</span><span class="nx">readyState</span> <span class="o">!==</span> <span class="mi">4</span><span class="p">){</span> <span class="k">return</span><span class="p">;</span> <span class="p">}</span>
+  <span class="k">if</span><span class="p">(</span><span class="mi">200</span> <span class="o">!==</span> <span class="nx">xhr</span><span class="p">.</span><span class="nx">status</span><span class="p">){</span> <span class="k">return</span><span class="p">;</span> <span class="p">}</span>
+  <span class="kd">const</span> <span class="nx">blob</span> <span class="o">=</span> <span class="nx">xhr</span><span class="p">.</span><span class="nx">response</span><span class="p">;</span>
+  <span class="kd">const</span> <span class="nx">url</span> <span class="o">=</span> <span class="nx">URL</span><span class="p">.</span><span class="nx">createObjectURL</span><span class="p">(</span><span class="nx">blob</span><span class="p">);</span>
+  <span class="kd">const</span> <span class="nx">video</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">createElement</span><span class="p">(</span><span class="dl">"</span><span class="s2">video</span><span class="dl">"</span><span class="p">);</span>
+  <span class="nx">video</span><span class="p">.</span><span class="nx">src</span> <span class="o">=</span> <span class="nx">url</span><span class="p">;</span>
+  <span class="nx">video</span><span class="p">.</span><span class="nx">onloadeddata</span><span class="dl">"</span><span class="s2"> = ()=&gt;{
+    video.currentTime = 24*60*60*1000;
+    video.seeked = ()=&gt;{
+      document.body.appendChild(video);
+    };
+  };
+
+};
+</span></pre></div></div>
+
+<p>これで Range Request が発生する場合よりは seek の応答性は早くなる。しかしまだ遅い。なぜなら seek が発生するたびにファイル先頭から逐次時刻を計算していることには変わらないからである。</p>
+
+<h3>
+<span id="2-根本的な解決策webm-ファイルを動的に構成する" class="fragment"></span><a href="#2-%E6%A0%B9%E6%9C%AC%E7%9A%84%E3%81%AA%E8%A7%A3%E6%B1%BA%E7%AD%96webm-%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E5%8B%95%E7%9A%84%E3%81%AB%E6%A7%8B%E6%88%90%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>2. 根本的な解決策「webm ファイルを動的に構成する」</h3>
+
+<p>時刻計算を省くためには webm ファイルのメタデータにシーク情報を与えておく必要がある。<br>
+<code>MediaRecorder</code> の <code>ondataavailable</code> で送られてくる <code>BlobEvent</code> の <code>ev.blob</code> の中の EBML を逐次解析し、 <code>Clustor</code> 要素の位置を記録しておく。<br>
+その後、録画終了時に <a href="https://www.matroska.org/technical/order/index.html" rel="nofollow noopener" target="_blank"><code>Clustor</code> 要素への参照を記録した <code>Segment &gt; SeekHead</code> 要素を追加</a>するか、<a href="http://qiita.com/tomoyukilabs/items/57ba8a982ab372611669" id="reference-82712345958ac3b71cc9">MediaSourceAPI</a> を使用して動的に構成したヘッダを渡すなりすればよい。</p>
+
+<h4>
+<span id="webm-ファイルの中身をみて-seekhead-がないことを確認する" class="fragment"></span><a href="#webm-%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%81%AE%E4%B8%AD%E8%BA%AB%E3%82%92%E3%81%BF%E3%81%A6-seekhead-%E3%81%8C%E3%81%AA%E3%81%84%E3%81%93%E3%81%A8%E3%82%92%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B"><i class="fa fa-link"></i></a>webm ファイルの中身をみて <code>SeekHead</code> がないことを確認する</h4>
+
+<p>　<br>
+<a href="https://permadi.com/2010/06/webm-file-structure/" rel="nofollow noopener" target="_blank">ここ</a> によると <a href="https://code.google.com/archive/p/ebml-viewer/" rel="nofollow noopener" target="_blank">ebml-viewer</a> か <a href="https://mkvtoolnix.download/doc/mkvinfo.html" rel="nofollow noopener" target="_blank">mkvinfo</a> を使えばよいとあるので、私は mkvinfo を利用した。 <a href="https://mkvtoolnix.download/downloads.html" rel="nofollow noopener" target="_blank">mkvtoolnix をインストール</a> すればよい。</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>$ mkvinfo -g foo.webm
+</pre></div></div>
+
+<p>とすれば GUI で mkv の中身をみることができる。標準ではメタ情報しか表示しないのでメニューから全ての情報を取得を選択するようにする。<br>
+中を覗いてみると <code>SeekHead</code> がないことが確認できる。</p>
+
+<p>EBML の詳細については</p>
+
+<ul>
+<li><a href="https://www.matroska.org/technical/specs/index.html" class="autolink" rel="nofollow noopener" target="_blank">https://www.matroska.org/technical/specs/index.html</a></li>
+<li><a href="https://www.webmproject.org/docs/container/#muxer-guidelines" class="autolink" rel="nofollow noopener" target="_blank">https://www.webmproject.org/docs/container/#muxer-guidelines</a></li>
+<li><a href="http://qiita.com/ryiwamoto/items/0ff451da6ab76b4f4064" class="autolink" id="reference-5a449c9d1276d4a1f29c">http://qiita.com/ryiwamoto/items/0ff451da6ab76b4f4064</a></li>
+<li><a href="http://www.slideshare.net/mganeko/inside-webm" class="autolink" rel="nofollow noopener" target="_blank">http://www.slideshare.net/mganeko/inside-webm</a></li>
+</ul>
+
+<p>などが明るい。</p>
+
+<h4>
+<span id="js-から-ebml-を読み込む" class="fragment"></span><a href="#js-%E3%81%8B%E3%82%89-ebml-%E3%82%92%E8%AA%AD%E3%81%BF%E8%BE%BC%E3%82%80"><i class="fa fa-link"></i></a>JS から EBML を読み込む</h4>
+
+<p><a href="https://github.com/themasch/node-ebml/" rel="nofollow noopener" target="_blank">themasch/node-ebml</a> と <a href="https://github.com/mathiasvr/ebml-block/" rel="nofollow noopener" target="_blank">mathiasvr/ebml-block</a> を使用する。</p>
+
+<h4>
+<span id="mediarecorderapi-が生成する-webm-の-ebml-構造" class="fragment"></span><a href="#mediarecorderapi-%E3%81%8C%E7%94%9F%E6%88%90%E3%81%99%E3%82%8B-webm-%E3%81%AE-ebml-%E6%A7%8B%E9%80%A0"><i class="fa fa-link"></i></a>MediaRecorderAPI が生成する webm の EBML 構造</h4>
+
+<div class="code-frame" data-lang="xml"><div class="highlight"><pre><span class="nt">&lt;EBML&gt;</span>
+  ...
+<span class="nt">&lt;/EBML&gt;</span>
+<span class="nt">&lt;Segment&gt;</span>
+  <span class="nt">&lt;Info&gt;</span>
+    <span class="c">&lt;!--
+    ここに duration がないため `ffmpeg -i` などでみると duration が n/a となる
+    &lt;Duration&gt;0&lt;/Duration&gt;
+    --&gt;</span>
+    <span class="nt">&lt;TimecodeScale&gt;</span>1000000<span class="nt">&lt;/TimecodeScale&gt;</span>
+    <span class="c">&lt;!--
+      1000000ns = 1ms
+      以後の時刻の単位系を決める
+    --&gt;</span>
+    ...
+  <span class="nt">&lt;/Info&gt;</span>
+  <span class="c">&lt;!--
+  ここに SeekHead が欲しい
+  &lt;SeekHead&gt;
+    &lt;Seek&gt;
+      &lt;SeekID&gt;[1F][43][B6][75]&lt;/SeekID&gt;// EBML ID
+      &lt;SeekPosition&gt;11451489464&lt;/SeekPosition&gt; // offset from &lt;Segment /&gt;
+    &lt;/Seek&gt;
+    ...
+  &lt;/SeekHead&gt;
+  --&gt;</span>
+  <span class="nt">&lt;Tracks&gt;</span>
+    <span class="nt">&lt;TrackEntry&gt;</span>
+      <span class="nt">&lt;TrackNumber&gt;</span>1<span class="nt">&lt;/TrackNumber&gt;</span>
+      <span class="nt">&lt;TrackType&gt;</span>1<span class="nt">&lt;/TrackType&gt;</span><span class="c">&lt;!-- 1=video, 2=audio --&gt;</span>
+      ...
+    <span class="nt">&lt;/TrackEntry&gt;</span>
+    ...
+  <span class="nt">&lt;/Tracks&gt;</span>
+  <span class="nt">&lt;Cluster&gt;</span>
+    <span class="nt">&lt;Timecode&gt;</span>0<span class="nt">&lt;/Timecode&gt;</span><span class="c">&lt;!-- このクラスタの開始時刻(TimecodeScale単位) --&gt;</span>
+    <span class="nt">&lt;SimpleBlock&gt;</span>
+      <span class="c">&lt;!--SimpleBlock の中身は ebml-block を使えば読める--&gt;</span>
+      <span class="nt">&lt;track&gt;</span>1<span class="nt">&lt;/track&gt;</span>
+      <span class="nt">&lt;timecode&gt;</span>0<span class="nt">&lt;/timecode&gt;</span><span class="c">&lt;!-- クラスタ先頭からの時刻(TimecodeScale単位) --&gt;</span>
+      <span class="nt">&lt;keyframe/&gt;</span>
+      ...
+    <span class="nt">&lt;/SimpleBlock&gt;</span>
+    <span class="nt">&lt;SimpleBlock&gt;</span>
+      <span class="nt">&lt;timecode&gt;</span>0.033<span class="nt">&lt;/timecode&gt;</span>
+      ...
+    <span class="nt">&lt;/SimpleBlock&gt;</span>
+    ...
+    <span class="c">&lt;!--
+    SimpleBlock があと 98 個続く
+    --&gt;</span>
+<span class="c">&lt;!--
+Cluster, Segment は不定長要素なので閉じタグはない
+新たな Clustor は level 0 要素(EBMLとSegment) からやり直される
+--&gt;</span>
+<span class="nt">&lt;EBML&gt;</span>...<span class="nt">&lt;/EBML&gt;</span>
+<span class="nt">&lt;Segment&gt;</span>
+  ...
+  <span class="nt">&lt;Cluster&gt;</span>
+    <span class="nt">&lt;Timecode&gt;</span>0<span class="nt">&lt;/Timecode&gt;</span>
+    <span class="nt">&lt;SimpleBlock&gt;</span>...<span class="nt">&lt;/SimpleBlock&gt;</span>
+    ...
+...
+<span class="c">&lt;!--
+以後繰り返し
+--&gt;</span>
+</pre></div></div>
+
+<h4>
+<span id="動的解析" class="fragment"></span><a href="#%E5%8B%95%E7%9A%84%E8%A7%A3%E6%9E%90"><i class="fa fa-link"></i></a>動的解析</h4>
+
+<p>node-ebml は node の　stream 標準ライブラリに依存しているため、そのまま MediaRecorder に適用できないが、書き換えるのは容易だった。ソースは公開していないので各自挑戦してみてほしい。<br>
+ちなみに buffer の polyfill は <a href="https://github.com/feross/buffer" rel="nofollow noopener" target="_blank">feross/buffer</a> が良かった。<br>
+あるいは <a href="https://github.com/oeuillot/node-matroska" rel="nofollow noopener" target="_blank">oeuillot/node-matroska</a> ならば browserify で動くかもしれない。</p>
+
+<h2>
+<span id="追記" class="fragment"></span><a href="#%E8%BF%BD%E8%A8%98"><i class="fa fa-link"></i></a>追記</h2>
+
+<ul>
+<li>
+<a href="https://github.com/themasch/node-ebml/issues/19" rel="nofollow noopener" target="_blank">node-ebml</a> も <a href="https://github.com/oeuillot/node-matroska/issues/4" rel="nofollow noopener" target="_blank">node-matrosika</a> も webm streaming のための不定長要素を読み込むことができないバグがあったので報告した</li>
+<li>Matroska の <a href="https://github.com/Matroska-Org/libebml/blob/347a75d77c9c48d1c20bca44fa8639e0afa0ca38/src/EbmlElement.cpp#L149" rel="nofollow noopener" target="_blank">libebml</a> の該当コード</li>
+<li>chromium の <a href="https://chromium.googlesource.com/webm/libvpx/+/master/third_party/libwebm/mkvparser/mkvparser.cc#787" rel="nofollow noopener" target="_blank">libwebm</a> の該当コード</li>
+</ul>
+
+<h2>
+<span id="追記-1" class="fragment"></span><a href="#%E8%BF%BD%E8%A8%98-1"><i class="fa fa-link"></i></a>追記</h2>
+
+<p>上述の問題を解決した EBML パーサを書いた (<a href="https://github.com/legokichi/ts-ebml" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/legokichi/ts-ebml</a>)</p>
+
+<p>以下のようにして WebM のストリームを動的に解析することができる</p>
+
+<div class="code-frame" data-lang="ts"><div class="highlight"><pre>
+<span class="k">import</span> <span class="nx">EBML</span><span class="p">,</span> <span class="p">{</span><span class="nx">Decoder</span><span class="p">,</span> <span class="nx">Encoder</span><span class="p">,</span> <span class="nx">Refiner</span><span class="p">,</span> <span class="nx">tools</span><span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">./</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">Buffer</span><span class="p">:</span> <span class="k">typeof</span> <span class="nb">global</span><span class="p">.</span><span class="nx">Buffer</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="dl">"</span><span class="s2">buffer/</span><span class="dl">"</span><span class="p">).</span><span class="nx">Buffer</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">decoder</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Decoder</span><span class="p">();</span>
+<span class="kd">const</span> <span class="nx">encoder</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Encoder</span><span class="p">();</span>
+<span class="kd">const</span> <span class="nx">refiner</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Refiner</span><span class="p">();</span>
+
+<span class="k">async</span> <span class="kd">function</span> <span class="nx">recorder_main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">stream</span> <span class="o">=</span> <span class="k">await</span> <span class="nb">navigator</span><span class="p">.</span><span class="nx">mediaDevices</span><span class="p">.</span><span class="nx">getUserMedia</span><span class="p">({</span><span class="na">video</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span> <span class="na">audio</span><span class="p">:</span> <span class="kc">true</span><span class="p">});</span>
+  <span class="kd">const</span> <span class="nx">rec</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">MediaRecorder</span><span class="p">(</span><span class="nx">stream</span><span class="p">,</span> <span class="p">{</span> <span class="na">mimeType</span><span class="p">:</span> <span class="dl">'</span><span class="s1">video/webm; codecs="vp8, opus"</span><span class="dl">'</span> <span class="p">});</span>  
+  <span class="kd">const</span> <span class="nx">tasks</span><span class="p">:</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span><span class="p">[]</span> <span class="o">=</span> <span class="p">[];</span> 
+
+  <span class="nx">rec</span><span class="p">.</span><span class="nx">ondataavailable</span> <span class="o">=</span> <span class="p">(</span><span class="nx">ev</span><span class="p">:</span> <span class="nx">BlobEvent</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">chunk</span> <span class="o">=</span> <span class="nx">ev</span><span class="p">.</span><span class="nx">data</span><span class="p">;</span>
+
+    <span class="kd">const</span> <span class="nx">task</span> <span class="o">=</span> <span class="nx">readAsArrayBuffer</span><span class="p">(</span><span class="nx">chunk</span><span class="p">)</span> <span class="c1">// Blob -&gt; Promise&lt;ArrayBuffer&gt;</span>
+      <span class="p">.</span><span class="nx">then</span><span class="p">((</span><span class="nx">buf</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span>
+        <span class="kd">const</span> <span class="nx">chunks</span> <span class="o">=</span> <span class="nx">decoder</span><span class="p">.</span><span class="nx">decode</span><span class="p">(</span><span class="nx">buf</span><span class="p">);</span> <span class="c1">// Blob -&gt; EBMLElement[]</span>
+        <span class="nx">refiner</span><span class="p">.</span><span class="nx">read</span><span class="p">(</span><span class="nx">chunks</span><span class="p">);</span> <span class="c1">// EBMLElement[] -&gt; (EBMLCluster[], duration, ...)</span>
+      <span class="p">});</span>
+
+    <span class="nx">tasks</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">task</span><span class="p">);</span>
+  <span class="p">};</span>
+  <span class="nx">rec</span><span class="p">.</span><span class="nx">start</span><span class="p">(</span><span class="mi">100</span><span class="p">);</span>
+
+  <span class="k">await</span> <span class="k">new</span> <span class="nb">Promise</span><span class="p">((</span><span class="nx">resolve</span><span class="p">)</span><span class="o">=&gt;</span> <span class="nx">setTimeout</span><span class="p">(</span><span class="nx">resolve</span><span class="p">,</span> <span class="mi">30</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span> <span class="p">);</span>
+
+  <span class="nx">rec</span><span class="p">.</span><span class="nx">stop</span><span class="p">();</span>
+  <span class="nx">rec</span><span class="p">.</span><span class="nx">ondataavailable</span> <span class="o">=</span> <span class="kc">undefined</span><span class="p">;</span>
+  <span class="nx">rec</span><span class="p">.</span><span class="nx">stream</span><span class="p">.</span><span class="nx">getTracks</span><span class="p">().</span><span class="nx">map</span><span class="p">((</span><span class="nx">track</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="nx">track</span><span class="p">.</span><span class="nx">stop</span><span class="p">();</span> <span class="p">});</span>
+
+  <span class="k">await</span> <span class="nx">tasks</span><span class="p">.</span><span class="nx">reduce</span><span class="p">((</span><span class="nx">o</span><span class="p">,</span> <span class="nx">prm</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nx">o</span><span class="p">.</span><span class="nx">then</span><span class="p">(()</span> <span class="o">=&gt;</span> <span class="nx">prm</span><span class="p">),</span> <span class="nb">Promise</span><span class="p">.</span><span class="nx">resolve</span><span class="p">(</span><span class="k">void</span> <span class="mi">0</span><span class="p">));</span> <span class="c1">// wait 30 sec</span>
+
+  <span class="c1">// metadata: SeekHead と Duration が挿入された新しい metadata</span>
+  <span class="c1">// clusterStartPos: 最初の Cluster 要素の位置</span>
+  <span class="kd">const</span> <span class="p">{</span><span class="nx">metadata</span><span class="p">,</span> <span class="nx">clusterStartPos</span><span class="p">}</span> <span class="o">=</span> <span class="nx">refiner</span><span class="p">.</span><span class="nx">putRefinedMetaData</span><span class="p">();</span>
+  <span class="kd">const</span> <span class="nx">webmBuf</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">readAsArrayBuffer</span><span class="p">(</span><span class="nx">WebM</span><span class="p">);</span>
+  <span class="kd">const</span> <span class="nx">clustersBuf</span> <span class="o">=</span> <span class="nx">webmBuf</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="nx">clusterStartPos</span><span class="p">);</span>
+  <span class="c1">// metadata の置き換え</span>
+  <span class="kd">const</span> <span class="nx">refined</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Blob</span><span class="p">([</span><span class="nx">metadata</span><span class="p">,</span> <span class="nx">clustersBuf</span><span class="p">],</span> <span class="p">{</span><span class="na">type</span><span class="p">:</span> <span class="dl">"</span><span class="s2">video/webm</span><span class="dl">"</span><span class="p">});</span>
+
+  <span class="kd">const</span> <span class="nx">originalVid</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">putVideo</span><span class="p">(</span><span class="nx">WebM</span><span class="p">,</span> <span class="dl">"</span><span class="s2">plain recorded webm</span><span class="dl">"</span><span class="p">);</span>
+  <span class="kd">const</span> <span class="nx">refinedVid</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">putVideo</span><span class="p">(</span><span class="nx">refined</span><span class="p">,</span> <span class="dl">"</span><span class="s2">refined webm</span><span class="dl">"</span><span class="p">);</span>
+
+  <span class="nx">console</span><span class="p">.</span><span class="nx">assert</span><span class="p">(</span><span class="o">!</span> <span class="nb">Number</span><span class="p">.</span><span class="nb">isFinite</span><span class="p">(</span><span class="nx">originalVid</span><span class="p">.</span><span class="nx">duration</span><span class="p">));</span> <span class="c1">// Infinity</span>
+  <span class="nx">console</span><span class="p">.</span><span class="nx">assert</span><span class="p">(</span>  <span class="nb">Number</span><span class="p">.</span><span class="nb">isFinite</span><span class="p">(</span><span class="nx">refinedVid</span><span class="p">.</span><span class="nx">duration</span><span class="p">));</span>  <span class="c1">// Finite</span>
+
+  <span class="nx">originalVid</span><span class="p">.</span><span class="nx">currentTime</span> <span class="o">=</span> <span class="mi">1000</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">24</span> <span class="o">*</span> <span class="mi">7</span><span class="p">;</span>
+  <span class="nx">originalVid</span><span class="p">.</span><span class="nx">onseeked</span> <span class="o">=</span> <span class="p">()</span><span class="o">=&gt;</span><span class="p">{</span>
+    <span class="nx">originalVid</span><span class="p">.</span><span class="nx">onseeked</span> <span class="o">=</span> <span class="o">&lt;</span><span class="nx">any</span><span class="o">&gt;</span><span class="kc">undefined</span><span class="p">;</span>
+    <span class="nx">originalVid</span><span class="p">.</span><span class="nx">currentTime</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">assert</span><span class="p">(</span><span class="nx">refinedVid</span><span class="p">.</span><span class="nx">duration</span> <span class="o">===</span> <span class="nx">originalVid</span><span class="p">.</span><span class="nx">duration</span><span class="p">);</span> <span class="c1">// Duration も一致</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+</pre></div></div>

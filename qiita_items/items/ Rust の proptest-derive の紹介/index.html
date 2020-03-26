@@ -1,0 +1,504 @@
+<p>前回紹介した <a href="https://qiita.com/legokichi/items/a2f98e99dfcb7536dde9" id="reference-9c7acf144606fb263753">Rust の Proptest の紹介</a> では、struct や enum の値を生成する Arbitrary を作るのが面倒でした。<br>
+しかし先月更新された proptest 0.9 から <a href="https://altsysrq.github.io/proptest-book/proptest-derive/index.html" rel="nofollow noopener" target="_blank">proptest-derive が導入され、 struct や enum の値を簡単に生成できるようになりました</a> 。<br>
+その簡単な紹介をします。</p>
+
+<h2>
+<span id="例" class="fragment"></span><a href="#%E4%BE%8B"><i class="fa fa-link"></i></a>例</h2>
+
+<p>JSON にシリアライズできる Foo と Bar という型があったとします。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="c">// Arbitrary を derive できるようになりました</span>
+<span class="nd">#[derive(Arbitrary,</span> <span class="nd">Serialize,</span> <span class="nd">Deserialize,</span> <span class="nd">Clone,</span> <span class="nd">Debug)]</span>
+<span class="k">pub</span> <span class="k">struct</span> <span class="n">Foo</span> <span class="p">{</span>
+    <span class="k">pub</span> <span class="n">bar</span><span class="p">:</span> <span class="n">Bar</span><span class="p">,</span>
+
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_datetime()"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">rfc3339</span><span class="p">:</span> <span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;</span><span class="p">,</span>
+
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_datetime()"</span><span class="nd">)]</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"::chrono::serde::ts_milliseconds"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">unix_millis</span><span class="p">:</span> <span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;</span><span class="p">,</span>
+
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_datetime()"</span><span class="nd">)]</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"::chrono::serde::ts_seconds"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">unix_micros</span><span class="p">:</span> <span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;</span><span class="p">,</span>
+
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_url()"</span><span class="nd">)]</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"::url_serde"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">url</span><span class="p">:</span> <span class="n">Url</span><span class="p">,</span>
+
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_uuid()"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">uuid</span><span class="p">:</span> <span class="n">Uuid</span><span class="p">,</span>
+
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"prop::collection::vec(proptest::num::u8::ANY, 0..2)"</span><span class="nd">)]</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"Base64Standard"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">buffer</span><span class="p">:</span> <span class="nb">Vec</span><span class="o">&lt;</span><span class="nb">u8</span><span class="o">&gt;</span><span class="p">,</span>
+
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_json(4)"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">json</span><span class="p">:</span> <span class="nn">serde_json</span><span class="p">::</span><span class="n">Value</span><span class="p">,</span>
+
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"prop::collection::vec(crate::arb_json(4), 0..2)"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">jsons</span><span class="p">:</span> <span class="nb">Vec</span><span class="o">&lt;</span><span class="nn">serde_json</span><span class="p">::</span><span class="n">Value</span><span class="o">&gt;</span><span class="p">,</span>
+
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_regex()"</span><span class="nd">)]</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"::serde_regex"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">pattern</span><span class="p">:</span> <span class="n">Regex</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="c">// enum にも Arbitrary を derive できます</span>
+<span class="nd">#[derive(Arbitrary,</span> <span class="nd">Serialize,</span> <span class="nd">Deserialize,</span> <span class="nd">Clone,</span> <span class="nd">Debug)]</span>
+<span class="nd">#[serde(tag</span> <span class="nd">=</span> <span class="s">"type"</span><span class="nd">,</span> <span class="nd">content</span> <span class="nd">=</span> <span class="s">"value"</span><span class="nd">)]</span>
+<span class="k">pub</span> <span class="k">enum</span> <span class="n">Bar</span> <span class="p">{</span>
+    <span class="nf">A</span><span class="p">(</span><span class="nb">String</span><span class="p">),</span>
+    <span class="nf">B</span><span class="p">(</span><span class="nb">u8</span><span class="p">),</span>
+    <span class="nf">C</span><span class="p">((</span><span class="nb">u8</span><span class="p">,</span> <span class="nb">u16</span><span class="p">)),</span>
+    <span class="nf">D</span><span class="p">(</span><span class="nb">bool</span><span class="p">),</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>ここで、 <code>serde_json::Value</code>, <code>Url</code>, <code>Uuid</code>, <code>DateTime&lt;Utc&gt;</code>, <code>Regex</code> 等の特殊な型に関しては Strategy を定義しておきます。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">fn</span> <span class="nf">arb_datetime</span><span class="p">()</span> <span class="k">-&gt;</span> <span class="k">impl</span> <span class="n">Strategy</span><span class="o">&lt;</span><span class="n">Value</span> <span class="o">=</span> <span class="p">::</span><span class="nn">chrono</span><span class="p">::</span><span class="n">DateTime</span><span class="o">&lt;</span><span class="p">::</span><span class="nn">chrono</span><span class="p">::</span><span class="n">Utc</span><span class="o">&gt;&gt;</span> <span class="p">{</span>
+    <span class="nf">Just</span><span class="p">(::</span><span class="nn">chrono</span><span class="p">::</span><span class="nn">Utc</span><span class="p">::</span><span class="nf">now</span><span class="p">())</span>
+<span class="p">}</span>
+
+<span class="k">fn</span> <span class="nf">arb_url</span><span class="p">()</span> <span class="k">-&gt;</span> <span class="k">impl</span> <span class="n">Strategy</span><span class="o">&lt;</span><span class="n">Value</span> <span class="o">=</span> <span class="p">::</span><span class="nn">url</span><span class="p">::</span><span class="n">Url</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="nf">Just</span><span class="p">(</span><span class="s">"https://example.com/"</span><span class="nf">.parse</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">())</span>
+<span class="p">}</span>
+
+<span class="k">fn</span> <span class="nf">arb_uuid</span><span class="p">()</span> <span class="k">-&gt;</span> <span class="k">impl</span> <span class="n">Strategy</span><span class="o">&lt;</span><span class="n">Value</span> <span class="o">=</span> <span class="p">::</span><span class="nn">uuid</span><span class="p">::</span><span class="n">Uuid</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="nf">Just</span><span class="p">(::</span><span class="nn">uuid</span><span class="p">::</span><span class="nn">Uuid</span><span class="p">::</span><span class="nf">new_v4</span><span class="p">())</span>
+<span class="p">}</span>
+
+<span class="c">// 再帰的な JSON 型</span>
+<span class="k">fn</span> <span class="nf">arb_json</span><span class="p">(</span><span class="n">depth</span><span class="p">:</span> <span class="nb">u32</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="k">impl</span> <span class="n">Strategy</span><span class="o">&lt;</span><span class="n">Value</span> <span class="o">=</span> <span class="p">::</span><span class="nn">serde_json</span><span class="p">::</span><span class="n">Value</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="k">let</span> <span class="n">leaf</span> <span class="o">=</span> <span class="nd">prop_oneof!</span><span class="p">[</span>
+        <span class="nf">Just</span><span class="p">(::</span><span class="nn">serde_json</span><span class="p">::</span><span class="nn">Value</span><span class="p">::</span><span class="n">Null</span><span class="p">),</span>
+        <span class="nn">any</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">bool</span><span class="o">&gt;</span><span class="p">()</span><span class="nf">.prop_map</span><span class="p">(|</span><span class="n">o</span><span class="p">|</span> <span class="nn">serde_json</span><span class="p">::</span><span class="nf">to_value</span><span class="p">(</span><span class="n">o</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">()),</span>
+        <span class="nn">any</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">f64</span><span class="o">&gt;</span><span class="p">()</span><span class="nf">.prop_map</span><span class="p">(|</span><span class="n">o</span><span class="p">|</span> <span class="nn">serde_json</span><span class="p">::</span><span class="nf">to_value</span><span class="p">(</span><span class="n">o</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">()),</span>
+        <span class="s">".*"</span><span class="nf">.prop_map</span><span class="p">(|</span><span class="n">o</span><span class="p">|</span> <span class="nn">serde_json</span><span class="p">::</span><span class="nf">to_value</span><span class="p">(</span><span class="n">o</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">()),</span>
+    <span class="p">];</span>
+    <span class="n">leaf</span><span class="nf">.prop_recursive</span><span class="p">(</span>
+        <span class="n">depth</span><span class="p">,</span>   <span class="c">// n levels deep</span>
+        <span class="mi">256</span><span class="p">,</span> <span class="c">// Shoot for maximum size of 256 nodes</span>
+        <span class="mi">10</span><span class="p">,</span>  <span class="c">// We put up to 10 items per collection</span>
+        <span class="p">|</span><span class="n">inner</span><span class="p">|</span> <span class="p">{</span>
+            <span class="nd">prop_oneof!</span><span class="p">[</span>
+                <span class="c">// Take the inner strategy and make the two recursive cases.</span>
+                <span class="nn">prop</span><span class="p">::</span><span class="nn">collection</span><span class="p">::</span><span class="nf">vec</span><span class="p">(</span><span class="n">inner</span><span class="nf">.clone</span><span class="p">(),</span> <span class="mi">0</span><span class="o">..</span><span class="mi">10</span><span class="p">)</span>
+                    <span class="nf">.prop_map</span><span class="p">(|</span><span class="n">o</span><span class="p">|</span> <span class="nn">serde_json</span><span class="p">::</span><span class="nf">to_value</span><span class="p">(</span><span class="n">o</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">()),</span>
+                <span class="nn">prop</span><span class="p">::</span><span class="nn">collection</span><span class="p">::</span><span class="nf">hash_map</span><span class="p">(</span><span class="s">".*"</span><span class="p">,</span> <span class="n">inner</span><span class="p">,</span> <span class="mi">0</span><span class="o">..</span><span class="mi">10</span><span class="p">)</span>
+                    <span class="nf">.prop_map</span><span class="p">(|</span><span class="n">o</span><span class="p">|</span> <span class="nn">serde_json</span><span class="p">::</span><span class="nf">to_value</span><span class="p">(</span><span class="n">o</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">()),</span>
+            <span class="p">]</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+<span class="p">}</span>
+
+<span class="k">fn</span> <span class="nf">arb_regex</span><span class="p">()</span> <span class="k">-&gt;</span> <span class="k">impl</span> <span class="n">Strategy</span><span class="o">&lt;</span><span class="n">Value</span> <span class="o">=</span> <span class="p">::</span><span class="nn">regex</span><span class="p">::</span><span class="n">Regex</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="nf">Just</span><span class="p">(</span><span class="nn">Regex</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="n">r</span><span class="s">"(</span><span class="err">\</span><span class="s">d{4})-(</span><span class="err">\</span><span class="s">d{2})-(</span><span class="err">\</span><span class="s">d{2})"</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">())</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>テストを書いて（といってもこのテストは何もしていませんが）実行してみましょう</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="nd">#[cfg(test)]</span>
+<span class="k">mod</span> <span class="n">tests</span> <span class="p">{</span>
+    <span class="k">use</span> <span class="nn">super</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">test</span><span class="p">()</span> <span class="p">{</span>
+        <span class="nd">proptest!</span><span class="p">(|(</span><span class="n">foo</span><span class="p">:</span> <span class="n">Foo</span><span class="p">)|</span> <span class="p">{</span>
+            <span class="nd">dbg!</span><span class="p">(</span><span class="o">&amp;</span><span class="n">foo</span><span class="p">);</span>
+            <span class="k">let</span> <span class="n">foo_json</span> <span class="o">=</span> <span class="nn">serde_json</span><span class="p">::</span><span class="nf">to_string_pretty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">foo</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
+            <span class="nd">println!</span><span class="p">(</span><span class="s">"{}"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">foo_json</span><span class="p">);</span>
+        <span class="p">});</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="テストケース出力例" class="fragment"></span><a href="#%E3%83%86%E3%82%B9%E3%83%88%E3%82%B1%E3%83%BC%E3%82%B9%E5%87%BA%E5%8A%9B%E4%BE%8B"><i class="fa fa-link"></i></a>テストケース出力例</h2>
+
+<div class="code-frame" data-lang="console"><div class="highlight"><pre><span class="gp">$</span><span class="w"> </span>cargo <span class="nb">test</span> <span class="nt">--</span> <span class="nt">--nocapture</span>
+<span class="go">
+</span><span class="c">...
+</span><span class="go">
+[src/main.rs:98] &amp;foo = Foo {
+    bar: B(
+        64
+    ),
+    rfc3339: 2019-03-16T10:49:06.216534201Z,
+    unix_millis: 2019-03-16T10:49:06.216537367Z,
+    unix_micros: 2019-03-16T10:49:06.216537833Z,
+    url: "https://example.com/",
+    uuid: Uuid {
+        bytes: [
+            63,
+            123,
+            73,
+            99,
+            187,
+            156,
+            68,
+            112,
+            175,
+            109,
+            115,
+            253,
+            52,
+            167,
+            60,
+            160
+        ]
+    },
+    buffer: [
+        217
+    ],
+    json: Array(
+        [
+            Object(
+                {
+</span><span class="gp">                    "%\\r,\'{\u{5e480}\u{feff}F?\u{5}+\u{a0e71}â.\t\u{0}\t\u{feff}&lt;Zy\u{7ec15}Ⱥ$</span><span class="s2">": Number(
+</span><span class="go">                        8016288550892050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0
+                    ),
+                    "{X\u{feff}¥\u{5}k\"\u{b56fa}%ѨÓ\u{3e458}\u{71736}{\u{0}Q\tð": Bool(
+                        true
+                    ),
+                    "\u{a38c3}`\u{8298b}.\u{7977d}\u{77b90}\u{7f}\u{0}*/\u{b}\u{44b4c}%\u{1}\u{cb38d}🕴&lt;aG.\u{3b6fc}Ⱥ聝": String(
+</span><span class="gp">                        "$</span><span class="se">\u</span><span class="o">{</span>8<span class="o">}</span><span class="se">\u</span><span class="o">{</span>202e<span class="o">}</span><span class="sb">`</span>k<span class="se">\t</span>-<span class="se">\u</span><span class="o">{</span>7f<span class="o">}</span>𡁚<span class="sb">`</span><span class="se">\\</span>Y�&lt;<span class="se">\u</span><span class="o">{</span>be27b<span class="o">}</span>ì%Hü<span class="se">\r</span>/<span class="s2">"
+</span><span class="go">                    )
+                }
+            ),
+            Number(
+                -1220054938564386000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0
+            ),
+            Array(
+                [
+                    Null,
+                    String(
+</span><span class="gp">                        "ѨY\u{202e}\u{1efa2}\u{6}N\u{7f}==㪙`\"`\u{0}\u{41c4b}\u{942a4}@O&gt;</span>&amp;<span class="o">=</span>m<span class="se">\u</span><span class="o">{</span>edde6<span class="o">}</span><span class="s2">"
+</span><span class="go">                    ),
+                    Bool(
+                        true
+                    ),
+                    Number(
+                        -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005238922386438217
+                    ),
+                    Null,
+                    Bool(
+                        false
+                    ),
+                    Bool(
+                        true
+                    ),
+                    String(
+                        "*\u{7f}\u{b38ad}o:M\u{5143a}\u{104091}\"\u{1b}^\u{202e}\u{e0e88}Ⱥ🕴🕴»?!"
+                    ),
+                    Array(
+                        [
+                            Number(
+                                -0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000046545058226182346
+                            ),
+                            Number(
+                                -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001309919205043035
+                            ),
+                            Bool(
+                                true
+                            ),
+                            Bool(
+                                false
+                            ),
+                            Number(
+                                5703267498246020000000000000000000000000000000000000000000000000000000000000000000000.0
+                            ),
+                            String(
+</span><span class="gp">                                "Ѩ$</span>T<span class="k">*</span>a<span class="se">\u</span><span class="o">{</span>0<span class="o">}</span><span class="nv">$\</span>u<span class="o">{</span>ce7ff<span class="o">}</span>¥<span class="se">\u</span><span class="o">{</span>1da2f<span class="o">}</span>𐅗<span class="se">\u</span><span class="o">{</span>202e<span class="o">}</span><span class="se">\u</span><span class="o">{</span>ed80d<span class="o">}</span>¥�:<span class="se">\u</span><span class="o">{</span>52bd9<span class="o">}</span><span class="se">\u</span><span class="o">{</span>1b<span class="o">}</span><span class="se">\\\u</span><span class="o">{</span>332c9<span class="o">}</span>Ⱥ<span class="se">\u</span><span class="o">{</span>b46b1<span class="o">}</span><span class="se">\u</span><span class="o">{</span>cce8b<span class="o">}</span>æ🕴&amp;Ѩ<span class="se">\u</span><span class="o">{</span>b<span class="o">}=</span><span class="se">\\</span>pz<span class="s2">"
+</span><span class="go">                            ),
+                            Null,
+                            Null,
+                            Null
+                        ]
+                    )
+                ]
+            ),
+            Object(
+                {
+                    "\u{6}\u{f6078}à\u{ae4e1}&lt;=🕴gºꡥ\u{c693d}%r\tk": String(
+</span><span class="gp">                        "$</span><span class="se">\u</span><span class="o">{</span>7<span class="o">}</span>&amp;<span class="se">\u</span><span class="o">{</span>c99cd<span class="o">}]</span>婷<span class="o">{</span>hk<span class="sb">`</span>棋�<span class="se">\u</span><span class="o">{</span>ed251<span class="o">}</span>d�T<span class="se">\u</span><span class="o">{</span>fbd2d<span class="o">}</span>�<span class="se">\u</span><span class="o">{</span>b8156<span class="o">}</span>&amp;<span class="se">\"</span>0!%<span class="s2">"
+</span><span class="go">                    ),
+</span><span class="gp">                    "\rRG\u{0}\u{beebb}&lt;X&gt;</span><span class="se">\\\u</span><span class="o">{</span>cb6d9<span class="o">}</span>h<span class="se">\t\u</span><span class="o">{</span>3a583<span class="o">}{</span><span class="se">\"</span>/𗿋<span class="nv">$`</span><span class="s2">": Bool(
+</span><span class="go">                        false
+                    ),
+</span><span class="gp">                    "m;</span>nò1r𨀟:<span class="se">\'\u</span><span class="o">{</span>e98cf<span class="o">}</span>%<span class="se">\t</span>?𣑢i<span class="o">{</span><span class="se">\\\u</span><span class="o">{</span>e2379<span class="o">}</span>H<span class="se">\u</span><span class="o">{</span>b<span class="o">}</span><span class="se">\u</span><span class="o">{</span>9310a<span class="o">}</span>7/q<span class="se">\u</span><span class="o">{</span>b<span class="o">}</span><span class="se">\u</span><span class="o">{</span>3<span class="o">}</span><span class="s2">": Number(
+</span><span class="go">                        -0.0000000000000000000000000000005653934938866869
+                    ),
+                    "\u{feff}*{\u{feff}\u{6a95c}yE\u{b}{\u{1b}\t¥\u{202e}": Number(
+                        -0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000013908092603567689
+                    ),
+                    "\u{107306}Ѩ\u{3}": Bool(
+                        false
+                    )
+                }
+            ),
+            Array(
+                [
+                    String(
+                        ":\u{f3b98}🕴.g\u{8a810}\u{1b}D7\u{85313}\'\u{825e5}\u{56353}á"
+                    ),
+                    Bool(
+                        true
+                    )
+                ]
+            ),
+            Object(
+                {
+</span><span class="gp">                    "$</span><span class="s2">": Number(
+</span><span class="go">                        -0.0
+                    ),
+</span><span class="gp">                    "/\u{7f}=N&amp;%i[𧋝`/$</span><span class="se">\u</span><span class="o">{</span>0<span class="o">}</span>:<span class="se">\\\u</span><span class="o">{</span>0<span class="o">}</span><span class="s2">": Null,
+</span><span class="go">                    "\u{7f}%\u{e954a}\"%\u{77809}\u{202e}{õ\u{10582b}\u{b}\t\u{0}": Number(
+                        -0.0000000000000000000000000000000000000000000000000000000000000000000000000020098450520050888
+                    )
+                }
+            )
+        ]
+    ),
+    jsons: [
+        Array(
+            []
+        )
+    ],
+    pattern: (\d{4})-(\d{2})-(\d{2})
+}
+{
+  "bar": {
+    "type": "B",
+    "value": 64
+  },
+  "rfc3339": "2019-03-16T10:49:06.216534201Z",
+  "unix_millis": 1552733346216,
+  "unix_micros": 1552733346,
+  "url": "https://example.com/",
+  "uuid": "3f7b4963-bb9c-4470-af6d-73fd34a73ca0",
+  "buffer": "2Q==",
+  "json": [
+    {
+</span><span class="gp">      "%\\r,'{񞒀﻿F?\u0005+򠹱â.\t\u0000\t﻿&lt;Zy񾰕Ⱥ$</span><span class="s2">": 8.01628855089205e108,
+</span><span class="go">      "{X﻿¥\u0005k\"򵛺%ѨÓ𾑘񱜶{\u0000Q\tð": true,
+</span><span class="gp">      "򣣃`򂦋.񹝽񷮐\u0000*/\u000b񄭌%\u0001󋎍🕴&lt;aG.𻛼Ⱥ聝": "$</span><span class="se">\b</span>‮<span class="sb">`</span>k<span class="se">\t</span>-𡁚<span class="sb">`</span><span class="se">\\</span>Y�&lt;򾉻ì%Hü<span class="se">\r</span>/<span class="s2">"
+</span><span class="go">    },
+    -1.220054938564386e126,
+    [
+      null,
+</span><span class="gp">      "ѨY‮𞾢\u0006N==㪙`\"`\u0000񁱋򔊤@O&gt;</span>&amp;<span class="o">=</span>m󭷦<span class="s2">",
+</span><span class="go">      true,
+      -5.238922386438217e-199,
+      null,
+      false,
+      true,
+      "*򳢭o:M񑐺􄂑\"\u001b^‮󠺈Ⱥ🕴🕴»?!",
+      [
+        -4.6545058226182346e-119,
+        -1.309919205043035e-308,
+        true,
+        false,
+        5.70326749824602e84,
+</span><span class="gp">        "Ѩ$</span>T<span class="k">*</span>a<span class="se">\u</span>0000<span class="nv">$󎟿</span>¥𝨯𐅗‮󭠍¥�:񒯙<span class="se">\u</span>001b<span class="se">\\</span>𳋉Ⱥ򴚱󌺋æ🕴&amp;Ѩ<span class="se">\u</span><span class="nv">000b</span><span class="o">=</span><span class="se">\\</span>pz<span class="s2">",
+</span><span class="go">        null,
+        null,
+        null
+      ]
+    ],
+    {
+</span><span class="gp">      "\u0006󶁸à򮓡&lt;=🕴gºꡥ󆤽%r\tk": "$</span><span class="se">\u</span>0007&amp;󉧍]婷<span class="o">{</span>hk<span class="sb">`</span>棋�󭉑d�T󻴭�򸅖&amp;<span class="se">\"</span>0!%<span class="s2">",
+</span><span class="gp">      "\rRG\u0000򾺻&lt;X&gt;</span><span class="se">\\</span><span class="s2">󋛙h</span><span class="se">\t</span><span class="s2">𺖃{</span><span class="se">\"</span><span class="s2">/𗿋</span><span class="nv">$`</span><span class="s2">"</span>: <span class="nb">false</span>,
+<span class="gp">      "m;</span>nò1r𨀟:<span class="s1">'󩣏%\t?𣑢i{\\󢍹H\u000b򓄊7/q\u000b\u0003": -5.653934938866869e-31,
+</span><span class="go">      "﻿*{﻿񪥜yE\u000b{\u001b\t¥‮": -1.3908092603567689e-161,
+      "􇌆Ѩ\u0003": false
+    },
+    [
+      ":󳮘🕴.g򊠐\u001bD7򅌓'򂗥񖍓á",
+      true
+    ],
+    {
+</span><span class="gp">      "$</span><span class="s2">": -0.0,
+</span><span class="gp">      "/=N&amp;%i[𧋝`/$</span><span class="se">\u</span><span class="s2">0000:</span><span class="se">\\\u</span><span class="s2">0000"</span>: null,
+<span class="go">      "%󩕊\"%񷠉‮{õ􅠫\u000b\t\u0000": -2.0098450520050888e-75
+    }
+  ],
+  "jsons": [
+    []
+  ],
+  "pattern": "(\\d{4})-(\\d{2})-(\\d{2})"
+}
+</span><span class="c">...
+</span></pre></div></div>
+
+<p>簡単にテストケースが生成できるようになりました。</p>
+
+<h2>
+<span id="所感" class="fragment"></span><a href="#%E6%89%80%E6%84%9F"><i class="fa fa-link"></i></a>所感</h2>
+
+<p>JSON Schema validator の <a href="https://github.com/rustless/valico" rel="nofollow noopener" target="_blank">rustless/valico</a> などと組み合わせると RESTfull API のテストが捗りそうですね。</p>
+
+<h2>
+<span id="参考" class="fragment"></span><a href="#%E5%8F%82%E8%80%83"><i class="fa fa-link"></i></a>参考</h2>
+
+<ul>
+<li>Rust の Proptest の紹介 - <a href="https://qiita.com/legokichi/items/a2f98e99dfcb7536dde9" class="autolink">https://qiita.com/legokichi/items/a2f98e99dfcb7536dde9</a>
+</li>
+<li>crates.io - <a href="https://crates.io/crates/proptest" class="autolink" rel="nofollow noopener" target="_blank">https://crates.io/crates/proptest</a>
+</li>
+<li>github - <a href="https://github.com/AltSysrq/proptest/" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/AltSysrq/proptest/</a>
+</li>
+<li>proptest のマニュアル - <a href="https://altsysrq.github.io/proptest-book/intro.html" class="autolink" rel="nofollow noopener" target="_blank">https://altsysrq.github.io/proptest-book/intro.html</a>
+</li>
+<li>proptest-derive のリファレンス - <a href="https://altsysrq.github.io/proptest-book/proptest-derive/modifiers.html" class="autolink" rel="nofollow noopener" target="_blank">https://altsysrq.github.io/proptest-book/proptest-derive/modifiers.html</a>
+</li>
+<li>rustdoc - <a href="https://altsysrq.github.io/rustdoc/proptest/latest/proptest/" class="autolink" rel="nofollow noopener" target="_blank">https://altsysrq.github.io/rustdoc/proptest/latest/proptest/</a>
+</li>
+</ul>
+
+<h2>
+<span id="付録-サンプルコード全体" class="fragment"></span><a href="#%E4%BB%98%E9%8C%B2-%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%E3%82%B3%E3%83%BC%E3%83%89%E5%85%A8%E4%BD%93"><i class="fa fa-link"></i></a>付録. サンプルコード全体</h2>
+
+<div class="code-frame" data-lang="toml">
+<div class="code-lang"><span class="bold">Cargo.toml</span></div>
+<div class="highlight"><pre><span class="nn">[package]</span>
+<span class="py">name</span> <span class="p">=</span> <span class="s">"proptest-sandbox"</span>
+<span class="py">version</span> <span class="p">=</span> <span class="s">"0.1.0"</span>
+<span class="py">edition</span> <span class="p">=</span> <span class="s">"2018"</span>
+
+<span class="nn">[dependencies]</span>
+<span class="py">base64</span> <span class="p">=</span> <span class="s">"0.10"</span>
+<span class="py">base64-serde</span> <span class="p">=</span> <span class="s">"0.3"</span>
+<span class="nn">chrono</span> <span class="o">=</span> <span class="p">{</span> <span class="py">features</span> <span class="p">=</span> <span class="nn">["serde"]</span><span class="p">,</span> <span class="py">version</span> <span class="p">=</span> <span class="s">"0.4"</span> <span class="p">}</span>
+<span class="py">dotenv</span> <span class="p">=</span> <span class="s">"0.13"</span>
+<span class="py">env_logger</span> <span class="p">=</span> <span class="s">"0.6"</span>
+<span class="py">envy</span> <span class="p">=</span> <span class="s">"0.3"</span>
+<span class="py">failure</span> <span class="p">=</span> <span class="s">"0.1"</span>
+<span class="py">log</span> <span class="p">=</span> <span class="s">"0.4"</span>
+<span class="py">proptest</span> <span class="p">=</span> <span class="s">"0.9"</span>
+<span class="py">proptest-derive</span> <span class="p">=</span> <span class="s">"0.1"</span>
+<span class="py">regex</span> <span class="p">=</span> <span class="s">"1.0"</span>
+<span class="py">serde</span> <span class="p">=</span> <span class="s">"1"</span>
+<span class="py">serde_derive</span> <span class="p">=</span> <span class="s">"1"</span>
+<span class="py">serde_json</span> <span class="p">=</span> <span class="s">"1"</span>
+<span class="py">serde_regex</span> <span class="p">=</span> <span class="s">"0.3"</span>
+<span class="py">url</span> <span class="p">=</span> <span class="s">"1.7"</span>
+<span class="py">url_serde</span> <span class="p">=</span> <span class="s">"0.2"</span>
+<span class="nn">uuid</span> <span class="o">=</span> <span class="p">{</span> <span class="py">features</span> <span class="p">=</span> <span class="p">[</span><span class="s">"serde"</span><span class="p">,</span> <span class="s">"v4"</span><span class="p">],</span> <span class="py">version</span> <span class="p">=</span> <span class="s">"0.6"</span> <span class="p">}</span>
+
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="rust">
+<div class="code-lang"><span class="bold">src/lib.rs</span></div>
+<div class="highlight"><pre><span class="nd">#![allow(clippy::unit_arg)]</span>
+
+<span class="k">use</span> <span class="nn">base64</span><span class="p">::</span><span class="n">STANDARD</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">base64_serde</span><span class="p">::</span><span class="n">base64_serde_type</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">chrono</span><span class="p">::</span><span class="nn">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">proptest</span><span class="p">::</span><span class="nn">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">proptest_derive</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">regex</span><span class="p">::</span><span class="n">Regex</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">serde_derive</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">url</span><span class="p">::</span><span class="n">Url</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">uuid</span><span class="p">::</span><span class="n">Uuid</span><span class="p">;</span>
+
+<span class="nd">base64_serde_type!</span><span class="p">(</span><span class="n">Base64Standard</span><span class="p">,</span> <span class="n">STANDARD</span><span class="p">);</span>
+
+<span class="k">fn</span> <span class="nf">arb_datetime</span><span class="p">()</span> <span class="k">-&gt;</span> <span class="k">impl</span> <span class="n">Strategy</span><span class="o">&lt;</span><span class="n">Value</span> <span class="o">=</span> <span class="p">::</span><span class="nn">chrono</span><span class="p">::</span><span class="n">DateTime</span><span class="o">&lt;</span><span class="p">::</span><span class="nn">chrono</span><span class="p">::</span><span class="n">Utc</span><span class="o">&gt;&gt;</span> <span class="p">{</span>
+    <span class="nf">Just</span><span class="p">(::</span><span class="nn">chrono</span><span class="p">::</span><span class="nn">Utc</span><span class="p">::</span><span class="nf">now</span><span class="p">())</span>
+<span class="p">}</span>
+
+<span class="k">fn</span> <span class="nf">arb_url</span><span class="p">()</span> <span class="k">-&gt;</span> <span class="k">impl</span> <span class="n">Strategy</span><span class="o">&lt;</span><span class="n">Value</span> <span class="o">=</span> <span class="p">::</span><span class="nn">url</span><span class="p">::</span><span class="n">Url</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="nf">Just</span><span class="p">(</span><span class="s">"https://example.com/"</span><span class="nf">.parse</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">())</span>
+<span class="p">}</span>
+
+<span class="k">fn</span> <span class="nf">arb_uuid</span><span class="p">()</span> <span class="k">-&gt;</span> <span class="k">impl</span> <span class="n">Strategy</span><span class="o">&lt;</span><span class="n">Value</span> <span class="o">=</span> <span class="p">::</span><span class="nn">uuid</span><span class="p">::</span><span class="n">Uuid</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="nf">Just</span><span class="p">(::</span><span class="nn">uuid</span><span class="p">::</span><span class="nn">Uuid</span><span class="p">::</span><span class="nf">new_v4</span><span class="p">())</span>
+<span class="p">}</span>
+
+<span class="k">fn</span> <span class="nf">arb_json</span><span class="p">(</span><span class="n">depth</span><span class="p">:</span> <span class="nb">u32</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="k">impl</span> <span class="n">Strategy</span><span class="o">&lt;</span><span class="n">Value</span> <span class="o">=</span> <span class="p">::</span><span class="nn">serde_json</span><span class="p">::</span><span class="n">Value</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="k">let</span> <span class="n">leaf</span> <span class="o">=</span> <span class="nd">prop_oneof!</span><span class="p">[</span>
+        <span class="nf">Just</span><span class="p">(::</span><span class="nn">serde_json</span><span class="p">::</span><span class="nn">Value</span><span class="p">::</span><span class="n">Null</span><span class="p">),</span>
+        <span class="nn">any</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">bool</span><span class="o">&gt;</span><span class="p">()</span><span class="nf">.prop_map</span><span class="p">(|</span><span class="n">o</span><span class="p">|</span> <span class="nn">serde_json</span><span class="p">::</span><span class="nf">to_value</span><span class="p">(</span><span class="n">o</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">()),</span>
+        <span class="nn">any</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">f64</span><span class="o">&gt;</span><span class="p">()</span><span class="nf">.prop_map</span><span class="p">(|</span><span class="n">o</span><span class="p">|</span> <span class="nn">serde_json</span><span class="p">::</span><span class="nf">to_value</span><span class="p">(</span><span class="n">o</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">()),</span>
+        <span class="s">".*"</span><span class="nf">.prop_map</span><span class="p">(|</span><span class="n">o</span><span class="p">|</span> <span class="nn">serde_json</span><span class="p">::</span><span class="nf">to_value</span><span class="p">(</span><span class="n">o</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">()),</span>
+    <span class="p">];</span>
+    <span class="n">leaf</span><span class="nf">.prop_recursive</span><span class="p">(</span>
+        <span class="n">depth</span><span class="p">,</span> <span class="c">// n levels deep</span>
+        <span class="mi">256</span><span class="p">,</span>   <span class="c">// Shoot for maximum size of 256 nodes</span>
+        <span class="mi">10</span><span class="p">,</span>    <span class="c">// We put up to 10 items per collection</span>
+        <span class="p">|</span><span class="n">inner</span><span class="p">|</span> <span class="p">{</span>
+            <span class="nd">prop_oneof!</span><span class="p">[</span>
+                <span class="c">// Take the inner strategy and make the two recursive cases.</span>
+                <span class="nn">prop</span><span class="p">::</span><span class="nn">collection</span><span class="p">::</span><span class="nf">vec</span><span class="p">(</span><span class="n">inner</span><span class="nf">.clone</span><span class="p">(),</span> <span class="mi">0</span><span class="o">..</span><span class="mi">10</span><span class="p">)</span>
+                    <span class="nf">.prop_map</span><span class="p">(|</span><span class="n">o</span><span class="p">|</span> <span class="nn">serde_json</span><span class="p">::</span><span class="nf">to_value</span><span class="p">(</span><span class="n">o</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">()),</span>
+                <span class="nn">prop</span><span class="p">::</span><span class="nn">collection</span><span class="p">::</span><span class="nf">hash_map</span><span class="p">(</span><span class="s">".*"</span><span class="p">,</span> <span class="n">inner</span><span class="p">,</span> <span class="mi">0</span><span class="o">..</span><span class="mi">10</span><span class="p">)</span>
+                    <span class="nf">.prop_map</span><span class="p">(|</span><span class="n">o</span><span class="p">|</span> <span class="nn">serde_json</span><span class="p">::</span><span class="nf">to_value</span><span class="p">(</span><span class="n">o</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">()),</span>
+            <span class="p">]</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+<span class="p">}</span>
+<span class="k">fn</span> <span class="nf">arb_regex</span><span class="p">()</span> <span class="k">-&gt;</span> <span class="k">impl</span> <span class="n">Strategy</span><span class="o">&lt;</span><span class="n">Value</span> <span class="o">=</span> <span class="p">::</span><span class="nn">regex</span><span class="p">::</span><span class="n">Regex</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="nf">Just</span><span class="p">(</span><span class="nn">Regex</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="n">r</span><span class="s">"(</span><span class="err">\</span><span class="s">d{4})-(</span><span class="err">\</span><span class="s">d{2})-(</span><span class="err">\</span><span class="s">d{2})"</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">())</span>
+<span class="p">}</span>
+
+<span class="nd">#[derive(Arbitrary,</span> <span class="nd">Serialize,</span> <span class="nd">Deserialize,</span> <span class="nd">Clone,</span> <span class="nd">Debug)]</span>
+<span class="k">struct</span> <span class="n">Foo</span> <span class="p">{</span>
+    <span class="k">pub</span> <span class="n">bar</span><span class="p">:</span> <span class="n">Bar</span><span class="p">,</span>
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_datetime()"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">rfc3339</span><span class="p">:</span> <span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;</span><span class="p">,</span>
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_datetime()"</span><span class="nd">)]</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"::chrono::serde::ts_milliseconds"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">unix_millis</span><span class="p">:</span> <span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;</span><span class="p">,</span>
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_datetime()"</span><span class="nd">)]</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"::chrono::serde::ts_seconds"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">unix_micros</span><span class="p">:</span> <span class="n">DateTime</span><span class="o">&lt;</span><span class="n">Utc</span><span class="o">&gt;</span><span class="p">,</span>
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_url()"</span><span class="nd">)]</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"::url_serde"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">url</span><span class="p">:</span> <span class="n">Url</span><span class="p">,</span>
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_uuid()"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">uuid</span><span class="p">:</span> <span class="n">Uuid</span><span class="p">,</span>
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"prop::collection::vec(proptest::num::u8::ANY, 0..2)"</span><span class="nd">)]</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"Base64Standard"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">buffer</span><span class="p">:</span> <span class="nb">Vec</span><span class="o">&lt;</span><span class="nb">u8</span><span class="o">&gt;</span><span class="p">,</span>
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_json(4)"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">json</span><span class="p">:</span> <span class="nn">serde_json</span><span class="p">::</span><span class="n">Value</span><span class="p">,</span>
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"prop::collection::vec(crate::arb_json(4), 0..2)"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">jsons</span><span class="p">:</span> <span class="nb">Vec</span><span class="o">&lt;</span><span class="nn">serde_json</span><span class="p">::</span><span class="n">Value</span><span class="o">&gt;</span><span class="p">,</span>
+    <span class="nd">#[proptest(strategy</span> <span class="nd">=</span> <span class="s">"crate::arb_regex()"</span><span class="nd">)]</span>
+    <span class="nd">#[serde(with</span> <span class="nd">=</span> <span class="s">"::serde_regex"</span><span class="nd">)]</span>
+    <span class="k">pub</span> <span class="n">pattern</span><span class="p">:</span> <span class="n">Regex</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="nd">#[derive(Arbitrary,</span> <span class="nd">Serialize,</span> <span class="nd">Deserialize,</span> <span class="nd">Clone,</span> <span class="nd">Debug)]</span>
+<span class="nd">#[serde(tag</span> <span class="nd">=</span> <span class="s">"type"</span><span class="nd">,</span> <span class="nd">content</span> <span class="nd">=</span> <span class="s">"value"</span><span class="nd">)]</span>
+<span class="k">pub</span> <span class="k">enum</span> <span class="n">Bar</span> <span class="p">{</span>
+    <span class="nf">A</span><span class="p">(</span><span class="nb">String</span><span class="p">),</span>
+    <span class="nf">B</span><span class="p">(</span><span class="nb">u8</span><span class="p">),</span>
+    <span class="nf">C</span><span class="p">((</span><span class="nb">u8</span><span class="p">,</span> <span class="nb">u16</span><span class="p">)),</span>
+    <span class="nf">D</span><span class="p">(</span><span class="nb">bool</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="nd">#[cfg(test)]</span>
+<span class="k">mod</span> <span class="n">tests</span> <span class="p">{</span>
+    <span class="k">use</span> <span class="nn">super</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+
+    <span class="nd">#[test]</span>
+    <span class="k">fn</span> <span class="nf">test</span><span class="p">()</span> <span class="p">{</span>
+        <span class="nd">proptest!</span><span class="p">(|(</span><span class="n">foo</span><span class="p">:</span> <span class="n">Foo</span><span class="p">)|</span> <span class="p">{</span>
+            <span class="nd">dbg!</span><span class="p">(</span><span class="o">&amp;</span><span class="n">foo</span><span class="p">);</span>
+            <span class="k">let</span> <span class="n">foo_json</span> <span class="o">=</span> <span class="nn">serde_json</span><span class="p">::</span><span class="nf">to_string_pretty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">foo</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
+            <span class="nd">println!</span><span class="p">(</span><span class="s">"{}"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">foo_json</span><span class="p">);</span>
+        <span class="p">});</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>rustc 1.33.0 (2aa4c46cf 2019-02-28)
+</pre></div></div>

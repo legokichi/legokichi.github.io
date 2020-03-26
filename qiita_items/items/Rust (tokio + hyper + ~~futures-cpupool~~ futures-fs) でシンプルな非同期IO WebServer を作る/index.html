@@ -1,0 +1,353 @@
+<p><strong>※ 追追記 <a href="https://github.com/tokio-rs/tokio/tree/master/tokio-fs" rel="nofollow noopener" target="_blank">tokio_fs</a> を使いましょう</strong><br>
+<strong>※ 追記 <a href="https://docs.rs/futures-fs/0.0.3/futures_fs" rel="nofollow noopener" target="_blank">futures_fs</a> を使いましょう</strong></p>
+
+<p>Rust で非同期 IO をするには tokio が便利である。<br>
+しかし tokio は非同期ネットワークライブラリであり、node.js のように非同期でファイルシステムを扱うことができない。<br>
+これは、<a href="https://blog.libtorrent.org/2012/10/asynchronous-disk-io/" rel="nofollow noopener" target="_blank">現状の Linux (Posix) には十分な非同期ファイルシステム用システムコールが整備されていないため</a>である。<br>
+実際、node.js の中で用いられている非同期IOライブラリである libuv も<a href="http://docs.libuv.org/en/v1.x/threadpool.html#threadpool" rel="nofollow noopener" target="_blank">ブロッキングなファイル操作はスレッドプールで待つことで非同期ファイル操作を実現している</a>。<br>
+それに留まらず、 <a href="https://github.com/golang/go/issues/6817" rel="nofollow noopener" target="_blank">go</a>, <a href="https://ghc.haskell.org/trac/ghc/ticket/13296" rel="nofollow noopener" target="_blank">haskell(ghc)</a>, <a href="https://lists.boost.org/Archives/boost/2011/03/178613.php" rel="nofollow noopener" target="_blank">boost asio</a> なども同様である。</p>
+
+<p>そこで http ライブラリには <a href="https://github.com/hyperium/hyper" rel="nofollow noopener" target="_blank">hyper</a> を使い、スレッドプールには <a href="https://github.com/rust-lang-nursery/futures-rs/tree/master/futures-cpupool" rel="nofollow noopener" target="_blank">futures_cpupool</a> を使ったシンプルな静的ファイル配信Webサーバを実装した。</p>
+
+<h2>
+<span id="特徴" class="fragment"></span><a href="#%E7%89%B9%E5%BE%B4"><i class="fa fa-link"></i></a>特徴</h2>
+
+<ul>
+<li>非同期ネットワーク操作用の <code>tokio_core::reactor::Handle</code> と、非同期ファイル操作用の <code>futures_cpupool::CpuPool</code> を状態として持つ</li>
+<li>ブロッキングな最低限のファイル操作を cpupool に投げる</li>
+</ul>
+
+<h2>
+<span id="コード" class="fragment"></span><a href="#%E3%82%B3%E3%83%BC%E3%83%89"><i class="fa fa-link"></i></a>コード</h2>
+
+<div class="code-frame" data-lang="rust">
+<div class="code-lang"><span class="bold">main.rs</span></div>
+<div class="highlight"><pre><span class="k">extern</span> <span class="n">crate</span> <span class="n">getopts</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">pretty_env_logger</span><span class="p">;</span>
+<span class="nd">#[macro_use]</span> <span class="k">extern</span> <span class="n">crate</span> <span class="k">log</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">tokio_core</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">mio</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">futures</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">futures_cpupool</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">hyper</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">hyper_tls</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">fs</span><span class="p">::{</span><span class="k">self</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">vec</span><span class="p">::{</span><span class="nb">Vec</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">boxed</span><span class="p">::{</span><span class="nb">Box</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">result</span><span class="p">::</span><span class="nn">Result</span><span class="p">::{</span><span class="nb">Ok</span><span class="p">,</span> <span class="nb">Err</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">io</span><span class="p">::{</span><span class="k">self</span><span class="p">,</span> <span class="n">BufReader</span><span class="p">,</span> <span class="n">Read</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">path</span><span class="p">::{</span><span class="n">Path</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">time</span><span class="p">::{</span><span class="n">Duration</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">futures</span><span class="p">::{</span><span class="n">Future</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">futures</span><span class="p">::</span><span class="n">future</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">futures</span><span class="p">::</span><span class="nn">stream</span><span class="p">::{</span><span class="n">Stream</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">futures_cpupool</span><span class="p">::{</span><span class="n">CpuPool</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">tokio_core</span><span class="p">::</span><span class="nn">reactor</span><span class="p">::{</span><span class="n">Core</span><span class="p">,</span> <span class="n">Timeout</span><span class="p">,</span> <span class="n">Handle</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">hyper</span><span class="p">::{</span><span class="n">Body</span><span class="p">,</span> <span class="n">Client</span><span class="p">,</span> <span class="n">Get</span><span class="p">,</span> <span class="n">Post</span><span class="p">,</span> <span class="n">StatusCode</span><span class="p">,</span> <span class="n">Chunk</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">hyper</span><span class="p">::</span><span class="nn">server</span><span class="p">::{</span><span class="n">Http</span><span class="p">,</span> <span class="n">Service</span><span class="p">,</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Response</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">hyper</span><span class="p">::</span><span class="nn">header</span><span class="p">::{</span><span class="n">ContentLength</span><span class="p">};</span>
+
+<span class="k">struct</span> <span class="n">WebService</span> <span class="p">{</span>
+  <span class="n">handle</span><span class="p">:</span> <span class="n">Handle</span><span class="p">,</span> <span class="c">// for async network task</span>
+  <span class="n">pool</span><span class="p">:</span> <span class="n">CpuPool</span><span class="p">,</span> <span class="c">// for async fileio task</span>
+  <span class="n">publicDir</span><span class="p">:</span> <span class="nb">String</span><span class="p">,</span> <span class="c">// cwd</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="n">WebService</span> <span class="p">{</span>
+  <span class="k">fn</span> <span class="nf">static_file</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Box</span><span class="o">&lt;</span><span class="n">Future</span><span class="o">&lt;</span><span class="n">Item</span><span class="o">=</span><span class="nb">String</span><span class="p">,</span> <span class="n">Error</span><span class="o">=</span><span class="nb">String</span><span class="o">&gt;&gt;</span> <span class="p">{</span>
+    <span class="k">let</span> <span class="n">handle</span> <span class="o">=</span> <span class="k">self</span><span class="py">.handle</span><span class="nf">.clone</span><span class="p">();</span>
+    <span class="k">let</span> <span class="n">publicDir</span> <span class="o">=</span> <span class="k">self</span><span class="py">.publicDir</span><span class="nf">.clone</span><span class="p">();</span>
+    <span class="k">let</span> <span class="n">task</span> <span class="o">=</span> <span class="k">self</span><span class="py">.pool</span><span class="nf">.spawn_fn</span><span class="p">(</span><span class="k">move</span> <span class="p">||{</span>
+      <span class="k">let</span> <span class="n">path</span> <span class="o">=</span> <span class="k">match</span> <span class="n">path</span><span class="nf">.as_str</span><span class="p">()</span> <span class="p">{</span>
+        <span class="s">"/"</span> <span class="k">=&gt;</span> <span class="s">"/index.html"</span><span class="nf">.to_string</span><span class="p">(),</span>
+        <span class="mi">_</span> <span class="k">=&gt;</span> <span class="n">path</span>
+      <span class="p">};</span>
+      <span class="k">let</span> <span class="n">filepath</span> <span class="o">=</span> <span class="nd">format!</span><span class="p">(</span><span class="s">"{}{}"</span><span class="p">,</span> <span class="n">publicDir</span><span class="p">,</span> <span class="n">path</span><span class="p">);</span>
+      <span class="nd">println!</span><span class="p">(</span><span class="s">"{}"</span><span class="p">,</span> <span class="n">filepath</span><span class="p">);</span>
+      <span class="k">match</span> <span class="nn">std</span><span class="p">::</span><span class="nn">fs</span><span class="p">::</span><span class="nn">File</span><span class="p">::</span><span class="nf">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nf">Err</span><span class="p">(</span><span class="n">why</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="nf">Err</span><span class="p">(</span><span class="n">why</span><span class="nf">.to_string</span><span class="p">()),</span>
+        <span class="nf">Ok</span><span class="p">(</span><span class="k">mut</span> <span class="n">file</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="p">{</span>
+          <span class="k">let</span> <span class="k">mut</span> <span class="n">s</span> <span class="o">=</span> <span class="nn">String</span><span class="p">::</span><span class="nf">new</span><span class="p">();</span>
+          <span class="k">match</span> <span class="n">file</span><span class="nf">.read_to_string</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span> <span class="n">s</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nf">Err</span><span class="p">(</span><span class="n">why</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="nf">Err</span><span class="p">(</span><span class="s">"cannot read to string"</span><span class="nf">.to_string</span><span class="p">()),</span>
+            <span class="nf">Ok</span><span class="p">(</span><span class="mi">_</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="nf">Ok</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+          <span class="p">}</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">});</span>
+    <span class="k">return</span> <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="n">task</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="n">Service</span> <span class="k">for</span> <span class="n">WebService</span> <span class="p">{</span>
+  <span class="k">type</span> <span class="n">Request</span> <span class="o">=</span> <span class="n">Request</span><span class="p">;</span>
+  <span class="k">type</span> <span class="n">Response</span> <span class="o">=</span> <span class="n">Response</span><span class="o">&lt;</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Stream</span><span class="o">&lt;</span><span class="n">Item</span><span class="o">=</span><span class="n">Chunk</span><span class="p">,</span> <span class="n">Error</span><span class="o">=</span><span class="nn">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;&gt;&gt;</span><span class="p">;</span>
+  <span class="k">type</span> <span class="n">Error</span> <span class="o">=</span> <span class="nn">hyper</span><span class="p">::</span><span class="n">Error</span><span class="p">;</span>
+  <span class="k">type</span> <span class="n">Future</span> <span class="o">=</span> <span class="nb">Box</span><span class="o">&lt;</span><span class="n">Future</span><span class="o">&lt;</span><span class="n">Item</span><span class="o">=</span><span class="nn">Self</span><span class="p">::</span><span class="n">Response</span><span class="p">,</span> <span class="n">Error</span><span class="o">=</span><span class="nn">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+  <span class="k">fn</span> <span class="nf">call</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">,</span> <span class="n">req</span><span class="p">:</span> <span class="nn">Self</span><span class="p">::</span><span class="n">Request</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nn">Self</span><span class="p">::</span><span class="n">Future</span> <span class="p">{</span>
+    <span class="k">match</span> <span class="p">(</span><span class="n">req</span><span class="nf">.method</span><span class="p">(),</span> <span class="n">req</span><span class="nf">.path</span><span class="p">())</span> <span class="p">{</span>
+      <span class="p">(</span><span class="o">&amp;</span><span class="n">Get</span><span class="p">,</span> <span class="mi">_</span><span class="p">)</span> <span class="k">=&gt;</span>
+        <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span>
+          <span class="k">self</span><span class="nf">.static_file</span><span class="p">(</span><span class="n">req</span><span class="nf">.path</span><span class="p">()</span><span class="nf">.to_string</span><span class="p">())</span><span class="nf">.then</span><span class="p">(|</span><span class="n">res</span><span class="p">|{</span>
+            <span class="k">let</span> <span class="p">(</span><span class="n">statusCode</span><span class="p">,</span> <span class="n">bodyString</span><span class="p">)</span> <span class="o">=</span> <span class="k">match</span> <span class="n">res</span> <span class="p">{</span>
+              <span class="nf">Ok</span><span class="p">(</span><span class="n">body</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="p">(</span><span class="nn">StatusCode</span><span class="p">::</span><span class="nb">Ok</span><span class="p">,</span> <span class="n">body</span><span class="p">),</span>
+              <span class="nf">Err</span><span class="p">(</span><span class="mi">_</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="p">(</span><span class="nn">StatusCode</span><span class="p">::</span><span class="n">NotFound</span><span class="p">,</span> <span class="s">"Not Found"</span><span class="nf">.to_string</span><span class="p">()),</span>
+            <span class="p">};</span>
+            <span class="k">let</span> <span class="n">length</span> <span class="o">=</span> <span class="n">bodyString</span><span class="nf">.len</span><span class="p">()</span> <span class="k">as</span> <span class="nb">u64</span><span class="p">;</span>
+            <span class="k">let</span> <span class="n">body</span><span class="p">:</span> <span class="nb">Box</span><span class="o">&lt;</span><span class="n">Stream</span><span class="o">&lt;</span><span class="n">Item</span><span class="o">=</span><span class="n">Chunk</span><span class="p">,</span> <span class="n">Error</span><span class="o">=</span><span class="nn">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;&gt;</span> <span class="o">=</span> <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">Body</span><span class="p">::</span><span class="nf">from</span><span class="p">(</span><span class="n">bodyString</span><span class="p">));</span>
+            <span class="k">return</span> <span class="nn">future</span><span class="p">::</span><span class="nf">ok</span><span class="p">(</span><span class="nn">Response</span><span class="p">::</span><span class="nf">new</span><span class="p">()</span>
+              <span class="nf">.with_status</span><span class="p">(</span><span class="n">statusCode</span><span class="p">)</span>
+              <span class="nf">.with_header</span><span class="p">(</span><span class="nf">ContentLength</span><span class="p">(</span><span class="n">length</span><span class="p">))</span>
+              <span class="nf">.with_body</span><span class="p">(</span><span class="n">body</span><span class="p">));</span>
+        <span class="p">})),</span>
+      <span class="mi">_</span> <span class="k">=&gt;</span> <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">future</span><span class="p">::</span><span class="nf">ok</span><span class="p">(</span><span class="nn">Response</span><span class="p">::</span><span class="nf">new</span><span class="p">()</span><span class="nf">.with_status</span><span class="p">(</span><span class="nn">StatusCode</span><span class="p">::</span><span class="n">InternalServerError</span><span class="p">))),</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">fn</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="nn">pretty_env_logger</span><span class="p">::</span><span class="nf">init</span><span class="p">();</span>
+
+  <span class="k">let</span> <span class="n">args</span><span class="p">:</span> <span class="nb">Vec</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span> <span class="o">=</span> <span class="nn">std</span><span class="p">::</span><span class="nn">env</span><span class="p">::</span><span class="nf">args</span><span class="p">()</span><span class="nf">.collect</span><span class="p">();</span>
+  <span class="k">let</span> <span class="n">program</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="nf">.clone</span><span class="p">();</span>
+  <span class="k">let</span> <span class="k">mut</span> <span class="n">opts</span> <span class="o">=</span> <span class="nn">getopts</span><span class="p">::</span><span class="nn">Options</span><span class="p">::</span><span class="nf">new</span><span class="p">();</span>
+  <span class="n">opts</span><span class="nf">.optopt</span><span class="p">(</span><span class="s">"p"</span><span class="p">,</span> <span class="s">"port"</span><span class="p">,</span> <span class="s">"port"</span><span class="p">,</span> <span class="s">"3000"</span><span class="p">);</span>
+  <span class="n">opts</span><span class="nf">.optflag</span><span class="p">(</span><span class="s">"h"</span><span class="p">,</span> <span class="s">"help"</span><span class="p">,</span> <span class="s">"print this help menu"</span><span class="p">);</span>
+  <span class="k">let</span> <span class="n">matches</span> <span class="o">=</span> <span class="n">opts</span><span class="nf">.parse</span><span class="p">(</span><span class="o">&amp;</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="o">..</span><span class="p">])</span><span class="nf">.unwrap</span><span class="p">();</span>
+  <span class="k">if</span> <span class="n">matches</span><span class="nf">.opt_present</span><span class="p">(</span><span class="s">"h"</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">let</span> <span class="n">help</span> <span class="o">=</span> <span class="nd">format!</span><span class="p">(</span><span class="s">"Usage: {} FILE [options]"</span><span class="p">,</span> <span class="n">program</span><span class="p">);</span>
+    <span class="nd">print!</span><span class="p">(</span><span class="s">"{}"</span><span class="p">,</span> <span class="n">opts</span><span class="nf">.usage</span><span class="p">(</span><span class="o">&amp;</span><span class="n">help</span><span class="p">));</span>
+    <span class="k">return</span><span class="p">;</span>
+  <span class="p">}</span>
+
+  <span class="k">let</span> <span class="n">port</span> <span class="o">=</span> <span class="n">matches</span><span class="nf">.opt_str</span><span class="p">(</span><span class="s">"p"</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
+  <span class="k">let</span> <span class="n">addr</span> <span class="o">=</span> <span class="nd">format!</span><span class="p">(</span><span class="s">"127.0.0.1:{}"</span><span class="p">,</span> <span class="n">port</span><span class="p">)</span><span class="nf">.parse</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">();</span>
+
+  <span class="c">// async io resource</span>
+  <span class="k">let</span> <span class="n">pool</span> <span class="o">=</span> <span class="nn">CpuPool</span><span class="p">::</span><span class="nf">new_num_cpus</span><span class="p">();</span> <span class="c">// for file aio</span>
+  <span class="k">let</span> <span class="k">mut</span> <span class="n">core</span> <span class="o">=</span> <span class="nn">Core</span><span class="p">::</span><span class="nf">new</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">();</span> <span class="c">// for network aio</span>
+
+  <span class="c">// create web service</span>
+  <span class="k">let</span> <span class="n">server_handle</span> <span class="o">=</span> <span class="n">core</span><span class="nf">.handle</span><span class="p">();</span>
+  <span class="k">let</span> <span class="n">service_pool</span> <span class="o">=</span> <span class="n">pool</span><span class="nf">.clone</span><span class="p">();</span>
+  <span class="k">let</span> <span class="n">service_handle</span> <span class="o">=</span> <span class="n">core</span><span class="nf">.handle</span><span class="p">();</span>
+  <span class="k">let</span> <span class="n">serve</span> <span class="o">=</span> <span class="nn">Http</span><span class="p">::</span><span class="nf">new</span><span class="p">()</span><span class="nf">.serve_addr_handle</span><span class="p">(</span><span class="o">&amp;</span><span class="n">addr</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">server_handle</span><span class="p">,</span> <span class="k">move</span> <span class="p">||{</span>
+    <span class="k">let</span> <span class="n">service</span> <span class="o">=</span> <span class="n">WebService</span><span class="p">{</span>
+      <span class="n">handle</span><span class="p">:</span> <span class="n">service_handle</span><span class="nf">.clone</span><span class="p">(),</span>
+      <span class="n">pool</span><span class="p">:</span> <span class="n">service_pool</span><span class="nf">.clone</span><span class="p">(),</span>
+      <span class="n">publicDir</span><span class="p">:</span> <span class="nn">std</span><span class="p">::</span><span class="nn">env</span><span class="p">::</span><span class="nf">current_dir</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">()</span><span class="nf">.to_str</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">()</span><span class="nf">.to_string</span><span class="p">(),</span>
+    <span class="p">};</span>
+    <span class="k">return</span> <span class="nf">Ok</span><span class="p">(</span><span class="n">service</span><span class="p">);</span>
+  <span class="p">})</span><span class="nf">.unwrap</span><span class="p">();</span>
+  <span class="nd">println!</span><span class="p">(</span><span class="s">"Listening on http://{} with 1 thread."</span><span class="p">,</span> <span class="n">serve</span><span class="nf">.incoming_ref</span><span class="p">()</span><span class="nf">.local_addr</span><span class="p">());</span>
+
+  <span class="c">// launch web server</span>
+  <span class="k">let</span> <span class="n">connection_handle</span> <span class="o">=</span> <span class="n">core</span><span class="nf">.handle</span><span class="p">();</span>
+  <span class="n">server_handle</span><span class="nf">.spawn</span><span class="p">(</span>
+    <span class="n">serve</span>
+      <span class="nf">.for_each</span><span class="p">(</span><span class="k">move</span> <span class="p">|</span><span class="n">conn</span><span class="p">|</span> <span class="p">{</span>
+        <span class="c">// handle new connection</span>
+        <span class="n">connection_handle</span><span class="nf">.spawn</span><span class="p">(</span>
+          <span class="n">conn</span>
+            <span class="nf">.map</span><span class="p">(|</span><span class="mi">_</span><span class="p">|</span> <span class="p">())</span>
+            <span class="nf">.map_err</span><span class="p">(|</span><span class="n">err</span><span class="p">|</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"serve error: {:?}"</span><span class="p">,</span> <span class="n">err</span><span class="p">))</span>
+        <span class="p">);</span>
+        <span class="k">return</span> <span class="nf">Ok</span><span class="p">(());</span>
+      <span class="p">})</span><span class="nf">.map_err</span><span class="p">(|</span><span class="mi">_</span><span class="p">|</span> <span class="p">())</span>
+  <span class="p">);</span>
+
+  <span class="n">core</span><span class="nf">.run</span><span class="p">(</span><span class="nn">future</span><span class="p">::</span><span class="nn">empty</span><span class="p">::</span><span class="o">&lt;</span><span class="p">(),</span> <span class="p">()</span><span class="o">&gt;</span><span class="p">())</span><span class="nf">.unwrap</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+
+<div class="code-frame" data-lang="toml">
+<div class="code-lang"><span class="bold">Cargo.toml</span></div>
+<div class="highlight"><pre><span class="nn">[package]</span>
+<span class="py">name</span> <span class="p">=</span> <span class="s">"SimpleAIOWebServer"</span>
+<span class="py">version</span> <span class="p">=</span> <span class="s">"0.1.0"</span>
+<span class="py">authors</span> <span class="p">=</span> <span class="p">[</span><span class="s">"foo &lt;foo@foo.com&gt;"</span><span class="p">]</span>
+
+<span class="nn">[dependencies]</span>
+<span class="py">futures</span> <span class="p">=</span> <span class="s">"0.1"</span>
+<span class="py">futures-cpupool</span> <span class="p">=</span> <span class="s">"0.1"</span>
+<span class="py">futures-await</span> <span class="p">=</span> <span class="s">"0.1"</span>
+<span class="py">log</span> <span class="p">=</span> <span class="s">"0.4"</span>
+<span class="py">pretty_env_logger</span> <span class="p">=</span> <span class="s">"0.2"</span>
+<span class="py">mio</span> <span class="p">=</span> <span class="s">"0.6"</span>
+<span class="py">tokio-core</span> <span class="p">=</span> <span class="s">"0.1"</span>
+<span class="py">hyper</span> <span class="p">=</span> <span class="s">"0.11"</span>
+<span class="py">hyper-tls</span> <span class="p">=</span> <span class="s">"0.1"</span>
+<span class="py">websocket</span> <span class="p">=</span> <span class="s">"0.20"</span>
+<span class="py">getopts</span> <span class="p">=</span> <span class="s">"0.2"</span>
+</pre></div>
+</div>
+
+<h2>
+<span id="後記" class="fragment"></span><a href="#%E5%BE%8C%E8%A8%98"><i class="fa fa-link"></i></a>後記</h2>
+
+<ul>
+<li>iron がいつまでたっても非同期 hyper に対応しないので hyper をそのまま使った</li>
+<li>2018年1月現在、ネイティブの省リソース非同期ファイルサーバを作るなら C++14で書かれたWebサーバフレームワークの <a href="https://github.com/ipkn/crow" rel="nofollow noopener" target="_blank">crow</a> で <a href="https://stackoverflow.com/questions/11423426/how-does-libuv-compare-to-boost-asio" rel="nofollow noopener" target="_blank">boost asio + boost filesystem + boost thread</a> するのが楽そう</li>
+<li>nodejs の ReadStream がどうやって実装されているのか気になってきた</li>
+<li>
+<a href="http://docs.libuv.org/en/v1.x/stream.html" rel="nofollow noopener" target="_blank">libuv の uv_stream_t</a> を使っているようだ</li>
+<li>
+<a href="https://github.com/libuv/libuv/blob/v1.x/src/unix/fs.c#L304" rel="nofollow noopener" target="_blank">uv__fs_read</a> で <a href="https://linuxjm.osdn.jp/html/LDP_man-pages/man2/pread.2.html" rel="nofollow noopener" target="_blank">pread</a> を使っているらしい</li>
+<li>pread 逐次をスレッドプールの中で読んでいるように見える</li>
+<li>「<a href="https://qiita.com/gyu-don/items/50f4239fc856bed00dc4" id="reference-33dfdfe6a0fe92641a7d">RustのファイルI/OにはBufReader, BufWriterを使いましょう、という話</a> 」をスレッドプールで動かすような形になりそう</li>
+<li>
+<a href="https://docs.rs/futures-fs/0.0.3/futures_fs" rel="nofollow noopener" target="_blank">futures_fs</a> というそのものズバリなライブラリがあった</li>
+</ul>
+
+<h2>
+<span id="futures-fs-版" class="fragment"></span><a href="#futures-fs-%E7%89%88"><i class="fa fa-link"></i></a>futures-fs 版</h2>
+
+<p>せっかくなので futures-fs 版も作った。<br>
+↑の cpupool 版と違ってファイルを stream で読み書きしているのが特徴です。</p>
+
+<p>今後の async iron やその他非同期フレームワークは tokio + hyper + futures-fs + ??? の組み合わせが多くなりそう</p>
+
+<div class="code-frame" data-lang="rust">
+<div class="code-lang"><span class="bold">main.rs</span></div>
+<div class="highlight"><pre><span class="k">extern</span> <span class="n">crate</span> <span class="n">getopts</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">pretty_env_logger</span><span class="p">;</span>
+<span class="nd">#[macro_use]</span> <span class="k">extern</span> <span class="n">crate</span> <span class="k">log</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">tokio_core</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">mio</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">futures</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">futures_cpupool</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">futures_fs</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">bytes</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">hyper</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">hyper_tls</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">vec</span><span class="p">::{</span><span class="nb">Vec</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">boxed</span><span class="p">::{</span><span class="nb">Box</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">result</span><span class="p">::</span><span class="nn">Result</span><span class="p">::{</span><span class="nb">Ok</span><span class="p">,</span> <span class="nb">Err</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">path</span><span class="p">::{</span><span class="n">Path</span><span class="p">,</span> <span class="n">PathBuf</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">time</span><span class="p">::{</span><span class="n">Duration</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">futures</span><span class="p">::{</span><span class="n">Future</span><span class="p">,</span> <span class="n">Stream</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">futures</span><span class="p">::</span><span class="n">future</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">futures</span><span class="p">::</span><span class="n">stream</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">futures_cpupool</span><span class="p">::{</span><span class="n">CpuPool</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">futures_fs</span><span class="p">::</span><span class="n">FsPool</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">bytes</span><span class="p">::{</span><span class="n">Bytes</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">tokio_core</span><span class="p">::</span><span class="nn">reactor</span><span class="p">::{</span><span class="n">Core</span><span class="p">,</span> <span class="n">Timeout</span><span class="p">,</span> <span class="n">Handle</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">hyper</span><span class="p">::{</span><span class="n">Body</span><span class="p">,</span> <span class="n">Client</span><span class="p">,</span> <span class="n">Get</span><span class="p">,</span> <span class="n">Post</span><span class="p">,</span> <span class="n">StatusCode</span><span class="p">,</span> <span class="n">Chunk</span><span class="p">};</span>
+<span class="k">use</span> <span class="nn">hyper</span><span class="p">::</span><span class="nn">server</span><span class="p">::{</span><span class="n">Http</span><span class="p">,</span> <span class="n">Service</span><span class="p">,</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Response</span><span class="p">};</span>
+
+
+<span class="k">struct</span> <span class="n">WebService</span> <span class="p">{</span>
+  <span class="n">handle</span><span class="p">:</span> <span class="n">Handle</span><span class="p">,</span> <span class="c">// for async network task</span>
+  <span class="n">fs</span><span class="p">:</span> <span class="n">FsPool</span><span class="p">,</span> <span class="c">// for async fileio stream task</span>
+  <span class="n">public_dir</span><span class="p">:</span> <span class="n">PathBuf</span><span class="p">,</span> <span class="c">// cwd</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="n">WebService</span> <span class="p">{</span>
+  <span class="c">/// (PathBuf path) -&gt; std::unique_ptr&lt;std::fstream&gt;</span>
+  <span class="k">fn</span> <span class="nf">static_file</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">PathBuf</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Result</span><span class="o">&lt;</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Stream</span><span class="o">&lt;</span><span class="n">Item</span><span class="o">=</span><span class="n">Bytes</span><span class="p">,</span> <span class="n">Error</span><span class="o">=</span><span class="nn">std</span><span class="p">::</span><span class="nn">io</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;&gt;</span><span class="p">,</span> <span class="nn">std</span><span class="p">::</span><span class="nn">io</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="k">let</span> <span class="n">path</span> <span class="o">=</span> <span class="k">if</span> <span class="n">path</span> <span class="o">==</span> <span class="nn">Path</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="s">"/"</span><span class="p">)</span> <span class="p">{</span> <span class="nn">PathBuf</span><span class="p">::</span><span class="nf">from</span><span class="p">(</span><span class="s">"index.html"</span><span class="p">)</span> <span class="p">}</span><span class="k">else</span><span class="p">{</span> <span class="n">path</span> <span class="p">};</span>
+    <span class="k">let</span> <span class="n">path</span> <span class="o">=</span> <span class="k">if</span> <span class="n">path</span><span class="nf">.is_absolute</span><span class="p">()</span> <span class="p">{</span> <span class="nn">PathBuf</span><span class="p">::</span><span class="nf">from</span><span class="p">(</span><span class="n">path</span><span class="nf">.to_str</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">()[</span><span class="mi">1</span><span class="o">..</span><span class="p">]</span><span class="nf">.to_string</span><span class="p">())</span> <span class="p">}</span><span class="k">else</span><span class="p">{</span> <span class="n">path</span> <span class="p">};</span>
+    <span class="c">// need cwd check here</span>
+    <span class="k">let</span> <span class="n">filepath</span> <span class="o">=</span> <span class="k">self</span><span class="py">.public_dir</span><span class="nf">.join</span><span class="p">(</span><span class="n">path</span><span class="p">);</span>
+    <span class="nd">println!</span><span class="p">(</span><span class="s">"{}"</span><span class="p">,</span> <span class="n">filepath</span><span class="nf">.to_str</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">());</span>
+    <span class="k">match</span> <span class="n">filepath</span><span class="nf">.canonicalize</span><span class="p">()</span> <span class="p">{</span>
+      <span class="nf">Err</span><span class="p">(</span><span class="n">why</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="nf">Err</span><span class="p">(</span><span class="n">why</span><span class="p">),</span>
+      <span class="nf">Ok</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">=&gt;</span><span class="p">{</span>
+        <span class="k">let</span> <span class="n">fin</span> <span class="o">=</span> <span class="k">self</span><span class="py">.fs</span><span class="nf">.read</span><span class="p">(</span><span class="n">filepath</span><span class="p">);</span>
+        <span class="nf">Ok</span><span class="p">(</span><span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="n">fin</span><span class="p">))</span> <span class="c">// std::make_unique</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="n">Service</span> <span class="k">for</span> <span class="n">WebService</span> <span class="p">{</span>
+  <span class="k">type</span> <span class="n">Request</span> <span class="o">=</span> <span class="n">Request</span><span class="p">;</span>
+  <span class="k">type</span> <span class="n">Response</span> <span class="o">=</span> <span class="n">Response</span><span class="o">&lt;</span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">Stream</span><span class="o">&lt;</span><span class="n">Item</span><span class="o">=</span><span class="n">Chunk</span><span class="p">,</span> <span class="n">Error</span><span class="o">=</span><span class="nn">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;&gt;&gt;</span><span class="p">;</span>
+  <span class="k">type</span> <span class="n">Error</span> <span class="o">=</span> <span class="nn">hyper</span><span class="p">::</span><span class="n">Error</span><span class="p">;</span>
+  <span class="k">type</span> <span class="n">Future</span> <span class="o">=</span> <span class="nb">Box</span><span class="o">&lt;</span><span class="n">Future</span><span class="o">&lt;</span><span class="n">Item</span><span class="o">=</span><span class="nn">Self</span><span class="p">::</span><span class="n">Response</span><span class="p">,</span> <span class="n">Error</span><span class="o">=</span><span class="nn">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+  <span class="k">fn</span> <span class="nf">call</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">,</span> <span class="n">req</span><span class="p">:</span> <span class="nn">Self</span><span class="p">::</span><span class="n">Request</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nn">Self</span><span class="p">::</span><span class="n">Future</span> <span class="p">{</span>
+    <span class="k">match</span> <span class="p">(</span><span class="n">req</span><span class="nf">.method</span><span class="p">(),</span> <span class="n">req</span><span class="nf">.path</span><span class="p">())</span> <span class="p">{</span>
+      <span class="p">(</span><span class="o">&amp;</span><span class="n">Get</span><span class="p">,</span> <span class="mi">_</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="p">{</span>
+        <span class="k">let</span> <span class="n">body</span><span class="p">:</span> <span class="nb">Box</span><span class="o">&lt;</span><span class="n">Stream</span><span class="o">&lt;</span><span class="n">Item</span><span class="o">=</span><span class="n">Chunk</span><span class="p">,</span> <span class="n">Error</span><span class="o">=</span><span class="nn">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;&gt;</span> <span class="o">=</span> <span class="k">match</span> <span class="k">self</span><span class="nf">.static_file</span><span class="p">(</span><span class="nn">Path</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="n">req</span><span class="nf">.path</span><span class="p">())</span><span class="nf">.to_path_buf</span><span class="p">()){</span>
+          <span class="nf">Ok</span><span class="p">(</span><span class="n">fin</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="n">fin</span><span class="nf">.map</span><span class="p">(|</span><span class="n">byte</span><span class="p">|</span> <span class="nn">Chunk</span><span class="p">::</span><span class="nf">from</span><span class="p">(</span><span class="n">byte</span><span class="p">))</span><span class="nf">.map_err</span><span class="p">(|</span><span class="n">err</span><span class="p">|</span> <span class="nn">hyper</span><span class="p">::</span><span class="nn">Error</span><span class="p">::</span><span class="nf">Io</span><span class="p">(</span><span class="n">err</span><span class="p">))),</span>
+          <span class="nf">Err</span><span class="p">(</span><span class="mi">_</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">Body</span><span class="p">::</span><span class="nf">from</span><span class="p">(</span><span class="s">"Not Found"</span><span class="nf">.to_string</span><span class="p">())),</span>
+        <span class="p">};</span>
+        <span class="k">let</span> <span class="n">res</span><span class="p">:</span> <span class="nn">Self</span><span class="p">::</span><span class="n">Response</span> <span class="o">=</span> <span class="nn">Response</span><span class="p">::</span><span class="nf">new</span><span class="p">()</span><span class="nf">.with_status</span><span class="p">(</span><span class="nn">StatusCode</span><span class="p">::</span><span class="nb">Ok</span><span class="p">)</span><span class="nf">.with_body</span><span class="p">(</span><span class="n">body</span><span class="p">);</span>
+        <span class="k">let</span> <span class="n">fut</span> <span class="o">=</span> <span class="nn">future</span><span class="p">::</span><span class="nf">ok</span><span class="p">(</span><span class="n">res</span><span class="p">);</span>
+        <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="n">fut</span><span class="p">)</span>
+      <span class="p">},</span>
+      <span class="mi">_</span> <span class="k">=&gt;</span> <span class="p">{</span>
+        <span class="k">let</span> <span class="n">body</span><span class="p">:</span> <span class="nb">Box</span><span class="o">&lt;</span><span class="n">Stream</span><span class="o">&lt;</span><span class="n">Item</span><span class="o">=</span><span class="n">Chunk</span><span class="p">,</span> <span class="n">Error</span><span class="o">=</span><span class="nn">Self</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;&gt;</span> <span class="o">=</span> <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">Body</span><span class="p">::</span><span class="nf">from</span><span class="p">(</span><span class="s">"Method Not Allowed"</span><span class="nf">.to_string</span><span class="p">()));</span>
+        <span class="k">let</span> <span class="n">res</span><span class="p">:</span> <span class="nn">Self</span><span class="p">::</span><span class="n">Response</span> <span class="o">=</span> <span class="nn">Response</span><span class="p">::</span><span class="nf">new</span><span class="p">()</span><span class="nf">.with_status</span><span class="p">(</span><span class="nn">StatusCode</span><span class="p">::</span><span class="n">MethodNotAllowed</span><span class="p">)</span><span class="nf">.with_body</span><span class="p">(</span><span class="n">body</span><span class="p">);</span>
+        <span class="k">let</span> <span class="n">fut</span> <span class="o">=</span> <span class="nn">future</span><span class="p">::</span><span class="nf">ok</span><span class="p">(</span><span class="n">res</span><span class="p">);</span>
+        <span class="nn">Box</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="n">fut</span><span class="p">)</span>
+      <span class="p">},</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">fn</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="nn">pretty_env_logger</span><span class="p">::</span><span class="nf">init</span><span class="p">();</span>
+
+  <span class="k">let</span> <span class="n">args</span><span class="p">:</span> <span class="nb">Vec</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span> <span class="o">=</span> <span class="nn">std</span><span class="p">::</span><span class="nn">env</span><span class="p">::</span><span class="nf">args</span><span class="p">()</span><span class="nf">.collect</span><span class="p">();</span>
+  <span class="k">let</span> <span class="n">program</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="nf">.clone</span><span class="p">();</span>
+  <span class="k">let</span> <span class="k">mut</span> <span class="n">opts</span> <span class="o">=</span> <span class="nn">getopts</span><span class="p">::</span><span class="nn">Options</span><span class="p">::</span><span class="nf">new</span><span class="p">();</span>
+  <span class="n">opts</span><span class="nf">.optopt</span><span class="p">(</span><span class="s">"p"</span><span class="p">,</span> <span class="s">"port"</span><span class="p">,</span> <span class="s">"port"</span><span class="p">,</span> <span class="s">"3000"</span><span class="p">);</span>
+  <span class="n">opts</span><span class="nf">.optflag</span><span class="p">(</span><span class="s">"h"</span><span class="p">,</span> <span class="s">"help"</span><span class="p">,</span> <span class="s">"print this help menu"</span><span class="p">);</span>
+  <span class="k">let</span> <span class="n">matches</span> <span class="o">=</span> <span class="n">opts</span><span class="nf">.parse</span><span class="p">(</span><span class="o">&amp;</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="o">..</span><span class="p">])</span><span class="nf">.unwrap</span><span class="p">();</span>
+  <span class="k">if</span> <span class="n">matches</span><span class="nf">.opt_present</span><span class="p">(</span><span class="s">"h"</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">let</span> <span class="n">help</span> <span class="o">=</span> <span class="nd">format!</span><span class="p">(</span><span class="s">"Usage: {} FILE [options]"</span><span class="p">,</span> <span class="n">program</span><span class="p">);</span>
+    <span class="nd">print!</span><span class="p">(</span><span class="s">"{}"</span><span class="p">,</span> <span class="n">opts</span><span class="nf">.usage</span><span class="p">(</span><span class="o">&amp;</span><span class="n">help</span><span class="p">));</span>
+    <span class="k">return</span><span class="p">;</span>
+  <span class="p">}</span>
+
+  <span class="k">let</span> <span class="n">port</span> <span class="o">=</span> <span class="n">matches</span><span class="nf">.opt_str</span><span class="p">(</span><span class="s">"p"</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
+  <span class="k">let</span> <span class="n">addr</span> <span class="o">=</span> <span class="nd">format!</span><span class="p">(</span><span class="s">"127.0.0.1:{}"</span><span class="p">,</span> <span class="n">port</span><span class="p">)</span><span class="nf">.parse</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">();</span>
+
+  <span class="c">// async io resource</span>
+  <span class="k">let</span> <span class="n">fspool</span> <span class="o">=</span> <span class="nn">FsPool</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="mi">4</span><span class="p">);</span>
+  <span class="k">let</span> <span class="k">mut</span> <span class="n">core</span> <span class="o">=</span> <span class="nn">Core</span><span class="p">::</span><span class="nf">new</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">();</span> <span class="c">// for network aio</span>
+
+  <span class="c">// create web service</span>
+  <span class="k">let</span> <span class="n">server_handle</span> <span class="o">=</span> <span class="n">core</span><span class="nf">.handle</span><span class="p">();</span>
+  <span class="k">let</span> <span class="n">service_handle</span> <span class="o">=</span> <span class="n">core</span><span class="nf">.handle</span><span class="p">();</span>
+  <span class="k">let</span> <span class="n">serve</span> <span class="o">=</span> <span class="nn">Http</span><span class="p">::</span><span class="nf">new</span><span class="p">()</span><span class="nf">.serve_addr_handle</span><span class="p">(</span><span class="o">&amp;</span><span class="n">addr</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">server_handle</span><span class="p">,</span> <span class="k">move</span> <span class="p">||{</span>
+    <span class="k">let</span> <span class="n">service</span> <span class="o">=</span> <span class="n">WebService</span><span class="p">{</span>
+      <span class="n">handle</span><span class="p">:</span> <span class="n">service_handle</span><span class="nf">.clone</span><span class="p">(),</span>
+      <span class="n">fs</span><span class="p">:</span> <span class="n">fspool</span><span class="nf">.clone</span><span class="p">(),</span>
+      <span class="n">public_dir</span><span class="p">:</span> <span class="nn">std</span><span class="p">::</span><span class="nn">env</span><span class="p">::</span><span class="nf">current_dir</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">()</span><span class="nf">.as_path</span><span class="p">()</span><span class="nf">.to_path_buf</span><span class="p">(),</span>
+    <span class="p">};</span>
+    <span class="k">return</span> <span class="nf">Ok</span><span class="p">(</span><span class="n">service</span><span class="p">);</span>
+  <span class="p">})</span><span class="nf">.unwrap</span><span class="p">();</span>
+  <span class="nd">println!</span><span class="p">(</span><span class="s">"Listening on http://{} with 1 thread."</span><span class="p">,</span> <span class="n">serve</span><span class="nf">.incoming_ref</span><span class="p">()</span><span class="nf">.local_addr</span><span class="p">());</span>
+
+  <span class="c">// launch web server</span>
+  <span class="k">let</span> <span class="n">connection_handle</span> <span class="o">=</span> <span class="n">core</span><span class="nf">.handle</span><span class="p">();</span>
+  <span class="n">server_handle</span><span class="nf">.spawn</span><span class="p">(</span>
+    <span class="n">serve</span>
+      <span class="nf">.for_each</span><span class="p">(</span><span class="k">move</span> <span class="p">|</span><span class="n">conn</span><span class="p">|</span> <span class="p">{</span>
+        <span class="c">// handle new connection</span>
+        <span class="n">connection_handle</span><span class="nf">.spawn</span><span class="p">(</span>
+          <span class="n">conn</span>
+            <span class="nf">.map</span><span class="p">(|</span><span class="mi">_</span><span class="p">|</span> <span class="p">())</span>
+            <span class="nf">.map_err</span><span class="p">(|</span><span class="n">err</span><span class="p">|</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"serve error: {:?}"</span><span class="p">,</span> <span class="n">err</span><span class="p">))</span>
+        <span class="p">);</span>
+        <span class="k">return</span> <span class="nf">Ok</span><span class="p">(());</span>
+      <span class="p">})</span><span class="nf">.map_err</span><span class="p">(|</span><span class="mi">_</span><span class="p">|</span> <span class="p">())</span>
+  <span class="p">);</span>
+
+  <span class="n">core</span><span class="nf">.run</span><span class="p">(</span><span class="nn">future</span><span class="p">::</span><span class="nn">empty</span><span class="p">::</span><span class="o">&lt;</span><span class="p">(),</span> <span class="p">()</span><span class="o">&gt;</span><span class="p">())</span><span class="nf">.unwrap</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+
+<h2>
+<span id="参考" class="fragment"></span><a href="#%E5%8F%82%E8%80%83"><i class="fa fa-link"></i></a>参考</h2>
+
+<ul>
+<li><a href="https://hyper.rs/guides/server/response_strategies/" class="autolink" rel="nofollow noopener" target="_blank">https://hyper.rs/guides/server/response_strategies/</a></li>
+<li><a href="https://github.com/hyperium/hyper/blob/34f0dba6dcdd3c65da04fc277839d4fe129843f4/examples/web_api.rs" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/hyperium/hyper/blob/34f0dba6dcdd3c65da04fc277839d4fe129843f4/examples/web_api.rs</a></li>
+</ul>

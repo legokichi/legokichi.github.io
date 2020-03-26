@@ -1,0 +1,144 @@
+
+<h1>
+<span id="chrome-56-において-mediarecorder-api-で録画した-webm-が-mediasource-api-で再生できない問題" class="fragment"></span><a href="#chrome-56-%E3%81%AB%E3%81%8A%E3%81%84%E3%81%A6-mediarecorder-api-%E3%81%A7%E9%8C%B2%E7%94%BB%E3%81%97%E3%81%9F-webm-%E3%81%8C-mediasource-api-%E3%81%A7%E5%86%8D%E7%94%9F%E3%81%A7%E3%81%8D%E3%81%AA%E3%81%84%E5%95%8F%E9%A1%8C"><i class="fa fa-link"></i></a>Chrome 56 において MediaRecorder API で録画した WebM が MediaSource API で再生できない問題</h1>
+
+<h2>
+<span id="問題" class="fragment"></span><a href="#%E5%95%8F%E9%A1%8C"><i class="fa fa-link"></i></a>問題</h2>
+
+<p>MediaRecorder で生成した WebM の Blob を MediaSource に読ませて再生したい。<br>
+しかし、以下のコードでは Chrome 56.0.2924.87 (64-bit) では再生できない。</p>
+
+<div class="code-frame" data-lang="ts"><div class="highlight"><pre><span class="k">async</span> <span class="kd">function</span> <span class="nx">main</span><span class="p">(){</span>
+  <span class="kd">const</span> <span class="nx">video</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">createElement</span><span class="p">(</span><span class="dl">'</span><span class="s1">video</span><span class="dl">'</span><span class="p">);</span>
+  <span class="kd">const</span> <span class="nx">stream</span> <span class="o">=</span> <span class="k">await</span> <span class="nb">navigator</span><span class="p">.</span><span class="nx">mediaDevices</span><span class="p">.</span><span class="nx">getUserMedia</span><span class="p">({</span><span class="na">video</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span> <span class="na">audio</span><span class="p">:</span> <span class="kc">true</span><span class="p">});</span>
+  <span class="kd">const</span> <span class="nx">rec</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">MediaRecorder</span><span class="p">(</span><span class="nx">stream</span><span class="p">,</span> <span class="p">{</span><span class="na">mimeType</span><span class="p">:</span> <span class="dl">'</span><span class="s1">video/webm; codecs="opus,vp8"</span><span class="dl">'</span><span class="p">});</span>
+  <span class="kd">const</span> <span class="nx">ms</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">MediaSource</span><span class="p">();</span>
+
+  <span class="nx">video</span><span class="p">.</span><span class="nx">src</span> <span class="o">=</span> <span class="nx">URL</span><span class="p">.</span><span class="nx">createObjectURL</span><span class="p">(</span><span class="nx">ms</span><span class="p">);</span>
+  <span class="nx">video</span><span class="p">.</span><span class="nx">controls</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+  <span class="nx">video</span><span class="p">.</span><span class="nx">autoplay</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+  <span class="nb">document</span><span class="p">.</span><span class="nx">body</span><span class="p">.</span><span class="nx">appendChild</span><span class="p">(</span><span class="nx">video</span><span class="p">);</span>
+
+  <span class="k">await</span> <span class="nx">waitEvent</span><span class="p">(</span><span class="nx">ms</span><span class="p">,</span> <span class="dl">"</span><span class="s2">sourceopen</span><span class="dl">"</span><span class="p">);</span>
+
+  <span class="kd">const</span> <span class="nx">sb</span> <span class="o">=</span> <span class="nx">ms</span><span class="p">.</span><span class="nx">addSourceBuffer</span><span class="p">(</span><span class="nx">rec</span><span class="p">.</span><span class="nx">mimeType</span><span class="p">);</span>
+
+  <span class="kd">const</span> <span class="nx">chunks</span><span class="p">:</span> <span class="nb">ArrayBuffer</span><span class="p">[]</span> <span class="o">=</span> <span class="p">[];</span>
+
+  <span class="nx">rec</span><span class="p">.</span><span class="nx">ondataavailable</span> <span class="o">=</span> <span class="k">async</span> <span class="p">({</span><span class="na">data</span><span class="p">:</span> <span class="nx">blob</span><span class="p">})</span><span class="o">=&gt;</span><span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">buf</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">readAsArrayBuffer</span><span class="p">(</span><span class="nx">blob</span><span class="p">);</span>
+    <span class="nx">chunks</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">buf</span><span class="p">);</span>
+  <span class="p">};</span>
+
+  <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="dl">"</span><span class="s2">start recorfing</span><span class="dl">"</span><span class="p">);</span>
+
+  <span class="nx">rec</span><span class="p">.</span><span class="nx">start</span><span class="p">(</span><span class="mi">100</span><span class="p">);</span>
+
+  <span class="p">(</span><span class="k">async</span> <span class="kd">function</span> <span class="nx">recur</span><span class="p">(){</span>
+    <span class="k">if</span><span class="p">(</span><span class="nx">rec</span><span class="p">.</span><span class="nx">state</span> <span class="o">===</span> <span class="dl">"</span><span class="s2">paused</span><span class="dl">"</span><span class="p">){</span> <span class="k">return</span><span class="p">;</span> <span class="p">}</span>
+
+    <span class="k">if</span><span class="p">(</span><span class="nx">sb</span><span class="p">.</span><span class="nx">updating</span><span class="p">){</span>
+      <span class="k">await</span> <span class="nx">sleep</span><span class="p">(</span><span class="mi">10</span><span class="p">);</span>
+      <span class="k">return</span> <span class="nx">recur</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="kd">const</span> <span class="nx">chunk</span> <span class="o">=</span> <span class="nx">chunks</span><span class="p">.</span><span class="nx">shift</span><span class="p">();</span>
+    <span class="k">if</span><span class="p">(</span><span class="nx">chunk</span> <span class="o">==</span> <span class="kc">null</span><span class="p">){</span>
+      <span class="k">await</span> <span class="nx">sleep</span><span class="p">(</span><span class="mi">10</span><span class="p">);</span>
+      <span class="k">return</span> <span class="nx">recur</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="nx">sb</span><span class="p">.</span><span class="nx">appendBuffer</span><span class="p">(</span><span class="nx">chunk</span><span class="p">);</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="dl">"</span><span class="s2">appendBuffer:</span><span class="dl">"</span><span class="p">,</span> <span class="nx">chunk</span><span class="p">.</span><span class="nx">byteLength</span><span class="p">,</span> <span class="dl">"</span><span class="s2">B</span><span class="dl">"</span><span class="p">);</span>
+
+    <span class="k">await</span> <span class="nx">waitEvent</span><span class="p">(</span><span class="nx">sb</span><span class="p">,</span> <span class="dl">"</span><span class="s2">updateend</span><span class="dl">"</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="nx">recur</span><span class="p">();</span>
+  <span class="p">})();</span>
+
+
+  <span class="k">await</span> <span class="nx">sleep</span><span class="p">(</span><span class="mi">30</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">);</span>
+
+  <span class="nx">rec</span><span class="p">.</span><span class="nx">stop</span><span class="p">();</span>
+  <span class="nx">stream</span><span class="p">.</span><span class="nx">getTracks</span><span class="p">().</span><span class="nx">map</span><span class="p">((</span><span class="nx">track</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span> <span class="nx">track</span><span class="p">.</span><span class="nx">stop</span><span class="p">();</span> <span class="p">});</span>
+  <span class="k">if</span><span class="p">(</span><span class="nx">ms</span><span class="p">.</span><span class="nx">readyState</span> <span class="o">===</span> <span class="dl">"</span><span class="s2">open</span><span class="dl">"</span><span class="p">){</span> <span class="nx">ms</span><span class="p">.</span><span class="nx">endOfStream</span><span class="p">();</span> <span class="p">}</span>
+
+  <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="dl">"</span><span class="s2">stop recorfing</span><span class="dl">"</span><span class="p">);</span>
+
+  <span class="k">await</span> <span class="nx">sleep</span><span class="p">(</span><span class="mi">60</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">);</span>
+
+  <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="dl">"</span><span class="s2">garbage collection</span><span class="dl">"</span><span class="p">);</span>
+
+  <span class="nx">ms</span><span class="p">.</span><span class="nx">removeSourceBuffer</span><span class="p">(</span><span class="nx">sb</span><span class="p">);</span>
+  <span class="nx">URL</span><span class="p">.</span><span class="nx">revokeObjectURL</span><span class="p">(</span><span class="nx">video</span><span class="p">.</span><span class="nx">src</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kd">function</span> <span class="nx">sleep</span><span class="p">(</span><span class="na">ms</span><span class="p">:</span> <span class="nx">number</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="k">new</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span><span class="p">((</span><span class="nx">resolve</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span> <span class="nx">setTimeout</span><span class="p">(</span><span class="nx">resolve</span><span class="p">,</span> <span class="nx">ms</span><span class="p">);</span> <span class="p">});</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">waitEvent</span><span class="o">&lt;</span><span class="nx">EV</span> <span class="kd">extends</span> <span class="nx">Event</span><span class="o">&gt;</span><span class="p">(</span><span class="na">target</span><span class="p">:</span> <span class="nx">EventTarget</span><span class="p">,</span> <span class="na">event</span><span class="p">:</span> <span class="nx">string</span><span class="p">,</span> <span class="nx">error</span><span class="p">?:</span> <span class="nx">string</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="nx">EV</span><span class="o">&gt;</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="k">new</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="nx">EV</span><span class="o">&gt;</span><span class="p">((</span><span class="nx">resolve</span><span class="p">,</span> <span class="nx">reject</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span>
+    <span class="nx">target</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="nx">event</span><span class="p">,</span> <span class="nx">_resolve</span><span class="p">);</span>
+    <span class="k">if</span><span class="p">(</span><span class="k">typeof</span> <span class="nx">error</span> <span class="o">===</span> <span class="dl">"</span><span class="s2">string</span><span class="dl">"</span><span class="p">){</span>
+      <span class="nx">target</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="nx">error</span><span class="p">,</span> <span class="nx">_reject</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="kd">function</span> <span class="nx">_removeListener</span><span class="p">(){</span>
+      <span class="nx">target</span><span class="p">.</span><span class="nx">removeEventListener</span><span class="p">(</span><span class="nx">event</span><span class="p">,</span> <span class="nx">_resolve</span><span class="p">);</span>
+      <span class="k">if</span><span class="p">(</span><span class="k">typeof</span> <span class="nx">error</span> <span class="o">===</span> <span class="dl">"</span><span class="s2">string</span><span class="dl">"</span><span class="p">){</span>
+        <span class="nx">target</span><span class="p">.</span><span class="nx">removeEventListener</span><span class="p">(</span><span class="nx">error</span><span class="p">,</span> <span class="nx">_reject</span><span class="p">);</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="kd">function</span> <span class="nx">_resolve</span><span class="p">(</span><span class="na">ev</span><span class="p">:</span> <span class="nx">EV</span><span class="p">){</span>
+      <span class="nx">_removeListener</span><span class="p">();</span>
+      <span class="nx">resolve</span><span class="p">(</span><span class="nx">ev</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="kd">function</span> <span class="nx">_reject</span><span class="p">(</span><span class="na">ev</span><span class="p">:</span> <span class="nx">EV</span><span class="p">){</span>
+      <span class="nx">_removeListener</span><span class="p">();</span>
+      <span class="nx">reject</span><span class="p">(</span><span class="nx">ev</span><span class="p">);</span>
+    <span class="p">}</span>
+  <span class="p">});</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nx">readAsArrayBuffer</span><span class="p">(</span><span class="na">blob</span><span class="p">:</span> <span class="nx">Blob</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="nb">ArrayBuffer</span><span class="o">&gt;</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">reader</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">FileReader</span><span class="p">();</span>
+  <span class="nx">reader</span><span class="p">.</span><span class="nx">readAsArrayBuffer</span><span class="p">(</span><span class="nx">blob</span><span class="p">);</span>
+  <span class="k">return</span> <span class="nx">waitEvent</span><span class="p">(</span><span class="nx">reader</span><span class="p">,</span> <span class="dl">"</span><span class="s2">loadend</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">error</span><span class="dl">"</span><span class="p">).</span><span class="nx">then</span><span class="p">(()</span><span class="o">=&gt;</span> <span class="nx">reader</span><span class="p">.</span><span class="nx">result</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="nx">main</span><span class="p">();</span>
+</pre></div></div>
+
+<h2>
+<span id="原因" class="fragment"></span><a href="#%E5%8E%9F%E5%9B%A0"><i class="fa fa-link"></i></a>原因</h2>
+
+<ul>
+<li><a href="https://bugs.chromium.org/p/chromium/issues/detail?id=606000#c22" class="autolink" rel="nofollow noopener" target="_blank">https://bugs.chromium.org/p/chromium/issues/detail?id=606000#c22</a></li>
+<li>Chrome ５６ の WebM はヘッダに <a href="https://www.matroska.org/technical/specs/index.html" rel="nofollow noopener" target="_blank"><code>Segment &gt; Tracks &gt; TrackEntry &gt; DefaultDuration</code></a> を含むが、<a href="https://bugs.chromium.org/p/chromium/issues/detail?id=606000#c34" rel="nofollow noopener" target="_blank">フレーム間のデルタ時刻が一定でない場合うまく再生できなくなるため</a>。</li>
+<li>Chrome 58.0.3015.0 canary (64-bit) では <code>DefaultDuration</code> を含まないようにする <a href="https://chromium.googlesource.com/chromium/src.git/+/50252de90c71b7d5d12c30121a82d4e790f74252%5E%21/#F0" rel="nofollow noopener" target="_blank">パッチが適用された</a>。</li>
+</ul>
+
+<h2>
+<span id="chrome58-を使わない対策" class="fragment"></span><a href="#chrome58-%E3%82%92%E4%BD%BF%E3%82%8F%E3%81%AA%E3%81%84%E5%AF%BE%E7%AD%96"><i class="fa fa-link"></i></a>Chrome58 を使わない対策</h2>
+
+<p><code>ondataavailable</code> で送られてくる WebM の EBML を <a href="https://github.com/legokichi/ts-ebml" rel="nofollow noopener" target="_blank">ts-ebml</a> を使ってパースし、取り除く。</p>
+
+<div class="code-frame" data-lang="diff"><div class="highlight"><pre><span class="gi">+ import * as EBML from "ts-ebml";
+</span>
+async function main(){
+  const video = document.createElement('video');
+  const stream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+</pre></div></div>
+
+<div class="code-frame" data-lang="diff"><div class="highlight"><pre><span class="gi">+  const dec = new EBML.Decoder();
++  const enc = new EBML.Encoder();
+</span>  rec.ondataavailable = async ({data: blob})=&gt;{
+    const buf = await readAsArrayBuffer(blob);
+<span class="gi">+    const elms = dec.decode(buf);
++    const _elms = elms.filter((elm)=&gt; elm.name !== "DefaultDuration");
++    const _buf = enc.encode(_elms);
+</span><span class="gd">-    chunks.push(buf);
+</span><span class="gi">+    chunks.push(_buf);
+</span>  };
+</pre></div></div>

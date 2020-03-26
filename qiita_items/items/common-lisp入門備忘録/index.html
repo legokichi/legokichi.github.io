@@ -1,0 +1,175 @@
+
+<h2>
+<span id="emacs-と-clisp-のインストール" class="fragment"></span><a href="#emacs-%E3%81%A8-clisp-%E3%81%AE%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB"><i class="fa fa-link"></i></a>emacs と clisp のインストール</h2>
+
+<p>とりあえずclispで</p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">sudo </span>apt-get <span class="nb">install </span>clisp emacs
+</pre></div></div>
+
+<h2>
+<span id="quicklisp-のインストール" class="fragment"></span><a href="#quicklisp-%E3%81%AE%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB"><i class="fa fa-link"></i></a>quicklisp のインストール</h2>
+
+<ul>
+<li><a href="http://modern-cl.blogspot.jp/2011/03/quicklisp.html" class="autolink" rel="nofollow noopener" target="_blank">http://modern-cl.blogspot.jp/2011/03/quicklisp.html</a></li>
+</ul>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">cd</span> ~/
+<span class="nv">$ </span>wget http://beta.quicklisp.org/quicklisp.lisp
+<span class="nv">$ </span>clisp
+CL-USER&gt; <span class="o">(</span>load <span class="s2">"quicklisp.lisp"</span><span class="o">)</span>
+CL-USER&gt; <span class="o">(</span>quicklisp-quickstart:install :path <span class="s2">".quicklisp/"</span><span class="o">)</span>
+CL-USER&gt; <span class="o">(</span>ql:add-to-init-file<span class="o">)</span>
+CL-USER&gt; <span class="o">(</span><span class="nb">exit</span><span class="o">)</span>
+</pre></div></div>
+
+<h2>
+<span id="quicklisp-からslimeをインストール" class="fragment"></span><a href="#quicklisp-%E3%81%8B%E3%82%89slime%E3%82%92%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB"><i class="fa fa-link"></i></a>quicklisp からslimeをインストール</h2>
+
+<p>slimeとは emacs + common lisp な IDE</p>
+
+<ul>
+<li><a href="http://qiita.com/garaemon/items/f65fbd59130337b83cf7" class="autolink" id="reference-4da532756a7ac49bd101">http://qiita.com/garaemon/items/f65fbd59130337b83cf7</a></li>
+</ul>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nv">$ </span>clisp
+CL-USER&gt; <span class="o">(</span>ql:quickload :quicklisp-slime-helper<span class="o">)</span>
+To load <span class="s2">"quicklisp-slime-helper"</span>:
+  Load 1 ASDF system:
+    quicklisp-slime-helper
+<span class="p">;</span> Loading <span class="s2">"quicklisp-slime-helper"</span>
+<span class="nb">.</span>
+slime-helper.el installed <span class="k">in</span> <span class="s2">"/Users/**/**/slime-helper.el"</span>
+
+To use, add this to your ~/.emacs:
+
+  <span class="o">(</span>load <span class="o">(</span>expand-file-name <span class="s2">"~/.quicklisp/slime-helper.el"</span><span class="o">))</span>
+  <span class="p">;;</span> Replace <span class="s2">"sbcl"</span> with the path to your implementation
+  <span class="o">(</span>setq inferior-lisp-program <span class="s2">"sbcl"</span><span class="o">)</span>
+
+CL-USER&gt; <span class="o">(</span><span class="nb">exit</span><span class="o">)</span>
+</pre></div></div>
+
+<p><a href="http://sakito.jp/emacs/emacs23.html#emacs-d-init-el-emacs-el" rel="nofollow noopener" target="_blank">Emacs22 からは <code>~/.emacs</code> ではなく <code>~/.emacs/init.el</code>に書くべし</a></p>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">touch</span> ~/.emacs.d/init.el
+<span class="nv">$ </span>vim ~/.emacs.d/init.el
+
+<span class="o">(</span>load <span class="o">(</span>expand-file-name <span class="s2">"~/.quicklisp/slime-helper.el"</span><span class="o">))</span>
+
+<span class="o">(</span>setq inferior-lisp-program <span class="s2">"clisp"</span><span class="o">)</span>
+<span class="p">;;</span> ccl sbcl clisp など
+
+<span class="p">;;</span> SLIMEのロード
+<span class="o">(</span>require <span class="s1">'slime)
+(slime-setup '</span><span class="o">(</span>slime-repl slime-fancy slime-banner slime-indentation<span class="o">))</span>
+
+<span class="p">;;</span> SLIMEからの入力をUTF-8に設定
+<span class="o">(</span>setq slime-net-coding-system <span class="s1">'utf-8-unix)
+</span></pre></div></div>
+
+<h2>
+<span id="emacsslimeでよくつかうコマンド" class="fragment"></span><a href="#emacsslime%E3%81%A7%E3%82%88%E3%81%8F%E3%81%A4%E3%81%8B%E3%81%86%E3%82%B3%E3%83%9E%E3%83%B3%E3%83%89"><i class="fa fa-link"></i></a>emacs+slimeでよくつかうコマンド</h2>
+
+<ul>
+<li><a href="http://modern-cl.blogspot.jp/2011/04/3-slime.html" rel="nofollow noopener" target="_blank">SLIMEの使い方</a></li>
+<li><a href="http://modern-cl.blogspot.jp/2011/07/5-slime.html" rel="nofollow noopener" target="_blank">SLIMEにおける開発サイクル</a></li>
+<li><a href="http://sakito.jp/emacs/emacs23.html" rel="nofollow noopener" target="_blank">emacs23</a></li>
+<li><a href="http://lispuser.net/emacs/lisphacking.html" rel="nofollow noopener" target="_blank">Emacs による Lisp Hacking</a></li>
+<li><a href="http://hooktail.org/computer/index.php?Emacs" rel="nofollow noopener" target="_blank">Emacs</a></li>
+<li><a href="http://www.rsch.tuis.ac.jp/%7Eohmi/literacy/emacs/quick.html" rel="nofollow noopener" target="_blank">Emacsの主要操作(早見表)</a></li>
+</ul>
+
+<p>などを参照</p>
+
+<ul>
+<li>
+<code>M-x slime</code>: slimeを起動</li>
+<li>
+<code>C-c C-]</code>: 開いてる括弧をそこで全て閉じる括弧を追加する</li>
+<li>
+<code>C-c C-c</code>: カーソル位置のフォームを一番外からコンパイルしてロード</li>
+<li>
+<code>C-c C-k</code>: ファイル全体をコンパイルしてロード</li>
+<li>
+<code>C-c C-z</code>: REPLを表示・移動</li>
+<li>
+<code>M-p</code>: REPLの入力履歴を前へ</li>
+<li>
+<code>M-n</code>: REPLの入力履歴を次へ</li>
+<li>
+<code>C-x o</code>: 分割画面での移動</li>
+<li>
+<code>C-x C-b</code>: バッファ一覧表示</li>
+<li>
+<code>C-x b [buffer]</code>: 画面バッファの変更</li>
+<li>
+<code>C-x 2</code>: 表示するバッファを上下に分割</li>
+<li>
+<code>C-x 3</code>: 表示するバッファを左右に分割</li>
+<li>
+<code>C-x 1</code>: 表示するバッファを選択画面のみにする</li>
+<li>
+<code>C-x 0</code>: 選択画面を消す</li>
+<li>
+<code>C-l</code>: 画面再描画</li>
+<li>
+<code>C-x k</code>: 現在のバッファを閉じる</li>
+<li>
+<code>C-x f [ファイル名]</code>: ファイルを開く</li>
+<li>
+<code>C-x C-s</code>: ファイル保存</li>
+<li>
+<code>C-_</code>: 元に戻す</li>
+<li>
+<code>C-/</code>: やり直し</li>
+<li>
+<code>C-@</code>: 選択</li>
+<li>
+<code>M-w</code>: コピー</li>
+<li>
+<code>C-w</code>: 切り取り</li>
+<li>
+<code>C-y</code>: 貼り付け</li>
+<li>
+<code>C-c</code>: 困ったら連打</li>
+<li><a href="http://no-maddojp.hatenablog.com/entry/2014/04/26/171131" rel="nofollow noopener" target="_blank">なんか間違ったキーバインド入力してよくわからんくなったら <code>C-g</code> を連打する</a></li>
+</ul>
+
+<h2>
+<span id="コミュニティ情報源" class="fragment"></span><a href="#%E3%82%B3%E3%83%9F%E3%83%A5%E3%83%8B%E3%83%86%E3%82%A3%E6%83%85%E5%A0%B1%E6%BA%90"><i class="fa fa-link"></i></a>コミュニティ・情報源</h2>
+
+<ul>
+<li><a href="http://ja.stackoverflow.com/questions/tagged/common-lisp?sort=active&amp;pageSize=50" rel="nofollow noopener" target="_blank">ja.stackoverflow common-lisp</a></li>
+<li><a href="https://www.reddit.com/r/lisp_ja/" rel="nofollow noopener" target="_blank">reddit lisp_ja</a></li>
+<li><a href="http://smpl.seesaa.net/article/29800843.html" rel="nofollow noopener" target="_blank">Common Lisp: loopマクロ用法抄</a></li>
+<li><a href="http://www.shido.info/lisp/idx_cl.html" rel="nofollow noopener" target="_blank">Common Lisp の解説と小品</a></li>
+<li><a href="http://blog.8arrow.org/entry/2014/10/23/063044" rel="nofollow noopener" target="_blank">Cより高速なCommon Lispコードを書く</a></li>
+<li><a href="http://g000001.cddddr.org/" rel="nofollow noopener" target="_blank">#:g1: frontpage</a></li>
+<li><a href="http://tips.cddddr.org/common-lisp/" rel="nofollow noopener" target="_blank">逆引きCommon Lisp</a></li>
+<li><a href="http://qiita.com/tags/common-lisp">qiita common-lisp</a></li>
+<li><a href="http://blog.livedoor.jp/s-koide/archives/1885863.html" rel="nofollow noopener" target="_blank">Lisp の型システム</a></li>
+<li><a href="http://lisphub.jp/" rel="nofollow noopener" target="_blank">lisphub</a></li>
+<li><a href="http://shibuya.lisp-users.org/" rel="nofollow noopener" target="_blank">shibuya.lisp</a></li>
+<li>
+<a href="http://qiita.com/g000001/items/36e3d502c2903ba7b661">2016年のCommon Lispはこれだ!</a>
+
+<ul>
+<li><a href="http://qiita.com/g000001/items/c2b25b8a72c96e9f4639">2016年のCommon Lispの処理系はこれだ!</a></li>
+<li><a href="http://qiita.com/g000001/items/b342049b65e07615274e">2016年のCommon Lispのドキュメントはここだ!</a></li>
+<li><a href="http://qiita.com/g000001/items/c6fa1444d1a49f1b6f76">2016年のCommon Lispの定番ライブラリはこれだ!</a></li>
+<li><a href="http://qiita.com/g000001/items/35a95ccb1a5b9a19d451">2016年のCommon Lispの質問場所はここだ!</a></li>
+<li><a href="http://qiita.com/g000001/items/98b5d67f527563895f78">2016年のCommon Lispのライブラリ管理はこれだ!</a></li>
+<li><a href="http://qiita.com/g000001/items/b16afa7c46a6fca57d6b">2016年のCommon Lispの遊び場はここだ!</a></li>
+<li><a href="http://qiita.com/g000001/items/12e4b3d0c352e796de2e">2016年のCommon Lispの情報ソースはここだ!</a></li>
+</ul>
+</li>
+<li>
+<a href="http://qiita.com/asesino/items/d60b48ee201949388800" id="reference-e61c936452950d0516fa">Common Lisp のリファレンスを使う</a> HyperSpecインストール</li>
+<li><a href="http://www.geocities.jp/m_hiroi/xyzzy_lisp.html" rel="nofollow noopener" target="_blank">xyzzy Lisp Programming</a></li>
+<li><a href="http://rosettacode.org/wiki/Category:Common_Lisp" rel="nofollow noopener" target="_blank">Rosetta Code Category:Common_Lisp</a></li>
+<li><a href="http://lisphub.jp/doc/google-common-lisp-style-guide/lispguide.xml" rel="nofollow noopener" target="_blank">Google Common Lisp スタイルガイド 日本語訳</a></li>
+<li><a href="https://common-lisp.net/project/alexandria/draft/alexandria.html" rel="nofollow noopener" target="_blank">Alexandria Manual - draft version</a></li>
+<li><a href="https://common-lisp.net/project/slime/doc/html/Key-Index.html" rel="nofollow noopener" target="_blank">SLIME User Manual Key-Index</a></li>
+<li><a href="http://super.para.media.kyoto-u.ac.jp/%7Etasuku/format-func.html" rel="nofollow noopener" target="_blank">format関数</a></li>
+</ul>

@@ -1,0 +1,16 @@
+<div class="code-frame" data-lang="ts"><div class="highlight"><pre><span class="c1">/// &lt;reference path="../typings/eventemitter2/eventemitter2.d.ts"/&gt;</span>
+
+<span class="kd">class</span> <span class="nx">Hoge</span> <span class="kd">extends</span> <span class="nx">EventEmitter2</span><span class="p">{</span>
+  <span class="kd">constructor</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">super</span><span class="p">();</span>
+    <span class="nx">EventEmitter2</span><span class="p">.</span><span class="nx">call</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">var</span> <span class="nx">hoge</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Hoge</span><span class="p">();</span>
+<span class="nx">hoge</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="dl">"</span><span class="s2">hoge</span><span class="dl">"</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">ev</span><span class="p">:</span> <span class="nx">string</span><span class="p">){</span>
+  <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">ev</span><span class="p">);</span>
+<span class="p">});</span>
+
+<span class="nx">hoge</span><span class="p">.</span><span class="nx">emit</span><span class="p">(</span><span class="dl">"</span><span class="s2">hoge</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">hello</span><span class="dl">"</span><span class="p">);</span>
+</pre></div></div>

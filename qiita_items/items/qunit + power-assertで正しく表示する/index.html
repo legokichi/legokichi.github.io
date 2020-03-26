@@ -1,0 +1,46 @@
+<p><a href="https://github.com/twada/power-assert-demo" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/twada/power-assert-demo</a> の通りに<br>
+qunitとpower-assertを組み合わせると表示が崩れてしまいます。</p>
+
+<p><a href="https://qiita-user-contents.imgix.net/http%3A%2F%2Fi.gyazo.com%2Faa3b42b2811ed99653f780a7305f7a54.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=6f78fe4d1be68af29f3cd6b373ef204e" target="_blank" rel="nofollow noopener"><img src="https://qiita-user-contents.imgix.net/http%3A%2F%2Fi.gyazo.com%2Faa3b42b2811ed99653f780a7305f7a54.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=6f78fe4d1be68af29f3cd6b373ef204e" alt="" data-canonical-src="http://i.gyazo.com/aa3b42b2811ed99653f780a7305f7a54.png" srcset="https://qiita-user-contents.imgix.net/http%3A%2F%2Fi.gyazo.com%2Faa3b42b2811ed99653f780a7305f7a54.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;w=1400&amp;fit=max&amp;s=4176b0b7df615b54826c743d36b25a85 1x" loading="lazy"></a></p>
+
+<p>そこで以下のようにスタイルを設定します。</p>
+
+<div class="code-frame" data-lang="html"><div class="highlight"><pre><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="nt">&lt;html&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+  <span class="nt">&lt;meta</span> <span class="na">charset=</span><span class="s">"utf-8"</span> <span class="nt">/&gt;</span>
+  <span class="nt">&lt;title&gt;</span>QUnit Test Suite<span class="nt">&lt;/title&gt;</span>
+  <span class="nt">&lt;link</span>  <span class="na">href=</span><span class="s">"../bower_components/qunit/qunit/qunit.css"</span> <span class="na">rel=</span><span class="s">"stylesheet"</span> <span class="nt">/&gt;</span>
+  <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"../bower_components/qunit/qunit/qunit.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+  <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"../bower_components/qunit-tap/lib/qunit-tap.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+  <span class="nt">&lt;script&gt;</span><span class="nx">qunitTap</span><span class="p">(</span><span class="nx">QUnit</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span> <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nx">apply</span><span class="p">(</span><span class="nx">console</span><span class="p">,</span> <span class="nx">arguments</span><span class="p">);</span> <span class="p">},</span> <span class="p">{</span><span class="na">showSourceOnFailure</span><span class="p">:</span> <span class="kc">false</span><span class="p">});</span><span class="nt">&lt;/script&gt;</span>
+
+  <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"../bower_components/empower/build/empower.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+  <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"../bower_components/power-assert-formatter/build/power-assert-formatter.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+  <span class="nt">&lt;script&gt;</span><span class="nx">empower</span><span class="p">(</span><span class="nx">QUnit</span><span class="p">.</span><span class="nx">assert</span><span class="p">,</span> <span class="nx">powerAssertFormatter</span><span class="p">({</span><span class="na">lineSeparator</span><span class="p">:</span><span class="dl">"</span><span class="se">\n</span><span class="dl">"</span><span class="p">}),</span> <span class="p">{</span><span class="na">destructive</span><span class="p">:</span> <span class="kc">true</span><span class="p">});</span><span class="nt">&lt;/script&gt;</span>
+  <span class="nt">&lt;style&gt;</span>
+    <span class="nc">.test-message</span><span class="p">{</span>
+      <span class="nl">white-space</span><span class="p">:</span> <span class="n">pre</span><span class="p">;</span>
+      <span class="nl">font-family</span><span class="p">:</span> <span class="n">Osaka-mono</span><span class="p">,</span> <span class="s1">"Osaka-等幅"</span><span class="p">,</span> <span class="s1">"ＭＳ ゴシック"</span><span class="p">,</span> <span class="nb">monospace</span><span class="p">;</span>
+      <span class="nl">font-size</span><span class="p">:</span> <span class="m">14px</span><span class="p">;</span>
+    <span class="p">}</span>
+  <span class="nt">&lt;/style&gt;</span>
+
+  <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"../src/mylibrary.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+
+  <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">"../test/testMylibrary.espowered.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;body&gt;</span>
+  <span class="nt">&lt;h1</span> <span class="na">id=</span><span class="s">"qunit-header"</span><span class="nt">&gt;</span>QUnit Test Suite<span class="nt">&lt;/h1&gt;</span>
+  <span class="nt">&lt;h2</span> <span class="na">id=</span><span class="s">"qunit-banner"</span><span class="nt">&gt;&lt;/h2&gt;</span>
+  <span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">"qunit-testrunner-toolbar"</span><span class="nt">&gt;&lt;/div&gt;</span>
+  <span class="nt">&lt;h2</span> <span class="na">id=</span><span class="s">"qunit-userAgent"</span><span class="nt">&gt;&lt;/h2&gt;</span>
+  <span class="nt">&lt;ol</span> <span class="na">id=</span><span class="s">"qunit-tests"</span><span class="nt">&gt;&lt;/ol&gt;</span>
+  <span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">"qunit-fixture"</span><span class="nt">&gt;</span>test markup<span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</pre></div></div>
+
+<p><a href="https://qiita-user-contents.imgix.net/http%3A%2F%2Fi.gyazo.com%2F98fabb452b1c6bfc6fce7456fb2c1bff.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=c744fafd470681fecfa02867212d7726" target="_blank" rel="nofollow noopener"><img src="https://qiita-user-contents.imgix.net/http%3A%2F%2Fi.gyazo.com%2F98fabb452b1c6bfc6fce7456fb2c1bff.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;s=c744fafd470681fecfa02867212d7726" alt="" data-canonical-src="http://i.gyazo.com/98fabb452b1c6bfc6fce7456fb2c1bff.png" srcset="https://qiita-user-contents.imgix.net/http%3A%2F%2Fi.gyazo.com%2F98fabb452b1c6bfc6fce7456fb2c1bff.png?ixlib=rb-1.2.2&amp;auto=format&amp;gif-q=60&amp;q=75&amp;w=1400&amp;fit=max&amp;s=64483d9b957dfad2944456c3e207d8fc 1x" loading="lazy"></a></p>
+
+<p>うまくいきました。</p>

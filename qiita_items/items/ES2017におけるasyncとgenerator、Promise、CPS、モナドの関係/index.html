@@ -1,0 +1,183 @@
+
+<h1>
+<span id="es2016におけるasyncとgeneratorpromisecpsの関係" class="fragment"></span><a href="#es2016%E3%81%AB%E3%81%8A%E3%81%91%E3%82%8Basync%E3%81%A8generatorpromisecps%E3%81%AE%E9%96%A2%E4%BF%82"><i class="fa fa-link"></i></a>ES2016におけるasyncとgenerator、Promise、CPSの関係</h1>
+
+<p>次の非同期sleepをES2016ではどう書けるかを比較する。</p>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="c1">// sleep: number -&gt; Promise&lt;number&gt;</span>
+<span class="kd">function</span> <span class="nx">sleep</span><span class="p">(</span><span class="nx">ms</span><span class="p">){</span>
+  <span class="k">return</span> <span class="k">new</span> <span class="nb">Promise</span><span class="p">(</span><span class="nx">resolve</span> <span class="o">=&gt;</span>
+    <span class="nx">setTimeout</span><span class="p">((()</span><span class="o">=&gt;</span><span class="nx">resolve</span><span class="p">(</span><span class="nx">ms</span><span class="p">)),</span> <span class="nx">ms</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="async-await版" class="fragment"></span><a href="#async-await%E7%89%88"><i class="fa fa-link"></i></a>async-await版</h2>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="k">async</span> <span class="kd">function</span> <span class="nx">main</span><span class="p">(){</span>
+  <span class="kd">let</span> <span class="nx">a</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">sleep</span><span class="p">(</span><span class="mi">1000</span><span class="p">);</span>
+  <span class="nx">alert</span><span class="p">(</span><span class="s2">`</span><span class="p">${</span><span class="nx">a</span><span class="p">}</span><span class="s2">ms passed`</span><span class="p">);</span> <span class="c1">// 1000ms passed</span>
+  <span class="kd">let</span> <span class="nx">b</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">sleep</span><span class="p">(</span><span class="mi">2000</span><span class="p">);</span>
+  <span class="nx">alert</span><span class="p">(</span><span class="s2">`</span><span class="p">${</span><span class="nx">b</span><span class="p">}</span><span class="s2">ms passed`</span><span class="p">);</span> <span class="c1">// 2000ms passed</span>
+  <span class="kd">let</span> <span class="p">[</span><span class="nx">c</span><span class="p">,</span> <span class="nx">d</span><span class="p">]</span> <span class="o">=</span> <span class="k">await</span> <span class="nb">Promise</span><span class="p">.</span><span class="nx">all</span><span class="p">([</span>
+     <span class="nx">sleep</span><span class="p">(</span><span class="mi">3000</span><span class="p">),</span>
+     <span class="nx">sleep</span><span class="p">(</span><span class="mi">4000</span><span class="p">)</span>
+  <span class="p">]);</span>
+  <span class="nx">alert</span><span class="p">(</span><span class="s2">`</span><span class="p">${</span><span class="nb">Math</span><span class="p">.</span><span class="nx">max</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">d</span><span class="p">)}</span><span class="s2">ms passed`</span><span class="p">);</span> <span class="c1">// 4000ms passed</span>
+  <span class="nx">alert</span><span class="p">(</span><span class="dl">'</span><span class="s1">done</span><span class="dl">'</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="nx">main</span><span class="p">();</span> <span class="c1">// return Promise</span>
+</pre></div></div>
+
+<p>async-await記法を使うとスッキリ書ける。<br>
+非同期処理の同期待ちには <code>Promise.all</code> を <code>await</code> すればよい。<br>
+このコードはgeneratorを使うと次のように書ける。</p>
+
+<h2>
+<span id="generator版" class="fragment"></span><a href="#generator%E7%89%88"><i class="fa fa-link"></i></a>generator版</h2>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="c1">// main: void -&gt; Promise&lt;void&gt;</span>
+<span class="kd">let</span> <span class="nx">main</span> <span class="o">=</span> <span class="k">async</span><span class="p">(</span><span class="kd">function</span><span class="o">*</span> <span class="nx">_main</span><span class="p">(){</span>
+  <span class="kd">let</span> <span class="nx">a</span> <span class="o">=</span> <span class="k">yield</span> <span class="nx">sleep</span><span class="p">(</span><span class="mi">1000</span><span class="p">);</span>
+  <span class="nx">alert</span><span class="p">(</span><span class="s2">`</span><span class="p">${</span><span class="nx">a</span><span class="p">}</span><span class="s2">ms passed`</span><span class="p">);</span>
+  <span class="kd">let</span> <span class="nx">b</span> <span class="o">=</span> <span class="k">yield</span> <span class="nx">sleep</span><span class="p">(</span><span class="mi">2000</span><span class="p">);</span>
+  <span class="nx">alert</span><span class="p">(</span><span class="s2">`</span><span class="p">${</span><span class="nx">b</span><span class="p">}</span><span class="s2">ms passed`</span><span class="p">);</span>
+  <span class="kd">let</span> <span class="p">[</span><span class="nx">c</span><span class="p">,</span> <span class="nx">d</span><span class="p">]</span> <span class="o">=</span> <span class="k">yield</span> <span class="nb">Promise</span><span class="p">.</span><span class="nx">all</span><span class="p">([</span>
+     <span class="nx">sleep</span><span class="p">(</span><span class="mi">3000</span><span class="p">),</span>
+     <span class="nx">sleep</span><span class="p">(</span><span class="mi">4000</span><span class="p">)</span>
+  <span class="p">]);</span>
+  <span class="nx">alert</span><span class="p">(</span><span class="s2">`</span><span class="p">${</span><span class="nb">Math</span><span class="p">.</span><span class="nx">max</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">d</span><span class="p">)}</span><span class="s2">ms passed`</span><span class="p">);</span>
+  <span class="nx">alert</span><span class="p">(</span><span class="dl">'</span><span class="s1">done</span><span class="dl">'</span><span class="p">);</span>
+<span class="p">});</span>
+
+<span class="c1">// async: (void -&gt; Generator) -&gt; (void -&gt; Promise)</span>
+<span class="kd">function</span> <span class="k">async</span><span class="p">(</span><span class="nx">generatorFunc</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">let</span> <span class="nx">generator</span> <span class="o">=</span> <span class="nx">generatorFunc</span><span class="p">();</span>
+  <span class="kd">let</span> <span class="nx">onResolved</span> <span class="o">=</span> <span class="nx">arg</span> <span class="o">=&gt;</span><span class="p">{</span>
+    <span class="kd">let</span> <span class="nx">result</span> <span class="o">=</span> <span class="nx">generator</span><span class="p">.</span><span class="nx">next</span><span class="p">(</span><span class="nx">arg</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">done</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="nx">result</span><span class="p">.</span><span class="nx">value</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="nb">Promise</span>
+      <span class="p">.</span><span class="nx">resolve</span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">value</span><span class="p">)</span>
+      <span class="p">.</span><span class="nx">then</span><span class="p">(</span><span class="nx">onResolved</span><span class="p">);</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="k">return</span> <span class="nx">onResolved</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="nx">main</span><span class="p">();</span> <span class="c1">// return Promise&lt;void&gt;</span>
+</pre></div></div>
+
+<p>generator関数である <code>_main</code> が <code>yeild sleep(3000)</code> で <code>Promise&lt;number&gt;</code> 返す。<br>
+その <code>Promise&lt;number&gt;</code> を <code>async</code> 関数が成功か失敗かを判断し、成功ならば次の計算を呼び出すことで、async-awaitとおなじようにフラットに書ける。</p>
+
+<p>つまり <code>async</code> 関数は 内部で Promise のチェーンをつないでいるのだ。</p>
+
+<h2>
+<span id="promise版" class="fragment"></span><a href="#promise%E7%89%88"><i class="fa fa-link"></i></a>Promise版</h2>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="c1">// main: void -&gt; Promise&lt;void&gt;</span>
+<span class="kd">function</span> <span class="nx">main</span><span class="p">(){</span>
+  <span class="k">return</span> <span class="nx">sleep</span><span class="p">(</span><span class="mi">1000</span><span class="p">).</span><span class="nx">then</span><span class="p">((</span><span class="nx">a</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span>
+    <span class="nx">alert</span><span class="p">(</span><span class="s2">`</span><span class="p">${</span><span class="nx">a</span><span class="p">}</span><span class="s2">ms passed`</span><span class="p">);</span>
+    <span class="k">return</span> <span class="nx">sleep</span><span class="p">(</span><span class="mi">2000</span><span class="p">).</span><span class="nx">then</span><span class="p">((</span><span class="nx">b</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span>
+      <span class="nx">alert</span><span class="p">(</span><span class="s2">`</span><span class="p">${</span><span class="nx">b</span><span class="p">}</span><span class="s2">ms passed`</span><span class="p">);</span>
+      <span class="k">return</span> <span class="nb">Promise</span><span class="p">.</span><span class="nx">all</span><span class="p">([</span><span class="nx">sleep</span><span class="p">(</span><span class="mi">3000</span><span class="p">),</span> <span class="nx">sleep</span><span class="p">(</span><span class="mi">4000</span><span class="p">)]).</span><span class="nx">then</span><span class="p">(([</span><span class="nx">c</span><span class="p">,</span> <span class="nx">d</span><span class="p">])</span><span class="o">=&gt;</span><span class="p">{</span>
+        <span class="nx">alert</span><span class="p">(</span><span class="s2">`</span><span class="p">${</span><span class="nb">Math</span><span class="p">.</span><span class="nx">max</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">d</span><span class="p">)}</span><span class="s2">ms passed`</span><span class="p">);</span>
+        <span class="nx">alert</span><span class="p">(</span><span class="dl">'</span><span class="s1">done</span><span class="dl">'</span><span class="p">);</span>
+        <span class="k">return</span><span class="p">;</span>
+      <span class="p">});</span>
+    <span class="p">});</span>
+  <span class="p">});</span>
+<span class="p">});</span>
+
+<span class="nx">main</span><span class="p">();</span> <span class="c1">// return Promise&lt;void&gt;</span>
+</pre></div></div>
+
+<p>これが generator 版で <code>async</code> 関数が作っていた Promise のチェーンである。<br>
+重要な事実だが <strong>Promise では コールバック地獄を防ぐことはできない</strong> 。</p>
+
+<div class="code-frame" data-lang="ts"><div class="highlight"><pre><span class="k">async</span> <span class="kd">function</span> <span class="nx">main</span><span class="p">(){</span>
+  <span class="kd">const</span> <span class="nx">a</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">getA</span><span class="p">();</span>
+  <span class="kd">const</span> <span class="nx">b</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">getB</span><span class="p">();</span>
+  <span class="k">return</span> <span class="nx">a</span> <span class="o">+</span> <span class="nx">b</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>のような処理を Promise で書こうとすると</p>
+
+<div class="code-frame" data-lang="ts"><div class="highlight"><pre><span class="kd">function</span> <span class="nx">main</span><span class="p">(){</span>
+  <span class="k">return</span> <span class="nx">getA</span><span class="p">().</span><span class="nx">then</span><span class="p">((</span><span class="nx">a</span><span class="p">)</span><span class="o">=&gt;</span>
+    <span class="nx">getB</span><span class="p">().</span><span class="nx">then</span><span class="p">((</span><span class="nx">b</span><span class="p">)</span><span class="o">=&gt;</span>
+      <span class="nx">a</span> <span class="o">+</span> <span class="nx">b</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>というように以前の前の Promise の返り値を利用するためにはクロージャを利用する必要があるため<br>
+ネストを深くせざるを得ないからである。<br>
+ではなぜ Promise をつかうのかというと、 then メソッドや Promise.all, Promise.race を使うことで非同期処理の演算ができるようになり、コールバックスタイルよりも表現力が上がるからである。</p>
+
+<ul>
+<li>参考: <a href="http://qiita.com/Kuniwak/items/9ea447598b7652db78b9" id="reference-b31e60ed55c678e3ee6c">Promise の all と race だけで書ける待ち合わせ、書けない待ち合わせ</a>
+</li>
+</ul>
+
+<p>最後に <code>sleep</code> を古き良きコールバックスタイルにし、これを継続渡し形式(CPS)で書いてみる。</p>
+
+<h2>
+<span id="cps版" class="fragment"></span><a href="#cps%E7%89%88"><i class="fa fa-link"></i></a>CPS版</h2>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="c1">// sleep: number -&gt; (number -&gt; void) -&gt; void</span>
+<span class="kd">function</span> <span class="nx">sleep</span><span class="p">(</span><span class="nx">ms</span><span class="p">,</span> <span class="nx">cb</span><span class="p">){</span>
+  <span class="nx">setTimeout</span><span class="p">((()</span><span class="o">=&gt;</span> <span class="nx">cb</span><span class="p">(</span><span class="nx">ms</span><span class="p">)),</span> <span class="nx">ms</span><span class="p">);</span>
+  <span class="k">return</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="c1">// main: void -&gt; Promise&lt;void&gt;</span>
+<span class="kd">function</span> <span class="nx">main</span><span class="p">(){</span>
+  <span class="nx">sleep</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="p">(</span><span class="nx">a</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span>
+    <span class="nx">alert</span><span class="p">(</span><span class="s2">`</span><span class="p">${</span><span class="nx">a</span><span class="p">}</span><span class="s2">ms passed`</span><span class="p">);</span>
+    <span class="nx">sleep</span><span class="p">(</span><span class="mi">2000</span><span class="p">,</span> <span class="p">(</span><span class="nx">b</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span>
+      <span class="nx">alert</span><span class="p">(</span><span class="s2">`</span><span class="p">${</span><span class="nx">b</span><span class="p">}</span><span class="s2">ms passed`</span><span class="p">);</span>
+      <span class="kd">let</span> <span class="nx">waitAll</span> <span class="o">=</span> <span class="nx">genWaitAll</span><span class="p">(</span><span class="nx">next</span><span class="p">);</span>
+      <span class="nx">sleep</span><span class="p">(</span><span class="mi">3000</span><span class="p">,</span> <span class="nx">waitAll</span><span class="p">());</span>
+      <span class="nx">sleep</span><span class="p">(</span><span class="mi">4000</span><span class="p">,</span> <span class="nx">waitAll</span><span class="p">());</span>
+      <span class="kd">function</span> <span class="nx">next</span><span class="p">([</span><span class="nx">c</span><span class="p">,</span> <span class="nx">d</span><span class="p">]){</span>
+        <span class="nx">alert</span><span class="p">(</span><span class="s2">`</span><span class="p">${</span><span class="nb">Math</span><span class="p">.</span><span class="nx">max</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span> <span class="nx">d</span><span class="p">)}</span><span class="s2">ms passed`</span><span class="p">);</span>
+        <span class="nx">alert</span><span class="p">(</span><span class="dl">'</span><span class="s1">done</span><span class="dl">'</span><span class="p">);</span>
+        <span class="k">return</span><span class="p">;</span>
+      <span class="p">}</span>
+    <span class="p">});</span>
+  <span class="p">});</span>
+<span class="p">};</span>
+
+<span class="c1">// genWaitAll: ([a] -&gt; void) -&gt; (void -&gt; (a -&gt; void))</span>
+<span class="kd">function</span> <span class="nx">genWaitAll</span><span class="p">(</span><span class="nx">next</span><span class="p">){</span>
+  <span class="kd">let</span> <span class="nx">results</span> <span class="o">=</span> <span class="p">[];</span>
+  <span class="kd">let</span> <span class="nx">counter</span> <span class="o">=</span> <span class="mi">0</span>
+  <span class="k">return</span> <span class="p">()</span><span class="o">=&gt;</span><span class="p">{</span>
+    <span class="kd">let</span> <span class="nx">i</span> <span class="o">=</span> <span class="nx">counter</span><span class="p">;</span>
+    <span class="nx">counter</span><span class="o">++</span><span class="p">;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="nx">ms</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span>
+      <span class="nx">results</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">=</span> <span class="nx">ms</span><span class="p">;</span>
+      <span class="nx">counter</span><span class="o">--</span><span class="p">;</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">counter</span> <span class="o">===</span> <span class="mi">0</span><span class="p">){</span>
+        <span class="nx">next</span><span class="p">(</span><span class="nx">results</span><span class="p">);</span>
+      <span class="p">}</span>
+    <span class="p">};</span>
+  <span class="p">}</span>
+<span class="p">};</span>
+
+<span class="nx">main</span><span class="p">();</span> <span class="c1">// return void;</span>
+</pre></div></div>
+
+<p>callback hell が起きている。<br>
+また、 <code>Promise.all</code> のやっていた同期待ち処理を <code>genWaitAll</code> のように手書きする必要がある。</p>
+
+<h2>
+<span id="モナドとか" class="fragment"></span><a href="#%E3%83%A2%E3%83%8A%E3%83%89%E3%81%A8%E3%81%8B"><i class="fa fa-link"></i></a>モナドとか</h2>
+
+<p><a href="https://qiita.com/DUxCA/items/0582e71f4e6984548933" id="reference-2d229e566df65c4b2944">JavaScript + generator で Maybe、 Either、 Promise モナドと do 構文を実装し async-await と比べてみる</a></p>

@@ -1,0 +1,44 @@
+<p>xstream をモナドとして do 記法を使う。</p>
+
+<div class="code-frame" data-lang="ts"><div class="highlight"><pre><span class="k">export</span> <span class="kd">function</span> <span class="nx">xsasync</span><span class="o">&lt;</span><span class="nx">RET</span><span class="p">,</span> <span class="nx">S</span><span class="p">,</span> <span class="nx">T</span><span class="o">&gt;</span><span class="p">(</span><span class="nx">generatorFunc</span><span class="p">:</span> <span class="p">(</span><span class="nx">arg</span><span class="p">?:</span> <span class="nx">S</span><span class="p">)</span><span class="o">=&gt;</span> <span class="nx">Iterator</span><span class="o">&lt;</span><span class="nx">Stream</span><span class="o">&lt;</span><span class="nx">T</span><span class="o">&gt;&gt;</span> <span class="p">):</span> <span class="p">(</span><span class="nx">arg</span><span class="p">?:</span> <span class="nx">S</span><span class="p">)</span><span class="o">=&gt;</span> <span class="nx">Stream</span><span class="o">&lt;</span><span class="nx">RET</span><span class="o">&gt;</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">arg</span><span class="p">?:</span> <span class="nx">S</span><span class="p">):</span> <span class="nx">Stream</span><span class="o">&lt;</span><span class="nx">RET</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">generator</span> <span class="o">=</span> <span class="nx">generatorFunc</span><span class="p">(</span><span class="nx">arg</span><span class="p">);</span>
+    <span class="k">return</span> <span class="o">&lt;</span><span class="nx">Stream</span><span class="o">&lt;</span><span class="nx">RET</span><span class="o">&gt;&gt;</span><span class="nx">next</span><span class="p">(</span><span class="kc">null</span><span class="p">);</span>
+    <span class="kd">function</span> <span class="nx">next</span><span class="p">(</span><span class="na">arg</span><span class="p">:</span> <span class="nx">T</span><span class="o">|</span><span class="kc">null</span><span class="p">):</span> <span class="nx">Stream</span><span class="o">&lt;</span><span class="nx">T</span><span class="o">|</span><span class="nx">RET</span><span class="o">&gt;</span><span class="p">{</span>
+      <span class="kd">const</span> <span class="nx">result</span> <span class="o">=</span> <span class="nx">generator</span><span class="p">.</span><span class="nx">next</span><span class="p">(</span><span class="nx">arg</span><span class="p">);</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">done</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">value</span> <span class="k">instanceof</span> <span class="nx">Stream</span><span class="p">)</span> <span class="p">{</span>
+          <span class="k">return</span> <span class="nx">result</span><span class="p">.</span><span class="nx">value</span><span class="p">;</span>
+        <span class="p">}</span><span class="k">else</span><span class="p">{</span>
+          <span class="k">return</span> <span class="nx">xs</span><span class="p">.</span><span class="k">of</span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">value</span><span class="p">);</span> <span class="c1">// return で done されたときは async に習って モナド で包む</span>
+        <span class="p">}</span>
+      <span class="p">}</span><span class="k">else</span><span class="p">{</span>
+        <span class="k">return</span> <span class="nx">result</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">map</span><span class="p">(</span><span class="nx">next</span><span class="p">).</span><span class="nx">flatten</span><span class="p">();</span> <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+
+
+<span class="kd">const</span> <span class="nx">hoge</span> <span class="o">=</span> <span class="nx">xsasync</span><span class="p">(</span><span class="kd">function</span> <span class="o">*</span> <span class="nx">_hoge</span><span class="p">(</span><span class="na">a</span><span class="p">:</span> <span class="nx">string</span><span class="p">):</span> <span class="nx">Iterator</span><span class="o">&lt;</span><span class="nx">Stream</span><span class="o">&lt;</span><span class="nx">string</span><span class="o">|</span><span class="nx">number</span><span class="o">&gt;&gt;</span> <span class="p">{</span>
+  <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">a</span><span class="dl">"</span><span class="p">,</span> <span class="nx">a</span><span class="p">);</span>
+  <span class="kd">const</span> <span class="nx">b</span> <span class="o">=</span> <span class="k">yield</span> <span class="nx">xs</span><span class="p">.</span><span class="k">of</span><span class="p">(</span><span class="dl">"</span><span class="s2">b</span><span class="dl">"</span><span class="p">);</span>
+  <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">b</span><span class="dl">"</span><span class="p">,</span> <span class="nx">b</span><span class="p">);</span>
+  <span class="kd">const</span> <span class="nx">c</span> <span class="o">=</span> <span class="k">yield</span> <span class="nx">xs</span><span class="p">.</span><span class="k">of</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+  <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">c</span><span class="dl">"</span><span class="p">,</span> <span class="nx">c</span><span class="p">);</span>
+  <span class="k">return</span> <span class="nx">xs</span><span class="p">.</span><span class="k">of</span><span class="p">(</span><span class="dl">"</span><span class="s2">fin</span><span class="dl">"</span><span class="p">);</span>
+<span class="p">});</span>
+
+<span class="nx">hoge</span><span class="p">(</span><span class="dl">"</span><span class="s2">a</span><span class="dl">"</span><span class="p">).</span><span class="nx">addListener</span><span class="p">({</span><span class="na">next</span><span class="p">:</span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">});</span>
+</pre></div></div>
+
+<p>結果</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>a a
+b b
+c 0
+fin
+</pre></div></div>
+
+<p><code>const b = yield xs.of("b");</code> の <code>b</code> に型がつかない問題がある。<br>
+<code>const b: string = yield xs.of("b");</code> と書けば ok</p>

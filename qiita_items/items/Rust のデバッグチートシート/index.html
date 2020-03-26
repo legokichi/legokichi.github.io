@@ -1,0 +1,585 @@
+
+<h1>
+<span id="rust-debugging-cheatsheet" class="fragment"></span><a href="#rust-debugging-cheatsheet"><i class="fa fa-link"></i></a>Rust Debugging Cheatsheet</h1>
+
+<h2>
+<span id="開発の基本" class="fragment"></span><a href="#%E9%96%8B%E7%99%BA%E3%81%AE%E5%9F%BA%E6%9C%AC"><i class="fa fa-link"></i></a>開発の基本</h2>
+
+<h3>
+<span id="vscode--rust-analyzer" class="fragment"></span><a href="#vscode--rust-analyzer"><i class="fa fa-link"></i></a>VSCode + rust-analyzer</h3>
+
+<p><a href="https://marketplace.visualstudio.com/items?itemName=matklad.rust-analyzer" class="autolink" rel="nofollow noopener" target="_blank">https://marketplace.visualstudio.com/items?itemName=matklad.rust-analyzer</a></p>
+
+<h3>
+<span id="フォーマッタ" class="fragment"></span><a href="#%E3%83%95%E3%82%A9%E3%83%BC%E3%83%9E%E3%83%83%E3%82%BF"><i class="fa fa-link"></i></a>フォーマッタ</h3>
+
+<ul>
+<li><code>cargo fmt</code></li>
+<li>
+<code>cargo tomlfmt</code> - <a href="https://github.com/tbrand/cargo-tomlfmt" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/tbrand/cargo-tomlfmt</a>
+</li>
+</ul>
+
+<h3>
+<span id="cargo-watch" class="fragment"></span><a href="#cargo-watch"><i class="fa fa-link"></i></a>cargo watch</h3>
+
+<p><a href="https://github.com/passcod/cargo-watch" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/passcod/cargo-watch</a></p>
+
+<ul>
+<li>
+<code>cargo watch -x clippy</code> - ファイル保存の度に lint</li>
+<li>
+<code>cargo watch -x test -- --nocapture</code> - ファイル保存の度にテスト(ログも表示)</li>
+<li>
+<code>cargo watch -x 'run -- --some-arg'</code> - ファイル保存の度に実行</li>
+<li>
+<code>env RUST_BACKTRACE=1 RUST_LOG=trace cargo watch -x test</code> - スタックトレース有効＆ env_logger 有効でコンパイル＆テスト
+
+<ul>
+<li>
+<code>RUST_LOG=tokio=info,mycrate=trace</code> のようにクレート単位で指定できる</li>
+</ul>
+</li>
+</ul>
+
+<h3>
+<span id="依存関係を最新に保つ" class="fragment"></span><a href="#%E4%BE%9D%E5%AD%98%E9%96%A2%E4%BF%82%E3%82%92%E6%9C%80%E6%96%B0%E3%81%AB%E4%BF%9D%E3%81%A4"><i class="fa fa-link"></i></a>依存関係を最新に保つ</h3>
+
+<ul>
+<li>
+<code>cargo outdated</code> - <a href="https://qiita.com/sinkuu/items/3ea25a942d80fce74a90#cargo-outdated-cargo-outdated" class="autolink" id="reference-63a55c9c1229c3f28612">https://qiita.com/sinkuu/items/3ea25a942d80fce74a90#cargo-outdated-cargo-outdated</a> -  <a href="https://github.com/kbknapp/cargo-outdated" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/kbknapp/cargo-outdated</a>
+</li>
+<li>
+<code>cargo update</code> - Cargo.toml の依存関係のバージョン制約内で最新に更新</li>
+<li>
+<code>cargo audit</code> - 依存クレートに脆弱性がないかチェック - <a href="https://github.com/RustSec/cargo-audit" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/RustSec/cargo-audit</a>
+</li>
+</ul>
+
+<h2>
+<span id="rust-のデバッグ" class="fragment"></span><a href="#rust-%E3%81%AE%E3%83%87%E3%83%90%E3%83%83%E3%82%B0"><i class="fa fa-link"></i></a>Rust のデバッグ</h2>
+
+<h3>
+<span id="変数の型名を取得" class="fragment"></span><a href="#%E5%A4%89%E6%95%B0%E3%81%AE%E5%9E%8B%E5%90%8D%E3%82%92%E5%8F%96%E5%BE%97"><i class="fa fa-link"></i></a>変数の型名を取得</h3>
+
+<p>関数 <code>the_answer_of_everything</code> 帰り値の型が知りたいとき</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">fn</span> <span class="nf">the_answer_of_everything</span><span class="p">()</span> <span class="k">-&gt;</span> <span class="nb">i32</span> <span class="p">{</span> <span class="mi">42</span> <span class="p">}</span>
+
+<span class="k">fn</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">let</span> <span class="mi">_</span> <span class="p">:()</span> <span class="o">=</span> <span class="nf">the_answer_of_everything</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>error[E0308]: mismatched types
+ --&gt; src/main.rs:4:15
+  |
+4 |   let _ :() = the_answer_of_everything();
+  |          --   ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `()`, found `i32`
+  |          |
+  |          expected due to this
+</pre></div></div>
+
+<ul>
+<li>rls や rust-analyzer が使えないときに便利</li>
+<li><a href="https://qiita.com/ubnt_intrepid/items/4995c51d1271cc9529f4" class="autolink" id="reference-5b7bdfd215b9c85e3dc9">https://qiita.com/ubnt_intrepid/items/4995c51d1271cc9529f4</a></li>
+</ul>
+
+<h3>
+<span id="コンパイラエラーコードの索引" class="fragment"></span><a href="#%E3%82%B3%E3%83%B3%E3%83%91%E3%82%A4%E3%83%A9%E3%82%A8%E3%83%A9%E3%83%BC%E3%82%B3%E3%83%BC%E3%83%89%E3%81%AE%E7%B4%A2%E5%BC%95"><i class="fa fa-link"></i></a>コンパイラエラーコードの索引</h3>
+
+<ul>
+<li>Rust Compiler Error Index - <a href="https://doc.rust-lang.org/error-index.html" class="autolink" rel="nofollow noopener" target="_blank">https://doc.rust-lang.org/error-index.html</a>
+</li>
+</ul>
+
+<h3>
+<span id="マクロ展開" class="fragment"></span><a href="#%E3%83%9E%E3%82%AF%E3%83%AD%E5%B1%95%E9%96%8B"><i class="fa fa-link"></i></a>マクロ展開</h3>
+
+<p>error-chain のような巨大なマクロが何をしているのか見るのに便利</p>
+
+<ul>
+<li>
+<code>cargo expand</code> - 全部展開</li>
+<li>
+<code>cargo expand -- main</code> - 特定の関数だけ展開</li>
+</ul>
+
+<h3>
+<span id="依存クレートのデバッグ" class="fragment"></span><a href="#%E4%BE%9D%E5%AD%98%E3%82%AF%E3%83%AC%E3%83%BC%E3%83%88%E3%81%AE%E3%83%87%E3%83%90%E3%83%83%E3%82%B0"><i class="fa fa-link"></i></a>依存クレートのデバッグ</h3>
+
+<ul>
+<li>doc.rs をよくよく読む
+
+<ul>
+<li>[src] ボタンで定義のソースコードが見ることができるので実装もよく読む</li>
+</ul>
+</li>
+<li>github などの issues を検索してよくよく調べる</li>
+<li>各クレートの issues, discord, gitter, slack, irc で訊いてみる</li>
+</ul>
+
+<h3>
+<span id="なんもわからんてなったとき" class="fragment"></span><a href="#%E3%81%AA%E3%82%93%E3%82%82%E3%82%8F%E3%81%8B%E3%82%89%E3%82%93%E3%81%A6%E3%81%AA%E3%81%A3%E3%81%9F%E3%81%A8%E3%81%8D"><i class="fa fa-link"></i></a>なんもわからん・・・てなったとき</h3>
+
+<ul>
+<li>rust コミュニティで訊いてみる
+
+<ul>
+<li>rust-jp slack - <a href="https://rust-jp.herokuapp.com/" class="autolink" rel="nofollow noopener" target="_blank">https://rust-jp.herokuapp.com/</a>
+</li>
+<li>rust の公式 discord - <a href="https://discordapp.com/invite/rust-lang" class="autolink" rel="nofollow noopener" target="_blank">https://discordapp.com/invite/rust-lang</a>
+</li>
+<li>ユーザフォーラム - <a href="https://users.rust-lang.org/" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/</a>
+</li>
+</ul>
+</li>
+</ul>
+
+<h2>
+<span id="実行バイナリ解析" class="fragment"></span><a href="#%E5%AE%9F%E8%A1%8C%E3%83%90%E3%82%A4%E3%83%8A%E3%83%AA%E8%A7%A3%E6%9E%90"><i class="fa fa-link"></i></a>実行バイナリ解析</h2>
+
+<ul>
+<li>とりあえず <a href="https://github.com/rust-embedded/cargo-binutils" rel="nofollow noopener" target="_blank">cargo-binutils</a> を入れておくこと</li>
+<li>linux のメモリマップについて知る
+
+<ul>
+<li>stack, heap, shared library - <a href="http://www.coins.tsukuba.ac.jp/~yas/coins/os2-2011/2012-01-24/index.html" class="autolink" rel="nofollow noopener" target="_blank">http://www.coins.tsukuba.ac.jp/~yas/coins/os2-2011/2012-01-24/index.html</a>
+</li>
+</ul>
+</li>
+<li>elf フォーマットについて知る</li>
+<li>共有ライブラリの仕組みについて知る</li>
+</ul>
+
+<p>おすすめの書籍</p>
+
+<ul>
+<li>電話帳より厚いことで有名な <a href="https://www.amazon.co.jp/Linux%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%9F%E3%83%B3%E3%82%B0%E3%82%A4%E3%83%B3%E3%82%BF%E3%83%95%E3%82%A7%E3%83%BC%E3%82%B9-Michael-Kerrisk/dp/487311585X" rel="nofollow noopener" target="_blank">Linuxプログラミングインタフェース</a> </li>
+<li>内容はハイレベルな <a href="https://www.amazon.co.jp/%E4%BD%8E%E3%83%AC%E3%83%99%E3%83%AB%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%9F%E3%83%B3%E3%82%B0-Igor-Zhirkov/dp/4798155039/" rel="nofollow noopener" target="_blank">低レベルプログラミング</a>
+</li>
+<li>入門には最適な <a href="https://www.amazon.co.jp/%E8%A9%A6%E3%81%97%E3%81%A6%E7%90%86%E8%A7%A3-Linux%E3%81%AE%E3%81%97%E3%81%8F%E3%81%BF-%E5%AE%9F%E9%A8%93%E3%81%A8%E5%9B%B3%E8%A7%A3%E3%81%A7%E5%AD%A6%E3%81%B6OS%E3%81%A8%E3%83%8F%E3%83%BC%E3%83%89%E3%82%A6%E3%82%A7%E3%82%A2%E3%81%AE%E5%9F%BA%E7%A4%8E%E7%9F%A5%E8%AD%98-%E6%AD%A6%E5%86%85-%E8%A6%9A/dp/477419607X" rel="nofollow noopener" target="_blank">Linuxのしくみ</a>
+</li>
+<li>古のテクニックが載っている <a href="https://www.amazon.co.jp/Binary-Hacks-%E2%80%95%E3%83%8F%E3%83%83%E3%82%AB%E3%83%BC%E7%A7%98%E4%BC%9D%E3%81%AE%E3%83%86%E3%82%AF%E3%83%8B%E3%83%83%E3%82%AF100%E9%81%B8-%E9%AB%98%E6%9E%97-%E5%93%B2/dp/4873112885" rel="nofollow noopener" target="_blank">Binary Hacks ―ハッカー秘伝のテクニック100選</a>
+</li>
+</ul>
+
+<h3>
+<span id="シンボル解析" class="fragment"></span><a href="#%E3%82%B7%E3%83%B3%E3%83%9C%E3%83%AB%E8%A7%A3%E6%9E%90"><i class="fa fa-link"></i></a>シンボル解析</h3>
+
+<ul>
+<li>
+<code>cargo nm -- --demangle /path/to/executable | less</code> - rust のシンボル名の一覧</li>
+<li>
+<code>strings /path/to/executable | less</code> - バイナリに含まれている文字列列挙</li>
+</ul>
+
+<h3>
+<span id="アセンブリ解析" class="fragment"></span><a href="#%E3%82%A2%E3%82%BB%E3%83%B3%E3%83%96%E3%83%AA%E8%A7%A3%E6%9E%90"><i class="fa fa-link"></i></a>アセンブリ解析</h3>
+
+<ul>
+<li>
+<code>cargo objdump -- -disassemble /path/to/executable | less</code> - rust の関数名とアセンブリの一覧</li>
+<li><code>cargo asm rr_sandbox::id --rust --build-type debug</code></li>
+<li><code>cargo llvm-ir rr_sandbox::main --rust --build-type debug</code></li>
+<li>
+<a href="https://rust.godbolt.org/" class="autolink" rel="nofollow noopener" target="_blank">https://rust.godbolt.org/</a> - オンライン rust asm ビューア</li>
+</ul>
+
+<h3>
+<span id="共有ライブラリ" class="fragment"></span><a href="#%E5%85%B1%E6%9C%89%E3%83%A9%E3%82%A4%E3%83%96%E3%83%A9%E3%83%AA"><i class="fa fa-link"></i></a>共有ライブラリ</h3>
+
+<ul>
+<li>
+<code>ldd /path/to/executable</code> - 共有ライブラリの依存関係</li>
+<li>
+<code>find ./ -name "*.so*" -print | xargs readelf -d</code> - 共有ライブラリのシンボルテーブルを探す</li>
+<li>
+<code>LD_DEBUG=all &lt;コマンドを実行&gt;</code> - 共有ライブラリの読み込みに関して大量のデバッグログが吐かれる</li>
+<li>
+<code>env | grep LD</code> - パスを調べる</li>
+<li>
+<code>readelf -a hogehoge.so | grep SONAME</code> - SONAME を調べる</li>
+<li>
+<code>find build/ -name '*so' | xargs ldd | less</code> - 依存関係を調べる</li>
+<li>
+<code>readelf -d /path/to/executable</code> - elf のダイナミックセクションの表示</li>
+</ul>
+
+<h3>
+<span id="elf" class="fragment"></span><a href="#elf"><i class="fa fa-link"></i></a>elf</h3>
+
+<ul>
+<li>
+<code>readelf -a /path/to/executable | less</code> - 全部表示</li>
+<li>
+<code>readelf -s /path/to/executable</code> - シンボルテーブル一覧</li>
+<li>
+<code>readelf -h /path/to/executable</code> - ELF ファイルヘッダ, ELFヘッダー情報</li>
+<li>
+<code>readelf -l /path/to/executable</code> - プログラムヘッダー情報</li>
+<li>
+<code>readelf -S /path/to/executable</code> - セクションヘッダー情報</li>
+<li>
+<code>readelf -A /path/to/executable</code> - アーキテクチャ固有情報、クロスコンパイル時に見る</li>
+</ul>
+
+<h3>
+<span id="システムコール" class="fragment"></span><a href="#%E3%82%B7%E3%82%B9%E3%83%86%E3%83%A0%E3%82%B3%E3%83%BC%E3%83%AB"><i class="fa fa-link"></i></a>システムコール</h3>
+
+<ul>
+<li>
+<code>strace -tt -T -f /path/to/executable</code> - システムコールの呼び出しをトレース</li>
+</ul>
+
+<h2>
+<span id="プロファイリング" class="fragment"></span><a href="#%E3%83%97%E3%83%AD%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AA%E3%83%B3%E3%82%B0"><i class="fa fa-link"></i></a>プロファイリング</h2>
+
+<p>まだちゃんと使ったことない</p>
+
+<h3>
+<span id="cargo-profiler" class="fragment"></span><a href="#cargo-profiler"><i class="fa fa-link"></i></a>cargo-profiler</h3>
+
+<ul>
+<li><a href="https://github.com/kernelmachine/cargo-profiler" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/kernelmachine/cargo-profiler</a></li>
+</ul>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre><span class="nb">sudo </span>apt-get <span class="nb">install </span>valgrind
+cargo <span class="nb">install </span>cargo-profiler
+</pre></div></div>
+
+<div class="code-frame" data-lang="sh"><div class="highlight"><pre>cargo profiler callgrind
+cargo profiler cachegrind <span class="nt">--release</span>
+</pre></div></div>
+
+<h3>
+<span id="thread-profilertcargo-binutils" class="fragment"></span><a href="#thread-profilertcargo-binutils"><i class="fa fa-link"></i></a>Thread Profilertcargo binutils</h3>
+
+<ul>
+<li><a href="https://github.com/glennw/thread_profiler" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/glennw/thread_profiler</a></li>
+</ul>
+
+<h2>
+<span id="rr--rust-gdb" class="fragment"></span><a href="#rr--rust-gdb"><i class="fa fa-link"></i></a>rr + rust-gdb</h2>
+
+<p>ステップ実行のリプレイが可能なデバッガ</p>
+
+<h3>
+<span id="usage" class="fragment"></span><a href="#usage"><i class="fa fa-link"></i></a>usage</h3>
+
+<ul>
+<li><code>rr record /path/to/executable</code></li>
+<li><code>rr replay -d rust-gdb</code></li>
+</ul>
+
+<h3>
+<span id="installation" class="fragment"></span><a href="#installation"><i class="fa fa-link"></i></a>installation</h3>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>echo 1 | sudo tee /proc/sys/kernel/perf_event_paranoid
+sudo apt update &amp;&amp; sudo apt install rr
+</pre></div></div>
+
+<h3>
+<span id="rr-references" class="fragment"></span><a href="#rr-references"><i class="fa fa-link"></i></a>rr references</h3>
+
+<ul>
+<li><a href="https://github.com/mozilla/rr/wiki/" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/mozilla/rr/wiki/</a></li>
+<li>using rust with rr - <a href="https://gist.github.com/spacejam/15f27007c0b1bcc1d6b4c9169b18868c" class="autolink" rel="nofollow noopener" target="_blank">https://gist.github.com/spacejam/15f27007c0b1bcc1d6b4c9169b18868c</a>
+</li>
+<li>/proc/sys/kernel/perf_event_paranoid - <a href="https://access.redhat.com/documentation/ja-jp/red_hat_enterprise_linux/7/html/7.3_release_notes/known_issues_compiler_and_tools" class="autolink" rel="nofollow noopener" target="_blank">https://access.redhat.com/documentation/ja-jp/red_hat_enterprise_linux/7/html/7.3_release_notes/known_issues_compiler_and_tools</a>
+</li>
+<li><a href="https://github.com/mozilla/rr/wiki/Using-rr-in-an-IDE" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/mozilla/rr/wiki/Using-rr-in-an-IDE</a></li>
+<li><a href="https://bitshifter.github.io/rr+rust/index.html" class="autolink" rel="nofollow noopener" target="_blank">https://bitshifter.github.io/rr+rust/index.html</a></li>
+</ul>
+
+<h3>
+<span id="gdbinit" class="fragment"></span><a href="#gdbinit"><i class="fa fa-link"></i></a>.gdbinit</h3>
+
+<p>現在の状態を見やすくするユーザスクリプト</p>
+
+<div class="code-frame" data-lang="text"><div class="highlight"><pre>wget -P ~ https://git.io/.gdbinit
+</pre></div></div>
+
+<h3>
+<span id="gdb-usage" class="fragment"></span><a href="#gdb-usage"><i class="fa fa-link"></i></a>gdb usage</h3>
+
+<h4>
+<span id="基本" class="fragment"></span><a href="#%E5%9F%BA%E6%9C%AC"><i class="fa fa-link"></i></a>基本</h4>
+
+<ul>
+<li>
+<code>run [args]</code> - <code>Start it from the beginning? (y or n)</code>
+</li>
+<li>
+<code>kill</code> - <code>Kill the program being debugged? (y or n)</code>
+</li>
+<li><code>quit</code></li>
+</ul>
+
+<h4>
+<span id="ブレイクポイントの管理" class="fragment"></span><a href="#%E3%83%96%E3%83%AC%E3%82%A4%E3%82%AF%E3%83%9D%E3%82%A4%E3%83%B3%E3%83%88%E3%81%AE%E7%AE%A1%E7%90%86"><i class="fa fa-link"></i></a>ブレイクポイントの管理</h4>
+
+<ul>
+<li>
+<code>break &lt;where&gt;</code> - ソースコードの n 行目にブレークポイントを入れる</li>
+<li>
+<code>info breakpoints</code> - ブレークポイントの一覧</li>
+<li>
+<code>delete n</code> - ブレークポイント番号 n を消す</li>
+<li>
+<code>clear</code> - 全部消す</li>
+<li>
+<code>enable n</code> - ブレークポイント番号 n を有効</li>
+<li>
+<code>continue n</code> 無効</li>
+</ul>
+
+<h4>
+<span id="ウオッチポイントの管理" class="fragment"></span><a href="#%E3%82%A6%E3%82%AA%E3%83%83%E3%83%81%E3%83%9D%E3%82%A4%E3%83%B3%E3%83%88%E3%81%AE%E7%AE%A1%E7%90%86"><i class="fa fa-link"></i></a>ウオッチポイントの管理</h4>
+
+<ul>
+<li><code>watch &lt;where&gt;</code></li>
+<li><code>info watchpoints</code></li>
+</ul>
+
+<h4>
+<span id="where-に指定できるもの" class="fragment"></span><a href="#where-%E3%81%AB%E6%8C%87%E5%AE%9A%E3%81%A7%E3%81%8D%E3%82%8B%E3%82%82%E3%81%AE"><i class="fa fa-link"></i></a>&lt;where&gt; に指定できるもの</h4>
+
+<ul>
+<li><code>&lt;function_name&gt;</code></li>
+<li><code>&lt;line_number&gt;</code></li>
+<li><code>&lt;file:line_number&gt;</code></li>
+</ul>
+
+<h4>
+<span id="スタックフレームの管理" class="fragment"></span><a href="#%E3%82%B9%E3%82%BF%E3%83%83%E3%82%AF%E3%83%95%E3%83%AC%E3%83%BC%E3%83%A0%E3%81%AE%E7%AE%A1%E7%90%86"><i class="fa fa-link"></i></a>(スタック)フレームの管理</h4>
+
+<ul>
+<li>
+<code>backtrace</code>
+
+<ul>
+<li>
+<code>where</code> - bt と同じ</li>
+<li>
+<code>backtrace full</code> - 呼び出しスタックを表示し、各フレームのローカル変数も出力します。</li>
+</ul>
+</li>
+<li>
+<code>info locals</code> - 局所変数</li>
+<li>
+<code>info args</code> - 関数の引数</li>
+<li>
+<code>whatis &lt;variable_name&gt;</code> - 変数の型を表示</li>
+</ul>
+
+<h4>
+<span id="プログラム変更" class="fragment"></span><a href="#%E3%83%97%E3%83%AD%E3%82%B0%E3%83%A9%E3%83%A0%E5%A4%89%E6%9B%B4"><i class="fa fa-link"></i></a>プログラム変更</h4>
+
+<ul>
+<li>
+<code>set variable &lt;variable_name&gt;=&lt;value&gt;</code> - 変数をセット
+
+<ul>
+<li>
+<code>set var &lt;variable_name&gt;=&lt;value&gt;</code> - 同上</li>
+<li>
+<code>set &lt;variable_name&gt;=&lt;value&gt;</code> - 同上</li>
+</ul>
+</li>
+<li>
+<code>return &lt;expression&gt;</code> - 現在の関数から強制リターン</li>
+</ul>
+
+<h4>
+<span id="ステッピングの管理" class="fragment"></span><a href="#%E3%82%B9%E3%83%86%E3%83%83%E3%83%94%E3%83%B3%E3%82%B0%E3%81%AE%E7%AE%A1%E7%90%86"><i class="fa fa-link"></i></a>ステッピングの管理</h4>
+
+<ul>
+<li>
+<code>s</code> - <code>step</code> - ステップ（呼び出された関数に入る）
+
+<ul>
+<li>
+<code>rs</code> - <code>reverse-step</code> - 逆のステップ</li>
+</ul>
+</li>
+<li>
+<code>n</code> - <code>next</code> - 次（呼び出された関数には入りません） 
+
+<ul>
+<li>
+<code>rn</code> - <code>reverse-next</code> - 次を逆に</li>
+</ul>
+</li>
+<li>
+<code>c</code> - <code>continue</code> - 次のブレークポイントまで続行
+
+<ul>
+<li>
+<code>rc</code> - <code>reverse-continue</code>
+</li>
+</ul>
+</li>
+<li>
+<code>si</code> - <code>stepi</code> - 1マシン命令を実行
+
+<ul>
+<li>
+<code>rsi</code> - <code>reverse-stepi</code>
+</li>
+</ul>
+</li>
+<li>
+<code>ni</code> - <code>nexti</code> - 1マシン命令を実行、関数呼び出しは無視
+
+<ul>
+<li>
+<code>rni</code> - <code>reverse-nexti</code>
+</li>
+</ul>
+</li>
+<li>
+<code>f</code> - <code>finish</code> - 現在の関数のリターンまで続行
+
+<ul>
+<li>
+<code>rf</code> - <code>reverse-finish</code>
+</li>
+</ul>
+</li>
+</ul>
+
+<h4>
+<span id="ソースコード" class="fragment"></span><a href="#%E3%82%BD%E3%83%BC%E3%82%B9%E3%82%B3%E3%83%BC%E3%83%89"><i class="fa fa-link"></i></a>ソースコード</h4>
+
+<ul>
+<li>
+<code>list</code> - 現在のポイントの周辺のソースコードを表示</li>
+<li>
+<code>disassemble (&lt;where&gt;)</code> - 現在または指定箇所のメモリ配置を表示</li>
+</ul>
+
+<h4>
+<span id="アセンブリ" class="fragment"></span><a href="#%E3%82%A2%E3%82%BB%E3%83%B3%E3%83%96%E3%83%AA"><i class="fa fa-link"></i></a>アセンブリ</h4>
+
+<ul>
+<li>
+<code>layout asm</code> - 全体をページャで表示</li>
+<li>
+<code>info sharedlibrary</code> - ロード済み共有ライブラリの一覧</li>
+</ul>
+
+<h4>
+<span id="シグナル" class="fragment"></span><a href="#%E3%82%B7%E3%82%B0%E3%83%8A%E3%83%AB"><i class="fa fa-link"></i></a>シグナル</h4>
+
+<ul>
+<li>
+<code>info signals</code> - シグナルのハンドリング状況
+
+<ul>
+<li>
+<code>info handle</code> 同上</li>
+</ul>
+</li>
+</ul>
+
+<h4>
+<span id="スレッド" class="fragment"></span><a href="#%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89"><i class="fa fa-link"></i></a>スレッド</h4>
+
+<ul>
+<li><code>info threads</code></li>
+</ul>
+
+<h3>
+<span id="gdb-references" class="fragment"></span><a href="#gdb-references"><i class="fa fa-link"></i></a>gdb references</h3>
+
+<ul>
+<li><a href="https://qiita.com/miyagaw61/items/4a4514e2de0b458c2589" class="autolink" id="reference-19330249efa7f93f6193">https://qiita.com/miyagaw61/items/4a4514e2de0b458c2589</a></li>
+<li><a href="https://darkdust.net/files/GDB%20Cheat%20Sheet.pdf" class="autolink" rel="nofollow noopener" target="_blank">https://darkdust.net/files/GDB%20Cheat%20Sheet.pdf</a></li>
+<li><a href="https://github.com/cyrus-and/gdb-dashboard" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/cyrus-and/gdb-dashboard</a></li>
+<li><a href="https://sourceware.org/gdb/onlinedocs/gdb/index.html#Top" class="autolink" rel="nofollow noopener" target="_blank">https://sourceware.org/gdb/onlinedocs/gdb/index.html#Top</a></li>
+<li><a href="https://sourceware.org/gdb/onlinedocs/gdb/Rust.html#Rust" class="autolink" rel="nofollow noopener" target="_blank">https://sourceware.org/gdb/onlinedocs/gdb/Rust.html#Rust</a></li>
+</ul>
+
+<h2>
+<span id="ネットワーク" class="fragment"></span><a href="#%E3%83%8D%E3%83%83%E3%83%88%E3%83%AF%E3%83%BC%E3%82%AF"><i class="fa fa-link"></i></a>ネットワーク</h2>
+
+<ul>
+<li>tcp/ip スタックについてよく知る</li>
+</ul>
+
+<h3>
+<span id="dns" class="fragment"></span><a href="#dns"><i class="fa fa-link"></i></a>DNS</h3>
+
+<ul>
+<li><code>nslookup google.com</code></li>
+<li>
+<code>dig google.com</code> - nslookup より詳しい</li>
+</ul>
+
+<h3>
+<span id="tcpdump" class="fragment"></span><a href="#tcpdump"><i class="fa fa-link"></i></a>tcpdump</h3>
+
+<p>actix-web の keep-alive がバグってるのを調べるのに使った</p>
+
+<ul>
+<li><code>sudo /usr/sbin/tcpdump -nnn -A dst port 10179 -w 10179.dump</code></li>
+<li><code>tcpdump -vvv -s 0 -nX tcp</code></li>
+</ul>
+
+<h3>
+<span id="ipポートプロトコルとプロセスの一覧" class="fragment"></span><a href="#ip%E3%83%9D%E3%83%BC%E3%83%88%E3%83%97%E3%83%AD%E3%83%88%E3%82%B3%E3%83%AB%E3%81%A8%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%AE%E4%B8%80%E8%A6%A7"><i class="fa fa-link"></i></a>ip、ポート、プロトコルとプロセスの一覧</h3>
+
+<ul>
+<li><code>netstat -anp</code></li>
+</ul>
+
+<h3>
+<span id="iptables-のルールやチェインの一覧" class="fragment"></span><a href="#iptables-%E3%81%AE%E3%83%AB%E3%83%BC%E3%83%AB%E3%82%84%E3%83%81%E3%82%A7%E3%82%A4%E3%83%B3%E3%81%AE%E4%B8%80%E8%A6%A7"><i class="fa fa-link"></i></a>iptables のルールやチェインの一覧</h3>
+
+<ul>
+<li><code>sudo iptables -vnL</code></li>
+</ul>
+
+<h3>
+<span id="ip-経路情報" class="fragment"></span><a href="#ip-%E7%B5%8C%E8%B7%AF%E6%83%85%E5%A0%B1"><i class="fa fa-link"></i></a>ip 経路情報</h3>
+
+<ul>
+<li><code>traceroute google,com</code></li>
+<li>
+<code>traceroute6 google,com</code> - NGN 閉域網で rumqtt が ipv6 につなぎにいってしまったときに使った</li>
+<li>
+<code>mtr google.com</code> - リッチな traceroute</li>
+</ul>
+
+<h3>
+<span id="ディレクトリファイルソケットを握ってるプロセスを調べる" class="fragment"></span><a href="#%E3%83%87%E3%82%A3%E3%83%AC%E3%82%AF%E3%83%88%E3%83%AA%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%BD%E3%82%B1%E3%83%83%E3%83%88%E3%82%92%E6%8F%A1%E3%81%A3%E3%81%A6%E3%82%8B%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%82%92%E8%AA%BF%E3%81%B9%E3%82%8B"><i class="fa fa-link"></i></a>ディレクトリ、ファイル、ソケットを握ってるプロセスを調べる</h3>
+
+<ul>
+<li>
+<code>sudo fuser --verbose ./foo</code> - foo を握ってるプロセスを調べる</li>
+<li>
+<code>fuser --namespace tcp 8080</code> tcp 8000 を握ってるプロセスを調べる</li>
+<li>
+<code>sudo fuser -k 8000/tcp</code> - ポート掴んでるプロセスを殺す</li>
+</ul>
+
+<h2>
+<span id="ブートログカーネルログシステムログ" class="fragment"></span><a href="#%E3%83%96%E3%83%BC%E3%83%88%E3%83%AD%E3%82%B0%E3%82%AB%E3%83%BC%E3%83%8D%E3%83%AB%E3%83%AD%E3%82%B0%E3%82%B7%E3%82%B9%E3%83%86%E3%83%A0%E3%83%AD%E3%82%B0"><i class="fa fa-link"></i></a>ブートログ、カーネルログ、システムログ</h2>
+
+<ul>
+<li>
+<code>sudo less /var/log/boot.log</code> - ブートログ</li>
+<li>
+<code>dmesg</code> - カーネルログ</li>
+<li>
+<code>journalctl</code> - systemd のログ</li>
+</ul>
+
+<h1>
+<span id="todo" class="fragment"></span><a href="#todo"><i class="fa fa-link"></i></a>todo</h1>
+
+<ul>
+<li>wasm</li>
+<li>cross compile</li>
+</ul>

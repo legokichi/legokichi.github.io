@@ -1,0 +1,26 @@
+<p>co のような try-catch できる async</p>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="kd">function</span> <span class="k">async</span><span class="p">(</span><span class="nx">generatorFunc</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">new</span> <span class="nb">Promise</span><span class="p">((</span><span class="nx">resolve</span><span class="p">,</span> <span class="nx">reject</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span>
+      <span class="kd">const</span> <span class="nx">generator</span> <span class="o">=</span> <span class="nx">generatorFunc</span><span class="p">.</span><span class="nx">apply</span><span class="p">(</span><span class="k">this</span><span class="p">,</span> <span class="nx">arguments</span><span class="p">);</span>
+      <span class="k">if</span><span class="p">(</span><span class="o">!</span><span class="nx">generator</span><span class="p">){</span> <span class="k">return</span> <span class="nx">resolve</span><span class="p">(</span><span class="nx">generator</span><span class="p">);</span> <span class="p">}</span>
+      <span class="k">if</span><span class="p">(</span><span class="k">typeof</span> <span class="nx">generator</span><span class="p">.</span><span class="nx">next</span> <span class="o">!==</span> <span class="dl">'</span><span class="s1">function</span><span class="dl">'</span><span class="p">){</span> <span class="k">return</span> <span class="nx">resolve</span><span class="p">(</span><span class="nx">generator</span><span class="p">)</span> <span class="p">}</span>
+      <span class="k">return</span> <span class="nx">onFulfilled</span><span class="p">();</span>
+      <span class="kd">function</span> <span class="nx">next</span><span class="p">(</span><span class="nx">result</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">done</span><span class="p">)</span> <span class="k">return</span> <span class="nx">resolve</span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">value</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">value</span> <span class="k">instanceof</span> <span class="nb">Promise</span><span class="p">){</span> <span class="k">return</span> <span class="nx">result</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">then</span><span class="p">(</span><span class="nx">onFulfilled</span><span class="p">,</span> <span class="nx">onRejected</span><span class="p">);</span> <span class="p">}</span>
+        <span class="k">return</span> <span class="nb">Promise</span><span class="p">.</span><span class="nx">resolve</span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">value</span><span class="p">);</span>
+      <span class="p">}</span>
+      <span class="kd">function</span> <span class="nx">onFulfilled</span><span class="p">(</span><span class="nx">res</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">try</span><span class="p">{</span> <span class="nx">next</span><span class="p">(</span><span class="nx">generator</span><span class="p">.</span><span class="nx">next</span><span class="p">(</span><span class="nx">res</span><span class="p">));</span> <span class="p">}</span>
+        <span class="k">catch</span><span class="p">(</span><span class="nx">e</span><span class="p">){</span> <span class="nx">reject</span><span class="p">(</span><span class="nx">e</span><span class="p">);</span> <span class="p">}</span>
+      <span class="p">}</span>
+      <span class="kd">function</span> <span class="nx">onRejected</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">try</span><span class="p">{</span> <span class="nx">next</span><span class="p">(</span><span class="nx">generator</span><span class="p">.</span><span class="k">throw</span><span class="p">(</span><span class="nx">err</span><span class="p">));</span> <span class="p">}</span>
+        <span class="k">catch</span><span class="p">(</span><span class="nx">e</span><span class="p">){</span> <span class="nx">reject</span><span class="p">(</span><span class="nx">e</span><span class="p">);</span> <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">});</span>
+  <span class="p">};</span>
+<span class="p">}</span>
+</pre></div></div>

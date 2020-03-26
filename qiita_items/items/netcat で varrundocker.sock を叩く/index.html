@@ -1,0 +1,60 @@
+
+<h1>
+<span id="netcat-で-tcp-を-bash-から叩く" class="fragment"></span><a href="#netcat-%E3%81%A7-tcp-%E3%82%92-bash-%E3%81%8B%E3%82%89%E5%8F%A9%E3%81%8F"><i class="fa fa-link"></i></a>netcat で tcp を bash から叩く</h1>
+
+<p>netcat はシェルの標準入出力から TCP|UDP を叩くことができるコマンドです。<br>
+HTTP サーバや HTTP クライアントも作ることができます。<br>
+<code>-U</code> オプションを使えば unix domain socket も叩くことができます。</p>
+
+<h2>
+<span id="http-サーバ" class="fragment"></span><a href="#http-%E3%82%B5%E3%83%BC%E3%83%90"><i class="fa fa-link"></i></a>HTTP サーバ</h2>
+
+<div class="code-frame" data-lang="bash"><div class="highlight"><pre><span class="c">#!/bin/bash</span>
+nc <span class="nt">-l</span> 8080 <span class="nt">-q0</span> <span class="o">&lt;&lt;</span> <span class="sh">'</span><span class="no">EOF</span><span class="sh">'
+HTTP/1.1 200 Ok
+Connection: close
+content-type: plain/text
+Hello World
+</span><span class="no">
+EOF
+</span></pre></div></div>
+
+<p><code>-q0</code> で STDIN の EOF を検出したら0秒で終了します</p>
+
+<h2>
+<span id="http-クライアント" class="fragment"></span><a href="#http-%E3%82%AF%E3%83%A9%E3%82%A4%E3%82%A2%E3%83%B3%E3%83%88"><i class="fa fa-link"></i></a>HTTP クライアント</h2>
+
+<div class="code-frame" data-lang="bash"><div class="highlight"><pre><span class="c">#!/bin/bash</span>
+nc localhost 8080 <span class="nt">-q1</span> <span class="o">&lt;&lt;</span><span class="sh">'</span><span class="no">EOF</span><span class="sh">'
+GET / HTTP/1.1
+Host: localhost:8080
+</span><span class="no">
+EOF
+</span></pre></div></div>
+
+<p>サーバの応答を待つために 1 秒だけ待っています</p>
+
+<h2>
+<span id="unix-domain-socket-を叩く" class="fragment"></span><a href="#unix-domain-socket-%E3%82%92%E5%8F%A9%E3%81%8F"><i class="fa fa-link"></i></a>unix domain socket を叩く</h2>
+
+<p>/var/run/docker.sock も叩けます</p>
+
+<div class="code-frame" data-lang="bash"><div class="highlight"><pre><span class="c">#!/bin/bash</span>
+nc <span class="nt">-U</span> /var/run/docker.sock <span class="nt">-q1</span> <span class="o">&lt;&lt;</span><span class="sh">'</span><span class="no">EOF</span><span class="sh">'
+GET /containers/json?all=1&amp;size=1 HTTP/1.1
+Host: localhost:8080
+</span><span class="no">
+EOF
+</span></pre></div></div>
+
+<p>デバッグなどに便利ですね</p>
+
+<h2>
+<span id="参考" class="fragment"></span><a href="#%E5%8F%82%E8%80%83"><i class="fa fa-link"></i></a>参考</h2>
+
+<ul>
+<li><a href="https://orebibou.com/2015/11/ncnetcat%E3%82%B3%E3%83%9E%E3%83%B3%E3%83%89%E3%81%A7%E8%A6%9A%E3%81%88%E3%81%A6%E3%81%8A%E3%81%8D%E3%81%9F%E3%81%84%E4%BD%BF%E3%81%84%E6%96%B98%E5%80%8B/" class="autolink" rel="nofollow noopener" target="_blank">https://orebibou.com/2015/11/ncnetcat%E3%82%B3%E3%83%9E%E3%83%B3%E3%83%89%E3%81%A7%E8%A6%9A%E3%81%88%E3%81%A6%E3%81%8A%E3%81%8D%E3%81%9F%E3%81%84%E4%BD%BF%E3%81%84%E6%96%B98%E5%80%8B/</a></li>
+<li><a href="http://blog.livedoor.jp/sonots/archives/34703829.html" class="autolink" rel="nofollow noopener" target="_blank">http://blog.livedoor.jp/sonots/archives/34703829.html</a></li>
+<li><a href="https://unix.stackexchange.com/questions/189454/netcat-doesnt-terminate-when-stdin-closes" class="autolink" rel="nofollow noopener" target="_blank">https://unix.stackexchange.com/questions/189454/netcat-doesnt-terminate-when-stdin-closes</a></li>
+<li><a href="https://stackoverflow.com/questions/1270027/how-can-i-close-a-netcat-connection-after-a-certain-character-is-returned-in-the" class="autolink" rel="nofollow noopener" target="_blank">https://stackoverflow.com/questions/1270027/how-can-i-close-a-netcat-connection-after-a-certain-character-is-returned-in-the</a></li>
+</ul>

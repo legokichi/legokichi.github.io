@@ -1,0 +1,59 @@
+<p><a href="https://play.rust-lang.org" class="autolink" rel="nofollow noopener" target="_blank">https://play.rust-lang.org</a></p>
+
+<p>では下記のいずれかの条件を満たした crate をインポートして使うことができます。</p>
+
+<ul>
+<li>crates.io で最もよくダウンロードされている上位100位 - <a href="https://crates.io/crates?sort=downloads" class="autolink" rel="nofollow noopener" target="_blank">https://crates.io/crates?sort=downloads</a>
+</li>
+<li>rust-cookbook で使われいるクレート - <a href="https://rust-lang-nursery.github.io/rust-cookbook/" class="autolink" rel="nofollow noopener" target="_blank">https://rust-lang-nursery.github.io/rust-cookbook/</a>
+</li>
+<li>それらの依存関係のクレート</li>
+</ul>
+
+<p>futures + tokio_core を使った例です - <a href="https://play.rust-lang.org/?gist=9d639631527653dee35c1f4174497c62&amp;version=stable&amp;mode=debug&amp;edition=2015" class="autolink" rel="nofollow noopener" target="_blank">https://play.rust-lang.org/?gist=9d639631527653dee35c1f4174497c62&amp;version=stable&amp;mode=debug&amp;edition=2015</a></p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">extern</span> <span class="n">crate</span> <span class="n">futures</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">tokio_core</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">futures</span><span class="p">::</span><span class="nn">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">tokio_core</span><span class="p">::</span><span class="nn">reactor</span><span class="p">::</span><span class="n">Core</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">tokio_core</span><span class="p">::</span><span class="nn">reactor</span><span class="p">::</span><span class="n">Timeout</span><span class="p">;</span>
+
+<span class="k">fn</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nd">println!</span><span class="p">(</span><span class="s">"tokio_core"</span><span class="p">);</span>
+    <span class="k">let</span> <span class="k">mut</span> <span class="n">core</span> <span class="o">=</span> <span class="nn">Core</span><span class="p">::</span><span class="nf">new</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">();</span>
+    <span class="k">let</span> <span class="n">handle</span> <span class="o">=</span> <span class="n">core</span><span class="nf">.handle</span><span class="p">();</span>
+    <span class="n">core</span><span class="nf">.run</span><span class="p">(</span>
+        <span class="nn">Timeout</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="o">&amp;</span><span class="n">handle</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">()</span>
+            <span class="nf">.and_then</span><span class="p">(</span><span class="k">move</span> <span class="p">|</span><span class="mi">_</span><span class="p">|{</span>
+                <span class="nd">println!</span><span class="p">(</span><span class="s">"1"</span><span class="p">);</span>
+                <span class="nn">Timeout</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="o">&amp;</span><span class="n">handle</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">()</span>
+                    <span class="nf">.and_then</span><span class="p">(</span><span class="k">move</span> <span class="p">|</span><span class="mi">_</span><span class="p">|{</span>
+                        <span class="nd">println!</span><span class="p">(</span><span class="s">"2"</span><span class="p">);</span>
+                        <span class="nn">Timeout</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="o">&amp;</span><span class="n">handle</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">()</span>
+                            <span class="nf">.and_then</span><span class="p">(</span><span class="k">move</span> <span class="p">|</span><span class="mi">_</span><span class="p">|{</span>
+                                <span class="nd">println!</span><span class="p">(</span><span class="s">"3"</span><span class="p">);</span>
+                                <span class="nn">futures</span><span class="p">::</span><span class="nn">future</span><span class="p">::</span><span class="nf">ok</span><span class="p">(())</span>
+                            <span class="p">})</span>
+                    <span class="p">})</span>
+            <span class="p">})</span>
+            <span class="nf">.map_err</span><span class="p">(|</span><span class="n">err</span><span class="p">|</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"{:?}"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span> <span class="p">)</span>
+    <span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
+    <span class="nd">println!</span><span class="p">(</span><span class="s">"end"</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<p>残念ながら <a href="https://qiita.com/DUxCA/items/8ab8693e3ae3078fab24" id="reference-4843385599d6d420dcda">rust の非同期 IO ライブラリ tokio-core と tokio runtime と actix 0.5 と actix 0.6 でタイマーの比較</a> で多様した mdo は含まれていないので↑のように手動でマクロ展開する必要があります。</p>
+
+<p><del>すごいライブラリ作って上位100位に入って mdo を依存関係に入れれば使えるようになる</del> </p>
+
+<p>ace エディタがスマホから入力するのが辛い問題はありますが、ちょっとした挙動の検証に何かと便利なのではないでしょうか。</p>
+
+<h2>
+<span id="参考" class="fragment"></span><a href="#%E5%8F%82%E8%80%83"><i class="fa fa-link"></i></a>参考</h2>
+
+<ul>
+<li>その他の情報はこの help ページで見れます - <a href="https://play.rust-lang.org/help" class="autolink" rel="nofollow noopener" target="_blank">https://play.rust-lang.org/help</a>
+</li>
+</ul>

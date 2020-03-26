@@ -1,0 +1,203 @@
+
+<h2>
+<span id="tokio-core" class="fragment"></span><a href="#tokio-core"><i class="fa fa-link"></i></a>tokio-core</h2>
+
+<p>今後使うことはもうないであろう tokio-core のタイムアウトの例です<br>
+メインスレッドでイベントループを回しています。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">extern</span> <span class="n">crate</span> <span class="n">futures</span><span class="p">;</span>
+<span class="nd">#[macro_use]</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">mdo</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">mdo_future</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">tokio_core</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">futures</span><span class="p">::</span><span class="nn">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">mdo_future</span><span class="p">::</span><span class="nn">future</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">tokio_core</span><span class="p">::</span><span class="nn">reactor</span><span class="p">::</span><span class="n">Core</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">tokio_core</span><span class="p">::</span><span class="nn">reactor</span><span class="p">::</span><span class="n">Timeout</span><span class="p">;</span>
+
+<span class="k">fn</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="nd">println!</span><span class="p">(</span><span class="s">"tokio_core"</span><span class="p">);</span>
+    <span class="k">let</span> <span class="k">mut</span> <span class="n">core</span> <span class="o">=</span> <span class="nn">Core</span><span class="p">::</span><span class="nf">new</span><span class="p">()</span><span class="nf">.unwrap</span><span class="p">();</span>
+    <span class="k">let</span> <span class="n">handle</span> <span class="o">=</span> <span class="n">core</span><span class="nf">.handle</span><span class="p">();</span>
+    <span class="n">core</span><span class="nf">.run</span><span class="p">(</span><span class="nd">mdo!</span><span class="p">{</span>
+        <span class="mi">_</span> <span class="o">=&lt;&lt;</span> <span class="nn">Timeout</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="o">&amp;</span><span class="n">handle</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
+        <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"1"</span><span class="p">);</span>
+        <span class="mi">_</span> <span class="o">=&lt;&lt;</span> <span class="nn">Timeout</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="o">&amp;</span><span class="n">handle</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
+        <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"2"</span><span class="p">);</span>
+        <span class="mi">_</span> <span class="o">=&lt;&lt;</span> <span class="nn">Timeout</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="o">&amp;</span><span class="n">handle</span><span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
+        <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"3"</span><span class="p">);</span>
+        <span class="n">ret</span> <span class="nf">ret</span><span class="p">(())</span>
+    <span class="p">}</span><span class="nf">.map_err</span><span class="p">(|</span><span class="n">err</span><span class="p">|</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"{:?}"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span> <span class="p">)</span> <span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
+    <span class="nd">println!</span><span class="p">(</span><span class="s">"end"</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="tokio-runtime" class="fragment"></span><a href="#tokio-runtime"><i class="fa fa-link"></i></a>tokio runtime</h2>
+
+<p>開発中の tokio runtime の tokio-timer を使った実装です。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">extern</span> <span class="n">crate</span> <span class="n">futures</span><span class="p">;</span>
+<span class="nd">#[macro_use]</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">mdo</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">mdo_future</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">tokio</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">tokio_timer</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">futures</span><span class="p">::</span><span class="nn">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">mdo_future</span><span class="p">::</span><span class="nn">future</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+
+<span class="k">fn</span> <span class="nf">main</span><span class="p">(){</span>
+    <span class="nd">println!</span><span class="p">(</span><span class="s">"tokio runtime"</span><span class="p">);</span>
+    <span class="nn">tokio</span><span class="p">::</span><span class="nf">run</span><span class="p">(</span><span class="nd">mdo!</span><span class="p">{</span>
+        <span class="mi">_</span> <span class="o">=&lt;&lt;</span> <span class="p">::</span><span class="nn">tokio_timer</span><span class="p">::</span><span class="nf">sleep</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">));</span>
+        <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"1"</span><span class="p">);</span>
+        <span class="mi">_</span> <span class="o">=&lt;&lt;</span> <span class="p">::</span><span class="nn">tokio_timer</span><span class="p">::</span><span class="nf">sleep</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">));</span>
+        <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"2"</span><span class="p">);</span>
+        <span class="mi">_</span> <span class="o">=&lt;&lt;</span> <span class="p">::</span><span class="nn">tokio_timer</span><span class="p">::</span><span class="nf">sleep</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">));</span>
+        <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"3"</span><span class="p">);</span>
+        <span class="n">ret</span> <span class="nf">ret</span><span class="p">(())</span>
+    <span class="p">}</span><span class="nf">.map_err</span><span class="p">(|</span><span class="n">err</span><span class="p">|</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"{:?}"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span> <span class="p">));</span>
+    <span class="nd">println!</span><span class="p">(</span><span class="s">"end"</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="actix-05" class="fragment"></span><a href="#actix-05"><i class="fa fa-link"></i></a>actix 0.5</h2>
+
+<p>もう使うことはないであろう actix 0.5 の例。<br>
+actix 0.5 は内部では tokio-core を使っています。<br>
+tokio runtime が出る以前に開発がスタートしたので内部でアクター実行のための独自 runtime を持っています（詳しくないです）<br>
+開発中の actix 0.6 は tokio runtime を使っているので API も変わっています。</p>
+
+<p>システムアクターのイベントループで timeout を使う例です。<br>
+Arbiter を介して tokio-core のイベントループが動いてるスレッドのリモートハンドラを取得して使います</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">extern</span> <span class="n">crate</span> <span class="n">futures</span><span class="p">;</span>
+<span class="nd">#[macro_use]</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">mdo</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">mdo_future</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">tokio_core</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">actix</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">futures</span><span class="p">::</span><span class="nn">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">mdo_future</span><span class="p">::</span><span class="nn">future</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">actix</span><span class="p">::</span><span class="nn">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">tokio_core</span><span class="p">::</span><span class="nn">reactor</span><span class="p">::</span><span class="n">Timeout</span><span class="p">;</span>
+
+<span class="k">fn</span> <span class="nf">main</span><span class="p">(){</span>
+    <span class="nd">println!</span><span class="p">(</span><span class="s">"actix 0.5"</span><span class="p">);</span>
+    <span class="k">let</span> <span class="n">sys</span> <span class="o">=</span> <span class="nn">System</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="s">"system"</span><span class="p">);</span>
+    <span class="nn">Arbiter</span><span class="p">::</span><span class="nf">handle</span><span class="p">()</span><span class="nf">.spawn</span><span class="p">(</span><span class="nd">mdo!</span><span class="p">{</span>
+        <span class="mi">_</span> <span class="o">=&lt;&lt;</span> <span class="nn">Timeout</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="nn">Arbiter</span><span class="p">::</span><span class="nf">handle</span><span class="p">())</span><span class="nf">.unwrap</span><span class="p">();</span>
+        <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"1"</span><span class="p">);</span>
+        <span class="mi">_</span> <span class="o">=&lt;&lt;</span> <span class="nn">Timeout</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="nn">Arbiter</span><span class="p">::</span><span class="nf">handle</span><span class="p">())</span><span class="nf">.unwrap</span><span class="p">();</span>
+        <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"2"</span><span class="p">);</span>
+        <span class="mi">_</span> <span class="o">=&lt;&lt;</span> <span class="nn">Timeout</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="nn">Arbiter</span><span class="p">::</span><span class="nf">handle</span><span class="p">())</span><span class="nf">.unwrap</span><span class="p">();</span>
+        <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"3"</span><span class="p">);</span>
+        <span class="n">ret</span> <span class="nf">ret</span><span class="p">(</span><span class="nn">Arbiter</span><span class="p">::</span><span class="nf">system</span><span class="p">()</span><span class="nf">.do_send</span><span class="p">(</span><span class="nn">actix</span><span class="p">::</span><span class="nn">msgs</span><span class="p">::</span><span class="nf">SystemExit</span><span class="p">(</span><span class="mi">0</span><span class="p">)))</span>
+    <span class="p">}</span><span class="nf">.map_err</span><span class="p">(|</span><span class="n">err</span><span class="p">|</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"{:?}"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span> <span class="p">)</span> <span class="p">);</span>
+    <span class="n">sys</span><span class="nf">.run</span><span class="p">();</span>
+    <span class="nd">println!</span><span class="p">(</span><span class="s">"end"</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="actix-06" class="fragment"></span><a href="#actix-06"><i class="fa fa-link"></i></a>actix 0.6</h2>
+
+<p>actix 0.6 は内部で tokio runtime を使ってるので tokio runtime の API がそのまま使えます。</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">extern</span> <span class="n">crate</span> <span class="n">futures</span><span class="p">;</span>
+<span class="nd">#[macro_use]</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">mdo</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">mdo_future</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">tokio</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">tokio_timer</span><span class="p">;</span>
+<span class="k">extern</span> <span class="n">crate</span> <span class="n">actix</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">futures</span><span class="p">::</span><span class="nn">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">mdo_future</span><span class="p">::</span><span class="nn">future</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">actix</span><span class="p">::</span><span class="nn">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+
+<span class="k">fn</span> <span class="nf">main</span><span class="p">(){</span>
+    <span class="nd">println!</span><span class="p">(</span><span class="s">"actix 0.6"</span><span class="p">);</span>
+    <span class="nn">System</span><span class="p">::</span><span class="nf">run</span><span class="p">(||</span> <span class="p">{</span>
+        <span class="nn">tokio</span><span class="p">::</span><span class="nf">spawn</span><span class="p">(</span><span class="nd">mdo!</span><span class="p">{</span>
+            <span class="mi">_</span> <span class="o">=&lt;&lt;</span> <span class="p">::</span><span class="nn">tokio_timer</span><span class="p">::</span><span class="nf">sleep</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">));</span>
+            <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"1"</span><span class="p">);</span>
+            <span class="mi">_</span> <span class="o">=&lt;&lt;</span> <span class="p">::</span><span class="nn">tokio_timer</span><span class="p">::</span><span class="nf">sleep</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">));</span>
+            <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"2"</span><span class="p">);</span>
+            <span class="mi">_</span> <span class="o">=&lt;&lt;</span> <span class="p">::</span><span class="nn">tokio_timer</span><span class="p">::</span><span class="nf">sleep</span><span class="p">(</span><span class="nn">Duration</span><span class="p">::</span><span class="nf">from_secs</span><span class="p">(</span><span class="mi">1</span><span class="p">));</span>
+            <span class="k">let</span> <span class="mi">_</span> <span class="o">=</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"3"</span><span class="p">);</span>
+            <span class="n">ret</span> <span class="nf">ret</span><span class="p">(</span><span class="nn">System</span><span class="p">::</span><span class="nf">current</span><span class="p">()</span><span class="nf">.stop</span><span class="p">())</span>
+        <span class="p">}</span><span class="nf">.map_err</span><span class="p">(|</span><span class="n">err</span><span class="p">|</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"{:?}"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span> <span class="p">));</span>
+    <span class="p">});</span>
+    <span class="nd">println!</span><span class="p">(</span><span class="s">"end"</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<h2>
+<span id="非同期-io-のフレンズ紹介と感想" class="fragment"></span><a href="#%E9%9D%9E%E5%90%8C%E6%9C%9F-io-%E3%81%AE%E3%83%95%E3%83%AC%E3%83%B3%E3%82%BA%E7%B4%B9%E4%BB%8B%E3%81%A8%E6%84%9F%E6%83%B3"><i class="fa fa-link"></i></a>非同期 IO のフレンズ紹介と感想</h2>
+
+<p>ここに出てくるライブラリの知見は年末までには様変わりしていそうで諸行無常</p>
+
+<ul>
+<li>futures 0.1 : tokio-core と合わせて開発された mio を利用したゼロコストフューチャーライブラリ
+
+<ul>
+<li>Rust 2018 で標準ライブラリに future が入るので死が宣告されている</li>
+</ul>
+</li>
+<li>mdo-future : モナドの do 構文を実現するためのシンプルなマクロライブラリ mdo を使ってfutures の and_then ネストを軽減するライブラリ
+
+<ul>
+<li>Rust 2018 で言語に async-await 構文が入るの死が宣告されている</li>
+</ul>
+</li>
+<li>tokio-core : 2016-2017 年に開発されていた非同期IOのためのシングルスレッドイベントループライブラリ
+
+<ul>
+<li>tokio runtime の登場で死が宣告されている</li>
+</ul>
+</li>
+<li>tokio runtime : 2018 年に開発がスタートした非同期IOのためのマルチスレッドイベントループライブラリ
+
+<ul>
+<li>Rust 2018 で future の型が変わるので futures 0.1 ベースの API に死が宣告されている</li>
+</ul>
+</li>
+<li>actix 0.5 : 2017-2018 年に tokio-core をベースに開発されていたマルチスレッドアクターシステム
+
+<ul>
+<li>actix 0.6 の登場で死が宣告されている</li>
+</ul>
+</li>
+<li>actix 0.6 : tokio-core をやめて tokio runtime をベースにしたマルチスレッドアクターシステム
+
+<ul>
+<li>Rust 2018 で future の型が変わるので futures 0.1 ベースの API に死が宣告されている</li>
+</ul>
+</li>
+</ul>
+
+<p>砂上の楼閣……</p>
+
+<h2>
+<span id="バージョン情報" class="fragment"></span><a href="#%E3%83%90%E3%83%BC%E3%82%B8%E3%83%A7%E3%83%B3%E6%83%85%E5%A0%B1"><i class="fa fa-link"></i></a>バージョン情報</h2>
+
+<ul>
+<li>futures 0.1.21</li>
+<li>mdo 0.3.0</li>
+<li>mdo-future 0.2.0</li>
+<li>tokio-core 0.1.17</li>
+<li>tokio 0.1.7</li>
+<li>tokio-timer 0.2.4</li>
+<li>actix 0.5.8</li>
+<li>actix 0.6.1</li>
+<li>rustc 1.27.0 (3eda71b00 2018-06-19)</li>
+</ul>

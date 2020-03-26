@@ -1,0 +1,104 @@
+<div class="code-frame" data-lang="c"><div class="highlight"><pre><span class="cp">#include &lt;SoftwareSerial.h&gt;;
+</span><span class="n">SoftwareSerial</span> <span class="nf">device</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">);</span>
+
+<span class="kt">void</span> <span class="nf">setup</span><span class="p">(){</span>
+  <span class="n">Serial</span><span class="p">.</span><span class="n">begin</span><span class="p">(</span><span class="mi">115200</span><span class="p">);</span>
+  <span class="n">device</span><span class="p">.</span><span class="n">begin</span><span class="p">(</span><span class="mi">115200</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="nf">loop</span><span class="p">(){</span>
+  <span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">Serial</span><span class="p">.</span><span class="n">available</span><span class="p">();</span>
+  <span class="k">while</span><span class="p">(</span><span class="n">i</span><span class="o">--</span><span class="p">){</span>
+    <span class="n">device</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">Serial</span><span class="p">.</span><span class="n">read</span><span class="p">());</span>
+  <span class="p">}</span>
+  <span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="n">device</span><span class="p">.</span><span class="n">available</span><span class="p">();</span>
+  <span class="k">while</span><span class="p">(</span><span class="n">j</span><span class="o">--</span><span class="p">){</span>
+    <span class="n">Serial</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">device</span><span class="p">.</span><span class="n">read</span><span class="p">());</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<div class="code-frame" data-lang="json"><div class="highlight"><pre><span class="p">{</span><span class="w">
+  </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"node-roomba"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.0.0"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"main"</span><span class="p">:</span><span class="w"> </span><span class="s2">"index.js"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"scripts"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"test"</span><span class="p">:</span><span class="w"> </span><span class="s2">"echo </span><span class="se">\"</span><span class="s2">Error: no test specified</span><span class="se">\"</span><span class="s2"> &amp;&amp; exit 1"</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"author"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"license"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ISC"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"dependencies"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"serialport"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^7.1.3"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></pre></div></div>
+
+<div class="code-frame" data-lang="js"><div class="highlight"><pre><span class="kd">const</span> <span class="nx">SerialPort</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="dl">"</span><span class="s2">serialport</span><span class="dl">"</span><span class="p">);</span>
+
+<span class="k">async</span> <span class="kd">function</span> <span class="nx">main</span><span class="p">(){</span>
+    <span class="kd">const</span> <span class="nx">ports</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">SerialPort</span><span class="p">.</span><span class="nx">list</span><span class="p">();</span>
+    <span class="kd">const</span> <span class="nx">arduinoPorts</span> <span class="o">=</span> <span class="nx">ports</span><span class="p">.</span><span class="nx">filter</span><span class="p">((</span><span class="nx">o</span><span class="p">)</span><span class="o">=&gt;</span> <span class="nx">o</span><span class="p">.</span><span class="nx">manufacturer</span> <span class="o">===</span> <span class="dl">"</span><span class="s2">Arduino (www.arduino.cc)</span><span class="dl">"</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nx">arduinoPorts</span><span class="p">.</span><span class="nx">length</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">){</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="dl">"</span><span class="s2">arduino not found</span><span class="dl">"</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">arduinoPorts</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+    <span class="kd">const</span> <span class="nx">serial</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">SerialPort</span><span class="p">(</span><span class="nx">arduinoPorts</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">comName</span><span class="p">,</span> <span class="p">{</span>
+        <span class="na">baudRate</span><span class="p">:</span> <span class="mi">115200</span><span class="p">,</span>
+    <span class="p">});</span>
+    <span class="nx">serial</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="dl">'</span><span class="s1">open</span><span class="dl">'</span><span class="p">,</span> <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="nx">console</span><span class="p">,</span> <span class="dl">"</span><span class="s2">open</span><span class="dl">"</span><span class="p">));</span>
+    <span class="nx">serial</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="dl">'</span><span class="s1">error</span><span class="dl">'</span><span class="p">,</span> <span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="nx">console</span><span class="p">,</span> <span class="dl">"</span><span class="s2">error</span><span class="dl">"</span><span class="p">));</span>
+    <span class="nx">serial</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="dl">'</span><span class="s1">close</span><span class="dl">'</span><span class="p">,</span> <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="nx">console</span><span class="p">,</span> <span class="dl">"</span><span class="s2">close</span><span class="dl">"</span><span class="p">));</span>
+    <span class="nx">serial</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="dl">'</span><span class="s1">data</span><span class="dl">'</span><span class="p">,</span> <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="nx">console</span><span class="p">,</span> <span class="dl">"</span><span class="s2">data</span><span class="dl">"</span><span class="p">));</span>
+    <span class="nx">serial</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="dl">'</span><span class="s1">drain</span><span class="dl">'</span><span class="p">,</span> <span class="nx">console</span><span class="p">.</span><span class="nx">info</span><span class="p">.</span><span class="nx">bind</span><span class="p">(</span><span class="nx">console</span><span class="p">,</span> <span class="dl">"</span><span class="s2">drain</span><span class="dl">"</span><span class="p">));</span>
+    <span class="k">await</span> <span class="k">new</span> <span class="nb">Promise</span><span class="p">((</span><span class="nx">resolve</span><span class="p">,</span> <span class="nx">reject</span><span class="p">)</span><span class="o">=&gt;</span> <span class="nx">serial</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="dl">'</span><span class="s1">open</span><span class="dl">'</span><span class="p">,</span> <span class="nx">resolve</span><span class="p">));</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">serial</span><span class="p">.</span><span class="nx">isOpen</span><span class="p">);</span>
+    <span class="k">await</span> <span class="k">new</span> <span class="nb">Promise</span><span class="p">((</span><span class="nx">resolve</span><span class="p">)</span><span class="o">=&gt;</span> <span class="nx">setTimeout</span><span class="p">(</span><span class="nx">resolve</span><span class="p">,</span> <span class="mi">1000</span><span class="p">));</span>
+
+    <span class="kd">let</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">31</span><span class="p">;</span>
+    <span class="k">while</span><span class="p">(</span><span class="kc">true</span><span class="p">){</span>
+        <span class="k">if</span><span class="p">(</span><span class="nx">i</span> <span class="o">&gt;</span> <span class="mi">107</span><span class="p">)</span> <span class="p">{</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">31</span><span class="p">;</span> <span class="p">}</span>
+        <span class="nx">serial</span><span class="p">.</span><span class="nx">write</span><span class="p">([</span>
+            <span class="mi">128</span><span class="p">,</span> <span class="c1">// Start</span>
+            <span class="mi">131</span><span class="p">,</span> <span class="c1">// Safe</span>
+            <span class="mi">140</span><span class="p">,</span> <span class="c1">// Song</span>
+            <span class="mi">0</span><span class="p">,</span> <span class="c1">// Song Number</span>
+            <span class="mi">1</span><span class="p">,</span> <span class="c1">// Song Length</span>
+            <span class="nx">i</span><span class="o">++</span><span class="p">,</span> <span class="c1">// Note Number</span>
+            <span class="mi">8</span><span class="p">,</span> <span class="c1">// Duration</span>
+        <span class="p">]);</span>
+        <span class="nx">serial</span><span class="p">.</span><span class="nx">write</span><span class="p">([</span>
+            <span class="mi">128</span><span class="p">,</span> <span class="c1">// Start</span>
+            <span class="mi">131</span><span class="p">,</span> <span class="c1">// Safe</span>
+            <span class="mi">141</span><span class="p">,</span> <span class="c1">// Song</span>
+            <span class="mi">0</span><span class="p">,</span> <span class="c1">// Song Number</span>
+        <span class="p">]);</span>
+        <span class="nx">serial</span><span class="p">.</span><span class="nx">once</span><span class="p">(</span><span class="dl">"</span><span class="s2">data</span><span class="dl">"</span><span class="p">,</span> <span class="p">(</span><span class="nx">buf</span><span class="p">)</span><span class="o">=&gt;</span><span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nx">buf</span><span class="p">.</span><span class="nx">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">){</span>
+                <span class="kd">const</span> <span class="nx">byte</span> <span class="o">=</span> <span class="nx">buf</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+                <span class="kd">const</span> <span class="nx">bumpRight</span> <span class="o">=</span> <span class="p">(</span><span class="nx">byte</span> <span class="o">&amp;</span> <span class="mb">0b00000001</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">;</span>
+                <span class="kd">const</span> <span class="nx">bumpLeft</span> <span class="o">=</span> <span class="p">(</span><span class="nx">byte</span> <span class="o">&amp;</span> <span class="mb">0b00000010</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">;</span>
+                <span class="kd">const</span> <span class="nx">wheelDropRight</span> <span class="o">=</span> <span class="p">(</span><span class="nx">byte</span> <span class="o">&amp;</span> <span class="mb">0b00000100</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">;</span>
+                <span class="kd">const</span> <span class="nx">wheelDropLeft</span> <span class="o">=</span> <span class="p">(</span><span class="nx">byte</span> <span class="o">&amp;</span> <span class="mb">0b00001000</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">;</span>
+                <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">({</span><span class="nx">bumpLeft</span><span class="p">,</span> <span class="nx">bumpRight</span><span class="p">,</span> <span class="nx">wheelDropLeft</span><span class="p">,</span> <span class="nx">wheelDropRight</span><span class="p">});</span>
+            <span class="p">}</span>
+        <span class="p">});</span>
+        <span class="nx">serial</span><span class="p">.</span><span class="nx">write</span><span class="p">([</span>
+            <span class="mi">128</span><span class="p">,</span> <span class="c1">// Start</span>
+            <span class="mi">131</span><span class="p">,</span> <span class="c1">// Safe</span>
+            <span class="mi">142</span><span class="p">,</span> <span class="c1">// Sensor</span>
+            <span class="mi">7</span><span class="p">,</span> <span class="c1">// Bumps and Wheel Drops</span>
+        <span class="p">]);</span>
+        <span class="k">await</span> <span class="k">new</span> <span class="nb">Promise</span><span class="p">((</span><span class="nx">resolve</span><span class="p">)</span><span class="o">=&gt;</span> <span class="nx">setTimeout</span><span class="p">(</span><span class="nx">resolve</span><span class="p">,</span> <span class="mi">1000</span><span class="p">));</span>
+    <span class="p">}</span>
+
+    <span class="k">while</span><span class="p">(</span><span class="kc">true</span><span class="p">){</span>
+        <span class="nx">serial</span><span class="p">.</span><span class="nx">write</span><span class="p">([</span>
+            <span class="mi">173</span><span class="p">,</span> <span class="c1">// Stop</span>
+        <span class="p">]);</span>
+        <span class="k">await</span> <span class="k">new</span> <span class="nb">Promise</span><span class="p">((</span><span class="nx">resolve</span><span class="p">)</span><span class="o">=&gt;</span> <span class="nx">setTimeout</span><span class="p">(</span><span class="nx">resolve</span><span class="p">,</span> <span class="mi">1000</span><span class="p">));</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">main</span><span class="p">().</span><span class="k">catch</span><span class="p">(</span><span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">);</span>
+</pre></div></div>

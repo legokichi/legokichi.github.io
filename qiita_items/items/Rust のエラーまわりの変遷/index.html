@@ -1,0 +1,870 @@
+<p><a href="https://rust.connpass.com/event/133657/" rel="nofollow noopener" target="_blank">Rust LT #6</a> で発表したスライド</p>
+
+<h1>
+<span id="error-トレイトについて" class="fragment"></span><a href="#error-%E3%83%88%E3%83%AC%E3%82%A4%E3%83%88%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6"><i class="fa fa-link"></i></a><code>Error</code> トレイトについて</h1>
+
+<hr>
+
+<h2>
+<span id="stderrorerror-トレイトとは" class="fragment"></span><a href="#stderrorerror-%E3%83%88%E3%83%AC%E3%82%A4%E3%83%88%E3%81%A8%E3%81%AF"><i class="fa fa-link"></i></a><code>std::error::Error</code> トレイトとは</h2>
+
+<ul>
+<li><a href="https://github.com/rust-lang/rfcs/blob/master/text/0201-error-chaining.md" rel="nofollow noopener" target="_blank">2014 年 10 月 にRFC 入りしたトレイト (rfcs#201)</a></li>
+<li><strong><a href="https://blog.rust-lang.org/2015/05/15/Rust-1.0.html" rel="nofollow noopener" target="_blank">Rust 1.0 の半年前</a></strong></li>
+<li>
+<code>Box&lt;dyn Error&gt;</code> として使うことを想定</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="error-トレイト" class="fragment"></span><a href="#error-%E3%83%88%E3%83%AC%E3%82%A4%E3%83%88"><i class="fa fa-link"></i></a><code>Error</code> トレイト</h2>
+
+<p>こんなの</p>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="k">pub</span> <span class="k">trait</span> <span class="n">Error</span><span class="p">:</span> <span class="n">Debug</span> <span class="o">+</span> <span class="n">Display</span> <span class="p">{</span>
+    <span class="k">fn</span> <span class="nf">description</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="o">&amp;</span><span class="nb">str</span><span class="p">;</span>
+    <span class="k">fn</span> <span class="nf">cause</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="n">dyn</span> <span class="nn">std</span><span class="p">::</span><span class="nn">error</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="errordescription-でエラーの内容を表示できる" class="fragment"></span><a href="#errordescription-%E3%81%A7%E3%82%A8%E3%83%A9%E3%83%BC%E3%81%AE%E5%86%85%E5%AE%B9%E3%82%92%E8%A1%A8%E7%A4%BA%E3%81%A7%E3%81%8D%E3%82%8B"><i class="fa fa-link"></i></a><code>Error::description</code> でエラーの内容を表示できる</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="nd">println!</span><span class="p">(</span><span class="s">"{}"</span><span class="p">,</span> <span class="n">err</span><span class="nf">.description</span><span class="p">());</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="errorcause-でエラーの元を辿れる-cause-chain" class="fragment"></span><a href="#errorcause-%E3%81%A7%E3%82%A8%E3%83%A9%E3%83%BC%E3%81%AE%E5%85%83%E3%82%92%E8%BE%BF%E3%82%8C%E3%82%8B-cause-chain"><i class="fa fa-link"></i></a><code>Error::cause</code> でエラーの元を辿れる (cause chain)</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="k">let</span> <span class="k">mut</span> <span class="n">cause</span> <span class="o">=</span> <span class="n">err</span><span class="nf">.cause</span><span class="p">();</span>
+<span class="k">while</span> <span class="k">let</span> <span class="nf">Some</span><span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="o">=</span> <span class="n">cause</span> <span class="p">{</span>
+  <span class="nd">println!</span><span class="p">(</span><span class="s">"{}"</span><span class="p">,</span> <span class="n">err</span><span class="nf">.description</span><span class="p">());</span>
+  <span class="n">cause</span> <span class="o">=</span> <span class="n">err</span><span class="nf">.cause</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h2>
+<span id="error-トレイトの問題点" class="fragment"></span><a href="#error-%E3%83%88%E3%83%AC%E3%82%A4%E3%83%88%E3%81%AE%E5%95%8F%E9%A1%8C%E7%82%B9"><i class="fa fa-link"></i></a><code>Error</code> トレイトの問題点</h2>
+
+<hr>
+
+<h3>
+<span id="1-error-と-debug-と-display-トレイトを実装しないといけない" class="fragment"></span><a href="#1-error-%E3%81%A8-debug-%E3%81%A8-display-%E3%83%88%E3%83%AC%E3%82%A4%E3%83%88%E3%82%92%E5%AE%9F%E8%A3%85%E3%81%97%E3%81%AA%E3%81%84%E3%81%A8%E3%81%84%E3%81%91%E3%81%AA%E3%81%84"><i class="fa fa-link"></i></a>1. <code>Error</code> と <code>Debug</code> と <code>Display</code> トレイトを実装しないといけない</h3>
+
+<p>Error を derive できない（※当時は derive macro などなかった）</p>
+
+<hr>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="nd">#[derive(Debug)]</span>
+<span class="k">enum</span> <span class="n">MyError</span> <span class="p">{</span>
+    <span class="nf">Io</span><span class="p">(</span><span class="nn">std</span><span class="p">::</span><span class="nn">io</span><span class="p">::</span><span class="n">Error</span><span class="p">),</span>
+    <span class="nf">Parse</span><span class="p">(</span><span class="nn">std</span><span class="p">::</span><span class="nn">num</span><span class="p">::</span><span class="n">ParseIntError</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="c">// ボイラープレート</span>
+<span class="c">// pub trait Error: Debug + Display { ... }</span>
+<span class="k">impl</span> <span class="nn">std</span><span class="p">::</span><span class="nn">error</span><span class="p">::</span><span class="n">Error</span> <span class="k">for</span> <span class="n">MyError</span> <span class="p">{</span>
+    <span class="k">fn</span> <span class="nf">description</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="o">&amp;</span><span class="nb">str</span> <span class="p">{</span>
+        <span class="k">match</span> <span class="o">*</span><span class="k">self</span> <span class="p">{</span>
+            <span class="nn">MyError</span><span class="p">::</span><span class="nf">Io</span><span class="p">(</span><span class="k">ref</span> <span class="n">err</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="n">err</span><span class="nf">.description</span><span class="p">(),</span>
+            <span class="nn">MyError</span><span class="p">::</span><span class="nf">Parse</span><span class="p">(</span><span class="k">ref</span> <span class="n">err</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="n">err</span><span class="nf">.description</span><span class="p">(),</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">fn</span> <span class="nf">cause</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="nn">std</span><span class="p">::</span><span class="nn">error</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span> <span class="p">{</span>
+        <span class="k">match</span> <span class="o">*</span><span class="k">self</span> <span class="p">{</span>
+            <span class="nn">MyError</span><span class="p">::</span><span class="nf">Io</span><span class="p">(</span><span class="k">ref</span> <span class="n">err</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="nf">Some</span><span class="p">(</span><span class="n">err</span><span class="p">),</span>
+            <span class="nn">MyError</span><span class="p">::</span><span class="nf">Parse</span><span class="p">(</span><span class="k">ref</span> <span class="n">err</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="nf">Some</span><span class="p">(</span><span class="n">err</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="nn">std</span><span class="p">::</span><span class="nn">fmt</span><span class="p">::</span><span class="n">Display</span> <span class="k">for</span> <span class="n">MyError</span> <span class="p">{</span>
+    <span class="k">fn</span> <span class="nf">fmt</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="o">&amp;</span><span class="k">mut</span> <span class="nn">std</span><span class="p">::</span><span class="nn">fmt</span><span class="p">::</span><span class="n">Formatter</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nn">std</span><span class="p">::</span><span class="nn">fmt</span><span class="p">::</span><span class="n">Result</span> <span class="p">{</span>
+        <span class="k">match</span> <span class="o">*</span><span class="k">self</span> <span class="p">{</span>
+            <span class="nn">MyError</span><span class="p">::</span><span class="nf">Io</span><span class="p">(</span><span class="k">ref</span> <span class="n">err</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="nd">write!</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="s">"ファイル開けへんやんけ: {}"</span><span class="p">,</span> <span class="n">err</span><span class="p">),</span>
+            <span class="nn">MyError</span><span class="p">::</span><span class="nf">Parse</span><span class="p">(</span><span class="k">ref</span> <span class="n">err</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="nd">write!</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="s">"パースできへんやんけ: {}"</span><span class="p">,</span> <span class="n">err</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="2-スタックトレースがとれない" class="fragment"></span><a href="#2-%E3%82%B9%E3%82%BF%E3%83%83%E3%82%AF%E3%83%88%E3%83%AC%E3%83%BC%E3%82%B9%E3%81%8C%E3%81%A8%E3%82%8C%E3%81%AA%E3%81%84"><i class="fa fa-link"></i></a>2. スタックトレースがとれない</h3>
+
+<p>このエラーはどこから来たのかなんもわからん</p>
+
+<hr>
+
+<h3>
+<span id="3-errordescription-と-display-で役割が被ってる" class="fragment"></span><a href="#3-errordescription-%E3%81%A8-display-%E3%81%A7%E5%BD%B9%E5%89%B2%E3%81%8C%E8%A2%AB%E3%81%A3%E3%81%A6%E3%82%8B"><i class="fa fa-link"></i></a>3. <code>Error::description</code> と <code>Display</code> で役割が被ってる</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="c">// 何が違うの？</span>
+<span class="nd">println!</span><span class="p">(</span><span class="s">"{}"</span><span class="p">,</span> <span class="n">err</span><span class="nf">.description</span><span class="p">());</span>
+<span class="nd">println!</span><span class="p">(</span><span class="s">"{}"</span><span class="p">,</span> <span class="n">err</span><span class="p">);</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="4-cause-チェーンがイテラブルでない" class="fragment"></span><a href="#4-cause-%E3%83%81%E3%82%A7%E3%83%BC%E3%83%B3%E3%81%8C%E3%82%A4%E3%83%86%E3%83%A9%E3%83%96%E3%83%AB%E3%81%A7%E3%81%AA%E3%81%84"><i class="fa fa-link"></i></a>4. cause チェーンがイテラブルでない</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="c">// なぜそこで while</span>
+<span class="k">let</span> <span class="k">mut</span> <span class="n">cause</span> <span class="o">=</span> <span class="n">err</span><span class="nf">.cause</span><span class="p">();</span>
+<span class="k">while</span> <span class="k">let</span> <span class="nf">Some</span><span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="o">=</span> <span class="n">cause</span> <span class="p">{</span>
+  <span class="n">cause</span> <span class="o">=</span> <span class="n">err</span><span class="nf">.cause</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="5-元のエラー型にダウンキャストできない" class="fragment"></span><a href="#5-%E5%85%83%E3%81%AE%E3%82%A8%E3%83%A9%E3%83%BC%E5%9E%8B%E3%81%AB%E3%83%80%E3%82%A6%E3%83%B3%E3%82%AD%E3%83%A3%E3%82%B9%E3%83%88%E3%81%A7%E3%81%8D%E3%81%AA%E3%81%84"><i class="fa fa-link"></i></a>5. 元のエラー型にダウンキャストできない</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="c">// Error::cause の戻り値に 'static がついてない</span>
+<span class="k">let</span> <span class="n">cause</span><span class="p">:</span> <span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="n">Error</span><span class="o">&gt;</span> <span class="o">=</span> <span class="n">err</span><span class="nf">.cause</span><span class="p">();</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="6-send-も-sync-も-static-ない" class="fragment"></span><a href="#6-send-%E3%82%82-sync-%E3%82%82-static-%E3%81%AA%E3%81%84"><i class="fa fa-link"></i></a>6. Send も Sync も 'static ない</h3>
+
+<p>tokio などで使うのが大変</p>
+
+<hr>
+
+<h2>
+<span id="結論-error-トレイトは問題だらけなので" class="fragment"></span><a href="#%E7%B5%90%E8%AB%96-error-%E3%83%88%E3%83%AC%E3%82%A4%E3%83%88%E3%81%AF%E5%95%8F%E9%A1%8C%E3%81%A0%E3%82%89%E3%81%91%E3%81%AA%E3%81%AE%E3%81%A7"><i class="fa fa-link"></i></a>結論: <code>Error</code> トレイトは問題だらけなので……</h2>
+
+<ul>
+<li>error-chain
+
+<ul>
+<li>問題だらけの <code>Error</code> を使うためのベストプラクティス </li>
+</ul>
+</li>
+<li>failure
+
+<ul>
+<li> そもそも <code>Error</code> なんて使わんきゃええ</li>
+</ul>
+</li>
+<li>RFC2504, "Fix the Error Trait"
+
+<ul>
+<li> いっそ <code>Error</code> を改善しよう </li>
+</ul>
+</li>
+</ul>
+
+<hr>
+
+<h1>
+<span id="error-chain-について" class="fragment"></span><a href="#error-chain-%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6"><i class="fa fa-link"></i></a>error-chain について</h1>
+
+<hr>
+
+<h2>
+<span id="error-chain-クレート" class="fragment"></span><a href="#error-chain-%E3%82%AF%E3%83%AC%E3%83%BC%E3%83%88"><i class="fa fa-link"></i></a>error-chain クレート</h2>
+
+<ul>
+<li>Rust 1.0 の半年後の <a href="https://users.rust-lang.org/t/announcing-error-chain-a-library-for-consistent-and-reliable-rust-error-handling/6133" rel="nofollow noopener" target="_blank">2016 年 1 月に作られた</a>
+</li>
+<li><a href="https://users.rust-lang.org/t/error-chain-is-no-longer-maintained/27561" rel="nofollow noopener" target="_blank">3 年後の 2019 年に開発停止</a></li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="error_chain-マクロ" class="fragment"></span><a href="#error_chain-%E3%83%9E%E3%82%AF%E3%83%AD"><i class="fa fa-link"></i></a><code>error_chain!</code> マクロ</h3>
+
+<p>マクロで <code>Error</code> トレイトのボイラープレートを一括生成できる</p>
+
+<hr>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="nd">error_chain!</span><span class="p">{</span>
+  <span class="n">types</span> <span class="p">{</span>  <span class="n">MyError</span><span class="p">,</span> <span class="n">MyErrorKind</span><span class="p">,</span> <span class="n">MyResultExt</span><span class="p">,</span> <span class="n">MyResult</span><span class="p">;</span> <span class="p">}</span>
+  <span class="n">links</span> <span class="p">{</span>
+    <span class="nf">Another</span><span class="p">(</span><span class="n">AnotherError</span><span class="p">,</span> <span class="n">AnotherErrorKind</span><span class="p">);</span>
+  <span class="p">}</span>
+  <span class="n">foreign_links</span> <span class="p">{</span>
+    <span class="nf">Io</span><span class="p">(::</span><span class="nn">std</span><span class="p">::</span><span class="nn">io</span><span class="p">::</span><span class="n">Error</span><span class="p">);</span>
+  <span class="p">}</span>
+  <span class="n">errors</span> <span class="p">{</span>
+    <span class="nf">CannotOpenFile</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span> <span class="p">{</span>
+      <span class="nf">description</span><span class="p">(</span><span class="s">"cannot open file"</span><span class="p">)</span>
+      <span class="nf">display</span><span class="p">(</span><span class="s">"CannotOpenFile: '{}'"</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="この-error_chain-マクロで生成されるコードは" class="fragment"></span><a href="#%E3%81%93%E3%81%AE-error_chain-%E3%83%9E%E3%82%AF%E3%83%AD%E3%81%A7%E7%94%9F%E6%88%90%E3%81%95%E3%82%8C%E3%82%8B%E3%82%B3%E3%83%BC%E3%83%89%E3%81%AF"><i class="fa fa-link"></i></a>この <code>error_chain!</code> マクロで生成されるコードは……</h3>
+
+<hr>
+
+<h3>
+<span id="error-トレイトを実装した-myerror-構造体" class="fragment"></span><a href="#error-%E3%83%88%E3%83%AC%E3%82%A4%E3%83%88%E3%82%92%E5%AE%9F%E8%A3%85%E3%81%97%E3%81%9F-myerror-%E6%A7%8B%E9%80%A0%E4%BD%93"><i class="fa fa-link"></i></a><code>Error</code> トレイトを実装した <code>MyError</code> 構造体</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="k">pub</span> <span class="k">struct</span> <span class="n">MyError</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="k">impl</span> <span class="n">MyError</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="c">// Error トレイト の実装</span>
+<span class="k">impl</span> <span class="n">Error</span> <span class="k">for</span> <span class="n">MyError</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="k">impl</span> <span class="n">Debug</span> <span class="k">for</span> <span class="n">MyError</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="k">impl</span> <span class="n">Display</span> <span class="k">for</span> <span class="n">MyError</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="エラー原因を保持するための-myerrorkind-列挙体" class="fragment"></span><a href="#%E3%82%A8%E3%83%A9%E3%83%BC%E5%8E%9F%E5%9B%A0%E3%82%92%E4%BF%9D%E6%8C%81%E3%81%99%E3%82%8B%E3%81%9F%E3%82%81%E3%81%AE-myerrorkind-%E5%88%97%E6%8C%99%E4%BD%93"><i class="fa fa-link"></i></a>エラー原因を保持するための <code>MyErrorKind</code> 列挙体</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="k">pub</span> <span class="k">enum</span> <span class="n">MyErrorKind</span> <span class="p">{</span>
+  <span class="nf">Msg</span><span class="p">(</span><span class="nb">String</span><span class="p">),</span>
+  <span class="nf">Another</span><span class="p">(</span><span class="n">AnotherErrorKind</span><span class="p">),</span>
+  <span class="nf">Io</span><span class="p">(::</span><span class="nn">std</span><span class="p">::</span><span class="nn">io</span><span class="p">::</span><span class="n">Error</span><span class="p">),</span>
+  <span class="nf">CannotOpenFile</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">String</span><span class="p">),</span>
+<span class="p">}</span>
+<span class="k">impl</span> <span class="n">MyErrorKind</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="k">impl</span> <span class="n">Debug</span> <span class="k">for</span> <span class="n">MyErrorKind</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="k">impl</span> <span class="n">Display</span> <span class="k">for</span> <span class="n">MyErrorKind</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="error_chainchainederror-拡張トレイトの実装" class="fragment"></span><a href="#error_chainchainederror-%E6%8B%A1%E5%BC%B5%E3%83%88%E3%83%AC%E3%82%A4%E3%83%88%E3%81%AE%E5%AE%9F%E8%A3%85"><i class="fa fa-link"></i></a><code>error_chain::ChainedError</code> 拡張トレイトの実装</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="k">impl</span> <span class="nn">error_chain</span><span class="p">::</span><span class="n">ChainedError</span> <span class="k">for</span> <span class="n">MyError</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="chainederror-を-result-で使えるようにする-resultext-トレイトの実装" class="fragment"></span><a href="#chainederror-%E3%82%92-result-%E3%81%A7%E4%BD%BF%E3%81%88%E3%82%8B%E3%82%88%E3%81%86%E3%81%AB%E3%81%99%E3%82%8B-resultext-%E3%83%88%E3%83%AC%E3%82%A4%E3%83%88%E3%81%AE%E5%AE%9F%E8%A3%85"><i class="fa fa-link"></i></a><code>ChainedError</code> を <code>Result</code> で使えるようにする <code>ResultExt</code> トレイトの実装</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="k">pub</span> <span class="k">trait</span> <span class="n">MyResultExt</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="k">pub</span> <span class="k">type</span> <span class="n">MyResult</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">=</span> <span class="n">Result</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">MyError</span><span class="o">&gt;</span><span class="p">;</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="from-トレイトの実装" class="fragment"></span><a href="#from-%E3%83%88%E3%83%AC%E3%82%A4%E3%83%88%E3%81%AE%E5%AE%9F%E8%A3%85"><i class="fa fa-link"></i></a><code>From</code> トレイトの実装</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="k">impl</span> <span class="n">From</span><span class="o">&lt;</span><span class="n">MyErrorKind</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">MyError</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="k">impl</span><span class="o">&lt;</span><span class="nv">'a</span><span class="o">&gt;</span> <span class="n">From</span><span class="o">&lt;&amp;</span><span class="nv">'a</span> <span class="nb">str</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">MyError</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="k">impl</span> <span class="n">From</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">MyError</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="k">impl</span> <span class="n">From</span><span class="o">&lt;</span><span class="nn">another_errors</span><span class="p">::</span><span class="n">Error</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">MyError</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="k">impl</span><span class="o">&lt;</span><span class="nv">'a</span><span class="o">&gt;</span> <span class="n">From</span><span class="o">&lt;&amp;</span><span class="nv">'a</span> <span class="nb">str</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">MyErrorKind</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="k">impl</span> <span class="n">From</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">MyErrorKind</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="k">impl</span> <span class="n">From</span><span class="o">&lt;</span><span class="n">MyError</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">MyErrorKind</span>  <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+<span class="k">impl</span> <span class="n">From</span><span class="o">&lt;</span><span class="nn">another_errors</span><span class="p">::</span><span class="n">ErrorKind</span><span class="o">&gt;</span> <span class="k">for</span> <span class="n">MyErrorKind</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h2>
+<span id="この膨大なコードのおかげで" class="fragment"></span><a href="#%E3%81%93%E3%81%AE%E8%86%A8%E5%A4%A7%E3%81%AA%E3%82%B3%E3%83%BC%E3%83%89%E3%81%AE%E3%81%8A%E3%81%8B%E3%81%92%E3%81%A7"><i class="fa fa-link"></i></a>この膨大なコードのおかげで……</h2>
+
+<hr>
+
+<h3>
+<span id="1-enum-erorrkind-に原因のエラーを持てる" class="fragment"></span><a href="#1-enum-erorrkind-%E3%81%AB%E5%8E%9F%E5%9B%A0%E3%81%AE%E3%82%A8%E3%83%A9%E3%83%BC%E3%82%92%E6%8C%81%E3%81%A6%E3%82%8B"><i class="fa fa-link"></i></a>1. <code>enum ErorrKind</code> に原因のエラーを持てる</h3>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">pub</span> <span class="k">enum</span> <span class="n">MyErrorKind</span> <span class="p">{</span>
+  <span class="nf">Msg</span><span class="p">(</span><span class="nb">String</span><span class="p">),</span>
+  <span class="nf">Another</span><span class="p">(</span><span class="n">AnotherErrorKind</span><span class="p">),</span>
+  <span class="nf">Io</span><span class="p">(::</span><span class="nn">std</span><span class="p">::</span><span class="nn">io</span><span class="p">::</span><span class="n">Error</span><span class="p">),</span>
+  <span class="nf">CannotOpenFile</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">String</span><span class="p">),</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="2-エラーチェーンを積める" class="fragment"></span><a href="#2-%E3%82%A8%E3%83%A9%E3%83%BC%E3%83%81%E3%82%A7%E3%83%BC%E3%83%B3%E3%82%92%E7%A9%8D%E3%82%81%E3%82%8B"><i class="fa fa-link"></i></a>2. エラーチェーンを積める</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="nn">fs</span><span class="p">::</span><span class="n">File</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">errors</span><span class="p">::{</span><span class="n">MyError</span><span class="p">,</span> <span class="n">MyErrorKind</span><span class="p">,</span> <span class="n">MyResultExt</span><span class="p">};</span>
+<span class="nd">try!</span><span class="p">(</span><span class="nn">File</span><span class="p">::</span><span class="nf">open</span><span class="p">(</span><span class="s">"foo.txt"</span><span class="p">)</span>
+  <span class="nf">.map_err</span><span class="p">(</span><span class="nn">MyErrorKind</span><span class="p">::</span><span class="n">Io</span><span class="p">)</span>
+  <span class="nf">.chain_err</span><span class="p">(||</span> <span class="s">"ファイル開けへんやんけ"</span><span class="p">));</span>
+  <span class="nf">.chain_err</span><span class="p">(||</span> <span class="nn">MyErrorKind</span><span class="p">::</span><span class="nf">CannotOpenFile</span><span class="p">(</span><span class="s">"foo.txt"</span><span class="py">.to_string</span><span class="p">)));</span>
+<span class="c">// CannotOpenFile -&gt; Msg -&gt; Io -&gt; std::io::Error</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="3-myerroriter-で原因をイテレートできる" class="fragment"></span><a href="#3-myerroriter-%E3%81%A7%E5%8E%9F%E5%9B%A0%E3%82%92%E3%82%A4%E3%83%86%E3%83%AC%E3%83%BC%E3%83%88%E3%81%A7%E3%81%8D%E3%82%8B"><i class="fa fa-link"></i></a>3. <code>MyError::iter</code> で原因をイテレートできる</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="k">for</span> <span class="n">err</span> <span class="n">in</span> <span class="n">err</span><span class="nf">.iter</span><span class="p">()</span> <span class="p">{</span>
+  <span class="nd">println!</span><span class="p">(</span><span class="s">"{}"</span><span class="p">,</span> <span class="n">err</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="4-myerrorbacktrace-でバックトレースがとれる" class="fragment"></span><a href="#4-myerrorbacktrace-%E3%81%A7%E3%83%90%E3%83%83%E3%82%AF%E3%83%88%E3%83%AC%E3%83%BC%E3%82%B9%E3%81%8C%E3%81%A8%E3%82%8C%E3%82%8B"><i class="fa fa-link"></i></a>4. <code>MyError::backtrace</code> でバックトレースがとれる</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="c">// need RUST_BACKTRACE=1</span>
+<span class="k">if</span> <span class="k">let</span> <span class="nf">Some</span><span class="p">(</span><span class="n">trace</span><span class="p">)</span> <span class="o">=</span> <span class="n">err</span><span class="nf">.backtrace</span><span class="p">()</span> <span class="p">{</span>
+  <span class="c">// io::Error ではなく MyError が作られた時点のトレースが得られる</span>
+  <span class="nd">println!</span><span class="p">(</span><span class="s">"{:?}"</span><span class="p">,</span> <span class="n">trace</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h2>
+<span id="error-chain-の問題点" class="fragment"></span><a href="#error-chain-%E3%81%AE%E5%95%8F%E9%A1%8C%E7%82%B9"><i class="fa fa-link"></i></a>error-chain の問題点</h2>
+
+<ul>
+<li>derive macro なんてなかった</li>
+<li>生成されるコードが <strong>膨大</strong>
+</li>
+<li><strong>初見殺し</strong></li>
+<li>生成される <code>MyError</code> が <code>!Sync</code> で使い勝手が悪い</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="結論-error-chain-は過去の遺産" class="fragment"></span><a href="#%E7%B5%90%E8%AB%96-error-chain-%E3%81%AF%E9%81%8E%E5%8E%BB%E3%81%AE%E9%81%BA%E7%94%A3"><i class="fa fa-link"></i></a>結論: error-chain は過去の遺産</h2>
+
+<hr>
+
+<h2>
+<span id="じゃあ-failure-を使えばいいのか" class="fragment"></span><a href="#%E3%81%98%E3%82%83%E3%81%82-failure-%E3%82%92%E4%BD%BF%E3%81%88%E3%81%B0%E3%81%84%E3%81%84%E3%81%AE%E3%81%8B"><i class="fa fa-link"></i></a>じゃあ <code>failure</code> を使えばいいのか？</h2>
+
+<hr>
+
+<h1>
+<span id="failure-について" class="fragment"></span><a href="#failure-%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6"><i class="fa fa-link"></i></a>failure について</h1>
+
+<hr>
+
+<h2>
+<span id="failure-クレート" class="fragment"></span><a href="#failure-%E3%82%AF%E3%83%AC%E3%83%BC%E3%83%88"><i class="fa fa-link"></i></a>failure クレート</h2>
+
+<ul>
+<li><a href="https://boats.gitlab.io/blog/post/2017-11-16-announcing-failure/" rel="nofollow noopener" target="_blank">2017 年 11 月に登場</a></li>
+<li>問題だらけの <code>Error</code> トレイトを置き換えるために開発された</li>
+<li>
+<code>Error</code> トレイトの代わりに <code>Fail</code> トレイトを導入</li>
+<li>
+<code>Box&lt;dyn Error&gt;</code> の代わりに <code>failure::Error</code> 構造体を導入</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="derive-できる" class="fragment"></span><a href="#derive-%E3%81%A7%E3%81%8D%E3%82%8B"><i class="fa fa-link"></i></a>derive できる</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="nd">#[derive(Debug,</span> <span class="nd">Fail)]</span>
+<span class="k">pub</span> <span class="k">enum</span> <span class="n">MyError</span> <span class="p">{</span>
+  <span class="nd">#[fail(display</span> <span class="nd">=</span> <span class="s">"Input was invalid UTF-8 at index {}"</span><span class="nd">,</span> <span class="mi">_0</span><span class="nd">)]</span>
+  <span class="nf">Utf8Error</span><span class="p">(</span><span class="nb">usize</span><span class="p">),</span>
+  <span class="nd">#[fail(display</span> <span class="nd">=</span> <span class="s">"IoError: {}"</span><span class="nd">,</span> <span class="mi">_0</span><span class="nd">)]</span>
+  <span class="nf">Io</span><span class="p">(</span><span class="nd">#[cause]</span> <span class="nn">io</span><span class="p">::</span><span class="n">Error</span><span class="p">),</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="cause-chain-がイテラブル" class="fragment"></span><a href="#cause-chain-%E3%81%8C%E3%82%A4%E3%83%86%E3%83%A9%E3%83%96%E3%83%AB"><i class="fa fa-link"></i></a>cause chain がイテラブル</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="k">impl</span> <span class="n">Fail</span> <span class="p">{</span>
+  <span class="k">pub</span> <span class="k">fn</span> <span class="nf">iter_causes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Causes</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+  <span class="o">...</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="backtrace-が取れる" class="fragment"></span><a href="#backtrace-%E3%81%8C%E5%8F%96%E3%82%8C%E3%82%8B"><i class="fa fa-link"></i></a>backtrace が取れる</h3>
+
+<div class="code-frame" data-lang="rs"><div class="highlight"><pre><span class="k">pub</span> <span class="k">trait</span> <span class="n">Fail</span><span class="p">:</span> <span class="n">Display</span> <span class="o">+</span> <span class="n">Debug</span> <span class="o">+</span> <span class="nb">Send</span> <span class="o">+</span> <span class="n">Sync</span> <span class="o">+</span> <span class="nv">'static</span> <span class="p">{</span>
+  <span class="k">fn</span> <span class="nf">backtrace</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="n">Backtrace</span><span class="o">&gt;</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+  <span class="o">...</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="fail-に-send--sync--static-がついてる" class="fragment"></span><a href="#fail-%E3%81%AB-send--sync--static-%E3%81%8C%E3%81%A4%E3%81%84%E3%81%A6%E3%82%8B"><i class="fa fa-link"></i></a><code>Fail</code> に <code>Send + Sync + 'static</code> がついてる</h3>
+
+<p>tokio でも使える</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">pub</span> <span class="k">trait</span> <span class="n">Fail</span><span class="p">:</span> <span class="n">Display</span> <span class="o">+</span> <span class="n">Debug</span> <span class="o">+</span> <span class="nb">Send</span> <span class="o">+</span> <span class="n">Sync</span> <span class="o">+</span> <span class="nv">'static</span> <span class="p">{</span>
+  <span class="o">...</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="ダウンキャストできる" class="fragment"></span><a href="#%E3%83%80%E3%82%A6%E3%83%B3%E3%82%AD%E3%83%A3%E3%82%B9%E3%83%88%E3%81%A7%E3%81%8D%E3%82%8B"><i class="fa fa-link"></i></a>ダウンキャストできる</h3>
+
+<p><code>Fail</code> に <code>'static</code> がついてるので</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">pub</span> <span class="k">trait</span> <span class="n">Fail</span><span class="p">:</span> <span class="n">Display</span> <span class="o">+</span> <span class="n">Debug</span> <span class="o">+</span> <span class="nb">Send</span> <span class="o">+</span> <span class="n">Sync</span> <span class="o">+</span> <span class="nv">'static</span> <span class="p">{</span>
+  <span class="o">...</span>
+<span class="p">}</span>
+<span class="k">impl</span> <span class="n">Fail</span> <span class="p">{</span>
+  <span class="k">pub</span> <span class="k">fn</span> <span class="n">downcast_ref</span><span class="o">&lt;</span><span class="n">T</span><span class="p">:</span> <span class="n">Fail</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+  <span class="k">pub</span> <span class="k">fn</span> <span class="n">downcast_mut</span><span class="o">&lt;</span><span class="n">T</span><span class="p">:</span> <span class="n">Fail</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span> <span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="k">mut</span> <span class="n">T</span><span class="o">&gt;</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+  <span class="o">...</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h3>
+<span id="cause-chain-を積める" class="fragment"></span><a href="#cause-chain-%E3%82%92%E7%A9%8D%E3%82%81%E3%82%8B"><i class="fa fa-link"></i></a>cause chain を積める</h3>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="n">err</span>
+ <span class="nf">.context</span><span class="p">(</span><span class="nd">format_err!</span><span class="p">(</span><span class="s">"Error code: なんかエラーおきた}"</span><span class="p">))</span>
+ <span class="nf">.context</span><span class="p">(</span><span class="s">"なんかエラーおきた"</span><span class="nf">.to_string</span><span class="p">());</span>
+</pre></div></div>
+
+<hr>
+
+<h2>
+<span id="結論-failure-はすごくいいが" class="fragment"></span><a href="#%E7%B5%90%E8%AB%96-failure-%E3%81%AF%E3%81%99%E3%81%94%E3%81%8F%E3%81%84%E3%81%84%E3%81%8C"><i class="fa fa-link"></i></a>結論: failure はすごくいいが……</h2>
+
+<hr>
+
+<h1>
+<span id="rfc-2504-fix-the-error-trait" class="fragment"></span><a href="#rfc-2504-fix-the-error-trait"><i class="fa fa-link"></i></a>RFC 2504, "Fix the Error trait"</h1>
+
+<hr>
+
+<h2>
+<span id="新しい-error-トレイト" class="fragment"></span><a href="#%E6%96%B0%E3%81%97%E3%81%84-error-%E3%83%88%E3%83%AC%E3%82%A4%E3%83%88"><i class="fa fa-link"></i></a>新しい Error トレイト</h2>
+
+<ul>
+<li>failure から半年後の <a href="https://github.com/rust-lang/rfcs/pull/2504" rel="nofollow noopener" target="_blank">2018 年 7 月に提案、　8 月にマージ</a>
+</li>
+<li>failure の知見を取り込んだ改善</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="新しい-error-トレイト-1" class="fragment"></span><a href="#%E6%96%B0%E3%81%97%E3%81%84-error-%E3%83%88%E3%83%AC%E3%82%A4%E3%83%88-1"><i class="fa fa-link"></i></a>新しい Error トレイト</h2>
+
+<ul>
+<li>backtrace できる</li>
+<li>ダウンキャストできる</li>
+</ul>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">trait</span> <span class="n">Error</span><span class="p">:</span> <span class="n">Display</span> <span class="o">+</span> <span class="n">Debug</span> <span class="p">{</span>
+    <span class="k">fn</span> <span class="nf">backtrace</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="n">Backtrace</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="k">fn</span> <span class="nf">source</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="n">dyn</span> <span class="n">Error</span> <span class="o">+</span> <span class="nv">'static</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h2>
+<span id="新しい-error-トレイト-2" class="fragment"></span><a href="#%E6%96%B0%E3%81%97%E3%81%84-error-%E3%83%88%E3%83%AC%E3%82%A4%E3%83%88-2"><i class="fa fa-link"></i></a>新しい Error トレイト</h2>
+
+<p>以前のメソッドがひとつも残ってない</p>
+
+<div class="code-frame" data-lang="rust"><div class="highlight"><pre><span class="k">trait</span> <span class="n">Error</span><span class="p">:</span> <span class="n">Display</span> <span class="o">+</span> <span class="n">Debug</span> <span class="p">{</span>
+    <span class="k">fn</span> <span class="nf">backtrace</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="n">Backtrace</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="k">fn</span> <span class="nf">source</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Option</span><span class="o">&lt;&amp;</span><span class="n">dyn</span> <span class="n">Error</span> <span class="o">+</span> <span class="nv">'static</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div></div>
+
+<hr>
+
+<h2>
+<span id="未解決の問題" class="fragment"></span><a href="#%E6%9C%AA%E8%A7%A3%E6%B1%BA%E3%81%AE%E5%95%8F%E9%A1%8C"><i class="fa fa-link"></i></a>未解決の問題</h2>
+
+<ul>
+<li>Backtrace の具体的な API が未定</li>
+<li>イテラブルな cause chain の API が未定</li>
+<li>
+<code>derive(Error)</code> できない</li>
+</ul>
+
+<hr>
+
+<h2>
+<span id="2019年6月現在" class="fragment"></span><a href="#2019%E5%B9%B46%E6%9C%88%E7%8F%BE%E5%9C%A8"><i class="fa fa-link"></i></a>2019年6月現在</h2>
+
+<hr>
+
+<h3>
+<span id="error-chain-は開発停止" class="fragment"></span><a href="#error-chain-%E3%81%AF%E9%96%8B%E7%99%BA%E5%81%9C%E6%AD%A2"><i class="fa fa-link"></i></a>error-chain は開発停止</h3>
+
+<hr>
+
+<h3>
+<span id="failure-は凍結" class="fragment"></span><a href="#failure-%E3%81%AF%E5%87%8D%E7%B5%90"><i class="fa fa-link"></i></a>failure は凍結</h3>
+
+<ul>
+<li>メジャーアップデートはは実装が落ち着くまで停止中 (まるで futures-0.1 のよう？)
+
+<ul>
+<li>
+<code>Fail</code> -は<code>ErrorExt</code> にして新 <code>Error</code> トレイトを継承するかも</li>
+<li>
+<code>failure::Error</code> は<code>failure::DefaultError</code> になるかも</li>
+</ul>
+</li>
+</ul>
+
+<hr>
+
+<h3>
+<span id="ポスト-failure-が増殖中" class="fragment"></span><a href="#%E3%83%9D%E3%82%B9%E3%83%88-failure-%E3%81%8C%E5%A2%97%E6%AE%96%E4%B8%AD"><i class="fa fa-link"></i></a>ポスト failure が増殖中</h3>
+
+<ul>
+<li><a href="https://users.rust-lang.org/t/announcing-err-derive-yet-another-error-handling-library/23594" rel="nofollow noopener" target="_blank">err-derive</a></li>
+<li><a href="https://users.rust-lang.org/t/snafu-0-2-1-released/27269" rel="nofollow noopener" target="_blank">SNAFU</a></li>
+<li><a href="https://crates.io/crates/errer/0.13.0" rel="nofollow noopener" target="_blank">errer</a></li>
+</ul>
+
+<p>などなど</p>
+
+<hr>
+
+<h1>
+<span id="おわり" class="fragment"></span><a href="#%E3%81%8A%E3%82%8F%E3%82%8A"><i class="fa fa-link"></i></a>おわり</h1>
+
+<hr>
+
+<h1>
+<span id="appendix-rust-のエラーまわりの歴史" class="fragment"></span><a href="#appendix-rust-%E3%81%AE%E3%82%A8%E3%83%A9%E3%83%BC%E3%81%BE%E3%82%8F%E3%82%8A%E3%81%AE%E6%AD%B4%E5%8F%B2"><i class="fa fa-link"></i></a>Appendix. Rust のエラーまわりの歴史</h1>
+
+<h2>
+<span id="2014" class="fragment"></span><a href="#2014"><i class="fa fa-link"></i></a>2014</h2>
+
+<ul>
+<li>2014-05-24 - Error handling in Rust is actually pretty awesome. - <a href="https://news.ycombinator.com/item?id=7792438" class="autolink" rel="nofollow noopener" target="_blank">https://news.ycombinator.com/item?id=7792438</a>
+</li>
+<li>2014-08-16 - <strong>RFC: error interoperation #201</strong> - <a href="https://github.com/rust-lang/rfcs/pull/201" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/201</a>
+</li>
+<li>2014-08-16 - 0.0.0 - <a href="https://github.com/reem/rust-error/" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/reem/rust-error/</a>
+</li>
+<li>2014-08-30 - RFC: Error conventions #220 - <a href="https://github.com/rust-lang/rfcs/pull/220" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/220</a>
+</li>
+<li>2014-09-17 - First-class error handling with <code>?</code> and <code>catch</code> #243 - <a href="https://github.com/rust-lang/rfcs/pull/243" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/243</a>
+</li>
+<li>2014-10-13 - RFC: Anonymous enum types called joins, as <code>A | B</code> #402 - <a href="https://www.reddit.com/r/rust/comments/2j1k4h/how_do_i_handle_causes_with_generic_error_handling/" class="autolink" rel="nofollow noopener" target="_blank">https://www.reddit.com/r/rust/comments/2j1k4h/how_do_i_handle_causes_with_generic_error_handling/</a>
+</li>
+<li>2014-10-16 - On Error Handling in Rust - <a href="http://lucumr.pocoo.org/2014/10/16/on-error-handling/" class="autolink" rel="nofollow noopener" target="_blank">http://lucumr.pocoo.org/2014/10/16/on-error-handling/</a>
+</li>
+<li>2014-10-16 - <a href="https://github.com/rust-lang/rfcs/pull/402" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/402</a>
+</li>
+<li>2014-10-30 - RFC: Error conventions, take 3 #236 - <a href="https://github.com/rust-lang/rfcs/pull/236" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/236</a>
+</li>
+<li>2014-10-31 - <a href="https://github.com/rust-lang/rfcs/blob/master/text/0236-error-conventions.md" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/blob/master/text/0236-error-conventions.md</a>
+</li>
+<li>2014-11-06 - <a href="http://lucumr.pocoo.org/2014/11/6/error-handling-in-rust/" class="autolink" rel="nofollow noopener" target="_blank">http://lucumr.pocoo.org/2014/11/6/error-handling-in-rust/</a>
+</li>
+<li>2014-11-21 - Error Handling - <a href="https://doc.rust-lang.org/1.0.0/book/error-handling.html" class="autolink" rel="nofollow noopener" target="_blank">https://doc.rust-lang.org/1.0.0/book/error-handling.html</a> - <a href="https://github.com/rust-lang/book" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/book</a>
+</li>
+<li>2014-12-11 - Anonymous enum types (A|B) take 2 #514 - <a href="https://github.com/rust-lang/rfcs/pull/514" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/514</a>
+</li>
+</ul>
+
+<h2>
+<span id="2015" class="fragment"></span><a href="#2015"><i class="fa fa-link"></i></a>2015</h2>
+
+<ul>
+<li>2015-01-29 - Extensible enums #757 - <a href="https://github.com/rust-lang/rfcs/pull/757" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/757</a>
+</li>
+<li>2015-04-07 - Consider changing io::Error to use Arc so it can implement Clone #24135 - <a href="https://github.com/rust-lang/rust/issues/24135" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rust/issues/24135</a>
+</li>
+<li>2015-04-11 - Add <code>Sync</code> to the bounds in <code>io::Error</code> #24133 -  <a href="https://github.com/rust-lang/rust/pull/24133" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rust/pull/24133</a>
+</li>
+<li>2015-04-12 - RFC for adding Sync to io::Error #1057 - <a href="https://github.com/rust-lang/rfcs/pull/1057" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/1057</a>
+</li>
+<li>2015-05-13 - Quick draft "Result::expect" rfc #1119 - <a href="https://github.com/rust-lang/rfcs/pull/1119" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/1119</a>
+</li>
+<li>2015-05-14 - <strong>Error Handling in Rust</strong> - <a href="https://blog.burntsushi.net/rust-error-handling/" class="autolink" rel="nofollow noopener" target="_blank">https://blog.burntsushi.net/rust-error-handling/</a>
+</li>
+<li>2015-06-02 - Error handling in Rust - <a href="https://xania.org/201506/rust-errors" class="autolink" rel="nofollow noopener" target="_blank">https://xania.org/201506/rust-errors</a>
+</li>
+<li>2015-07-24 - RFC: Stabilize catch_panic #1236 - <a href="https://github.com/rust-lang/rfcs/pull/1236" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/1236</a>
+</li>
+<li>2015-08-16 - 0.1.1  - <a href="https://crates.io/crates/enum_derive" class="autolink" rel="nofollow noopener" target="_blank">https://crates.io/crates/enum_derive</a>
+</li>
+<li>2015-08-29 - RFC : Try-Catch Blocks - <a href="https://users.rust-lang.org/t/rfc-try-catch-blocks/2663" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/rfc-try-catch-blocks/2663</a>
+</li>
+<li>2015-09-10 - 0.1.0 - <a href="https://github.com/tailhook/quick-error" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/tailhook/quick-error</a>
+</li>
+<li>2015-09-13 - Compare enums only by variant, not value - <a href="https://stackoverflow.com/questions/32554285/compare-enums-only-by-variant-not-value" class="autolink" rel="nofollow noopener" target="_blank">https://stackoverflow.com/questions/32554285/compare-enums-only-by-variant-not-value</a>
+</li>
+<li>2015-10-08 - Allow a custom panic handler #1328 - <a href="https://github.com/rust-lang/rfcs/pull/1328" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/1328</a>
+</li>
+<li>2015-11-02 - RUST AND GO (ERROR HANDLING) - <a href="http://tyoverby.com/posts/rust-vs-go.html" class="autolink" rel="nofollow noopener" target="_blank">http://tyoverby.com/posts/rust-vs-go.html</a>
+</li>
+<li>2015-12-02 - <code>String, From and Box&lt;Error&gt;</code> interoperation could be better. #30156 - <a href="https://github.com/rust-lang/rust/issues/30156" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rust/issues/30156</a>
+</li>
+</ul>
+
+<h2>
+<span id="2016" class="fragment"></span><a href="#2016"><i class="fa fa-link"></i></a>2016</h2>
+
+<ul>
+<li>2016-01-08 - <strong>Announcing error-chain, a library for consistent and reliable Rust error handling</strong> - <a href="https://users.rust-lang.org/t/announcing-error-chain-a-library-for-consistent-and-reliable-rust-error-handling/6133" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/announcing-error-chain-a-library-for-consistent-and-reliable-rust-error-handling/6133</a>
+</li>
+<li>2016-03-29 - Error Handling in Rust - <a href="https://facility9.com/2016/03/error-handling-in-rust/" class="autolink" rel="nofollow noopener" target="_blank">https://facility9.com/2016/03/error-handling-in-rust/</a>
+</li>
+<li>2016-03-24 - 0.1.0 - <a href="https://crates.io/crates/simple-error" class="autolink" rel="nofollow noopener" target="_blank">https://crates.io/crates/simple-error</a>
+</li>
+<li>2016-04-13 - 0.2.0 - <a href="https://github.com/rust-lang/backtrace-rs" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/backtrace-rs</a>
+</li>
+<li>2016-04-29 - 0.1.8- <a href="https://crates.io/crates/error-chain" class="autolink" rel="nofollow noopener" target="_blank">https://crates.io/crates/error-chain</a>
+</li>
+<li>2016-05-18 - Adding Context to Rust Errors - <a href="https://medium.com/@paulcolomiets/adding-context-to-rust-errors-3c6f58a7074b" class="autolink" rel="nofollow noopener" target="_blank">https://medium.com/@paulcolomiets/adding-context-to-rust-errors-3c6f58a7074b</a>
+</li>
+<li>2016-05-27 - Rust 1.9 improves speed, error handling - <a href="https://www.infoworld.com/article/3075321/rust-19-improves-speed-error-handling.html" class="autolink" rel="nofollow noopener" target="_blank">https://www.infoworld.com/article/3075321/rust-19-improves-speed-error-handling.html</a>
+</li>
+<li>2016-06-08 - Why I’m dropping Rust - <a href="https://users.rust-lang.org/t/announcing-error-chain-a-library-for-consistent-and-reliable-rust-error-handling/6133" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/announcing-error-chain-a-library-for-consistent-and-reliable-rust-error-handling/6133</a>
+</li>
+<li>2016-07-16 - Can’t to introspect error cause - <a href="https://users.rust-lang.org/t/cant-to-introspect-error-cause/6536" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/cant-to-introspect-error-cause/6536</a>
+</li>
+<li>2016-07-21 - Elegant Library APIs in Rust - <a href="https://deterministic.space/elegant-apis-in-rust.html" class="autolink" rel="nofollow noopener" target="_blank">https://deterministic.space/elegant-apis-in-rust.html</a>
+</li>
+<li>2016-07-22 - Rust - Custom Error Types | rust Tutorial - RIP Tutorial - <a href="https://riptutorial.com/rust/example/6788/custom-error-types" class="autolink" rel="nofollow noopener" target="_blank">https://riptutorial.com/rust/example/6788/custom-error-types</a>
+</li>
+<li>2016-08-01 - Add a <code>compile_error!</code> macro to libstd #1695 - <a href="https://github.com/rust-lang/rfcs/pull/1695" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/1695</a>
+</li>
+<li>2016-08-03 - Helping with the Rust Errors  - <a href="https://www.jonathanturner.org/2016/08/helping-out-with-rust-errors.html" class="autolink" rel="nofollow noopener" target="_blank">https://www.jonathanturner.org/2016/08/helping-out-with-rust-errors.html</a>
+</li>
+<li>2016-08-14 - Problems getting error description in Rust - <a href="https://stackoverflow.com/questions/38936996/problems-getting-error-description-in-rust" class="autolink" rel="nofollow noopener" target="_blank">https://stackoverflow.com/questions/38936996/problems-getting-error-description-in-rust</a>
+</li>
+<li>2016-08-24 - <strong>Error causes can't be downcast #35943</strong> - <a href="https://github.com/rust-lang/rust/issues/35943" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rust/issues/35943</a>
+</li>
+<li>2016-09-11 - The Error Model - <a href="http://joeduffyblog.com/2016/02/07/the-error-model/" class="autolink" rel="nofollow noopener" target="_blank">http://joeduffyblog.com/2016/02/07/the-error-model/</a>
+</li>
+<li>2016-10-24 - Accumulating Results in Rust With Validated - <a href="https://beachape.com/blog/2016/10/24/accumulating-results-in-rust-with-validated/" class="autolink" rel="nofollow noopener" target="_blank">https://beachape.com/blog/2016/10/24/accumulating-results-in-rust-with-validated/</a>
+</li>
+<li>2016-10-27 - Rewinding time with rr &amp; Rust to debug a terrible error message - <a href="https://blog.faraday.io/reversing-rust-debugging-a-terrible-error-message-backwards-in-time-with-rr-2/" class="autolink" rel="nofollow noopener" target="_blank">https://blog.faraday.io/reversing-rust-debugging-a-terrible-error-message-backwards-in-time-with-rr-2/</a>
+</li>
+<li>2016-11-20 - Error-chain 0.6.0 - <a href="https://users.rust-lang.org/t/error-chain-0-6-0/8079/2" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/error-chain-0-6-0/8079/2</a>
+</li>
+<li>2016-11-21 - 0.2.0  - <a href="https://crates.io/crates/macro_attr" class="autolink" rel="nofollow noopener" target="_blank">https://crates.io/crates/macro_attr</a>
+</li>
+<li>2016-11-30 - Starting a new Rust project right, with error-chain - <a href="https://brson.github.io/2016/11/30/starting-with-error-chain" class="autolink" rel="nofollow noopener" target="_blank">https://brson.github.io/2016/11/30/starting-with-error-chain</a>
+</li>
+<li>2016-12-01 - Starting a new Rust project right, with error-chain - <a href="https://www.reddit.com/r/rust/comments/5ftgv5/starting_a_new_rust_project_right_with_errorchain/" class="autolink" rel="nofollow noopener" target="_blank">https://www.reddit.com/r/rust/comments/5ftgv5/starting_a_new_rust_project_right_with_errorchain/</a>
+</li>
+<li>2016-12-15 - Stroustrup's Rule and Layering Over Time - <a href="https://thefeedbackloop.xyz/stroustrups-rule-and-layering-over-time/" class="autolink" rel="nofollow noopener" target="_blank">https://thefeedbackloop.xyz/stroustrups-rule-and-layering-over-time/</a> - <a href="https://news.ycombinator.com/item?id=13192052" class="autolink" rel="nofollow noopener" target="_blank">https://news.ycombinator.com/item?id=13192052</a>
+</li>
+<li>2016-12-18 - <strong>24 days of Rust - error_chain</strong> - <a href="https://siciarz.net/24-days-rust-error_chain/" class="autolink" rel="nofollow noopener" target="_blank">https://siciarz.net/24-days-rust-error_chain/</a>
+</li>
+</ul>
+
+<h2>
+<span id="2017" class="fragment"></span><a href="#2017"><i class="fa fa-link"></i></a>2017</h2>
+
+<ul>
+<li>2017-01-16 - 0.0.0 - <a href="https://crates.io/crates/derive-error" class="autolink" rel="nofollow noopener" target="_blank">https://crates.io/crates/derive-error</a>
+</li>
+<li>2017-01-20 - RFC 1859: Tryトレイト - <a href="https://github.com/rust-lang/rfcs/pull/1859" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/1859</a> - <a href="https://gist.github.com/sile/7b967511f9d922ecfab80dc27d17d82d" class="autolink" rel="nofollow noopener" target="_blank">https://gist.github.com/sile/7b967511f9d922ecfab80dc27d17d82d</a>
+</li>
+<li>2017-02-06 - Custom Error types in Rust and the ? operator - <a href="https://medium.com/@fredrikanderzon/custom-error-types-in-rust-and-the-operator-b499d0fb2925" class="autolink" rel="nofollow noopener" target="_blank">https://medium.com/@fredrikanderzon/custom-error-types-in-rust-and-the-operator-b499d0fb2925</a>
+</li>
+<li>2017-02-11 - A way to customize Rust error messages - <a href="https://deterministic.space/hook-into-rustc-errors.html" class="autolink" rel="nofollow noopener" target="_blank">https://deterministic.space/hook-into-rustc-errors.html</a>
+</li>
+<li>2017-02-15 - Nice error handling in Rust - <a href="https://www.reddit.com/r/rust/comments/5u0vkk/nice_error_handling_in_rust/" class="autolink" rel="nofollow noopener" target="_blank">https://www.reddit.com/r/rust/comments/5u0vkk/nice_error_handling_in_rust/</a>
+</li>
+<li>2017-02-22 - RFC: <code>?</code> in <code>main</code> #1937 - <a href="https://github.com/rust-lang/rfcs/pull/1937" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/1937</a>
+</li>
+<li>2017-03-03 - How do you define custom <code>Error</code> types in Rust? - <a href="https://stackoverflow.com/questions/42584368/how-do-you-define-custom-error-types-in-rust/42584607#42584607" class="autolink" rel="nofollow noopener" target="_blank">https://stackoverflow.com/questions/42584368/how-do-you-define-custom-error-types-in-rust/42584607#42584607</a>
+</li>
+<li>2017-03-13 - Rustでエラーを合成する - <a href="https://qiita.com/termoshtt/items/8c015d9289613ec640f1/revisions" class="autolink">https://qiita.com/termoshtt/items/8c015d9289613ec640f1/revisions</a>
+</li>
+<li>2017-03-22 - Error Handling - <a href="https://stevedonovan.github.io/rust-gentle-intro/6-error-handling.html" class="autolink" rel="nofollow noopener" target="_blank">https://stevedonovan.github.io/rust-gentle-intro/6-error-handling.html</a>
+</li>
+<li>2017-04-02 - Pre RFC ish: Bring ensure! macro from error-chain into std? - <a href="https://users.rust-lang.org/t/pre-rfc-ish-bring-ensure-macro-from-error-chain-into-std/10181" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/pre-rfc-ish-bring-ensure-macro-from-error-chain-into-std/10181</a>
+</li>
+<li>2017-05-06 - Error types - as enums or as structs - <a href="https://users.rust-lang.org/t/error-types-as-enums-or-as-structs/9797/3" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/error-types-as-enums-or-as-structs/9797/3</a>
+</li>
+<li>2017-05-24 - <strong>Future-proofing enums/structs with #[non_exhaustive] attribute #2008</strong> - <a href="https://github.com/rust-lang/rfcs/pull/2008" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/2008</a>
+</li>
+<li>2017-06-03 - Rustのtry-catch構文 - <a href="https://qnighy.hatenablog.com/entry/2017/06/03/070000" class="autolink" rel="nofollow noopener" target="_blank">https://qnighy.hatenablog.com/entry/2017/06/03/070000</a>
+</li>
+<li>2017-06-06 - Refactor error types #936 - <a href="https://github.com/diesel-rs/diesel/issues/936" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/diesel-rs/diesel/issues/936</a>
+</li>
+<li>2017-07-18 - <strong>Tracking issue for RFC 1937: <code>?</code> in <code>main</code> #43301</strong> - <a href="https://github.com/rust-lang/rust/issues/43301" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rust/issues/43301</a>
+</li>
+<li>2017-08-27 - <strong>Tracking issue for RFC 2008: Future-proofing enums/structs with #[non_exhaustive] attribute #44109</strong> - <a href="https://github.com/rust-lang/rust/issues/44109" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rust/issues/44109</a>
+</li>
+<li>2017-09-17 - Rust でエラー型に Clone が実装されていてほしい - <a href="https://blog.cardina1.red/2017/09/15/rust-clonable-error-types/" class="autolink" rel="nofollow noopener" target="_blank">https://blog.cardina1.red/2017/09/15/rust-clonable-error-types/</a>
+</li>
+<li>2017-10-26 - Improve errors and error handling #460 - <a href="https://github.com/amethyst/amethyst/issues/460" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/amethyst/amethyst/issues/460</a>
+</li>
+<li>2017-11-03 - Rust futures: an uneducated, short and hopefully not boring tutorial - Part 2 - <a href="https://dev.to/mindflavor/rust-futures-an-uneducated-short-and-hopefully-not-boring-tutorial---part-2-8dd" class="autolink" rel="nofollow noopener" target="_blank">https://dev.to/mindflavor/rust-futures-an-uneducated-short-and-hopefully-not-boring-tutorial---part-2-8dd</a>
+</li>
+<li>2017-11-04 - Improving error matching consistency (at least for testing) - <a href="https://github.com/rust-lang-nursery/failure/issues/14" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/failure/issues/14</a>
+</li>
+<li>2017-11-16 - <strong>Announcing Failure</strong> - <a href="https://boats.gitlab.io/blog/post/2017-11-16-announcing-failure/" class="autolink" rel="nofollow noopener" target="_blank">https://boats.gitlab.io/blog/post/2017-11-16-announcing-failure/</a>
+</li>
+<li>2017-11-17 - Announcing Failure - <a href="https://www.reddit.com/r/rust/comments/7dg95u/announcing_failure/" class="autolink" rel="nofollow noopener" target="_blank">https://www.reddit.com/r/rust/comments/7dg95u/announcing_failure/</a>
+</li>
+<li>2017-11-20 - Rustの『RFC 2113: dynトレイト構文』の要約メモ - <a href="https://gist.github.com/sile/0615a6daa1f5576d63c8775cc5a94f88" class="autolink" rel="nofollow noopener" target="_blank">https://gist.github.com/sile/0615a6daa1f5576d63c8775cc5a94f88</a>
+</li>
+<li>2017-11-24 - Consider examples for "failure" crate? #370 - <a href="https://github.com/rust-lang-nursery/rust-cookbook/issues/370" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/rust-cookbook/issues/370</a>
+</li>
+<li>2017-11-30 - <strong>Failure 0.1.1 released</strong> - <a href="https://boats.gitlab.io/blog/post/2017-11-30-failure-0-1-1/" class="autolink" rel="nofollow noopener" target="_blank">https://boats.gitlab.io/blog/post/2017-11-30-failure-0-1-1/</a>
+</li>
+<li>2017-11-30 - Bury Error::description() #2230 - <a href="https://github.com/rust-lang/rfcs/pull/2230" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/2230</a>
+</li>
+<li>2017-12-03 - error-chain and failure - <a href="https://amp.reddit.com/r/rust/comments/7h8v1z/errorchain_and_failure/" class="autolink" rel="nofollow noopener" target="_blank">https://amp.reddit.com/r/rust/comments/7h8v1z/errorchain_and_failure/</a>
+</li>
+</ul>
+
+<h2>
+<span id="2018" class="fragment"></span><a href="#2018"><i class="fa fa-link"></i></a>2018</h2>
+
+<ul>
+<li>2018-01-06 - <a href="https://mobile.twitter.com/qnighy/status/949648140759572480" class="autolink" rel="nofollow noopener" target="_blank">https://mobile.twitter.com/qnighy/status/949648140759572480</a>
+</li>
+<li>2018-01-22 - Dyn Trait &amp; #[derive(Debug, Fail)] - <a href="https://users.rust-lang.org/t/dyn-trait-derive-debug-fail/18250" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/dyn-trait-derive-debug-fail/18250</a>
+</li>
+<li>2018-02-03 - Any plans for clonable errors? #148 - <a href="https://github.com/rust-lang-nursery/failure/issues/148" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/failure/issues/148</a>
+</li>
+<li>2018-02-18 - Rustのパニック機構 - <a href="https://qnighy.hatenablog.com/entry/2018/02/18/223000" class="autolink" rel="nofollow noopener" target="_blank">https://qnighy.hatenablog.com/entry/2018/02/18/223000</a>
+</li>
+<li>2018-02-22 - <strong>Failure 1.0.0 on March 15</strong> - <a href="https://boats.gitlab.io/blog/post/2018-02-22-failure-1.0/" class="autolink" rel="nofollow noopener" target="_blank">https://boats.gitlab.io/blog/post/2018-02-22-failure-1.0/</a>
+</li>
+<li>2018-03-02 - Rustのエラーハンドリング - <a href="https://medium.com/@11Takanori/rust%E3%81%AE%E3%82%A8%E3%83%A9%E3%83%BC%E3%83%8F%E3%83%B3%E3%83%89%E3%83%AA%E3%83%B3%E3%82%B0-6660cd4d16c0" class="autolink" rel="nofollow noopener" target="_blank">https://medium.com/@11Takanori/rust%E3%81%AE%E3%82%A8%E3%83%A9%E3%83%BC%E3%83%8F%E3%83%B3%E3%83%89%E3%83%AA%E3%83%B3%E3%82%B0-6660cd4d16c0</a>
+</li>
+<li>2018-03-08 - <strong>error-chain deprecation #181</strong> - <a href="https://github.com/rust-lang-nursery/failure/issues/181" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/failure/issues/181</a>
+</li>
+<li>2018-03-09 - Redefining Failure - <a href="https://epage.github.io/blog/2018/03/redefining-failure/" class="autolink" rel="nofollow noopener" target="_blank">https://epage.github.io/blog/2018/03/redefining-failure/</a>
+</li>
+<li>2018-04-04 - Migrate application from error-chain to failure - <a href="https://users.rust-lang.org/t/migrate-application-from-error-chain-to-failure/16601" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/migrate-application-from-error-chain-to-failure/16601</a>
+</li>
+<li>2018-04-04 - RFC: Reserve <code>try</code> for <code>try { .. }</code> block expressions #2388 - <a href="https://github.com/rust-lang/rfcs/pull/2388" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/2388</a>
+</li>
+<li>2018-04-29 - <a href="https://cat-in-136.github.io/2018/04/rust-error-handling-question.html" class="autolink" rel="nofollow noopener" target="_blank">https://cat-in-136.github.io/2018/04/rust-error-handling-question.html</a>
+</li>
+<li>2018-05-03 - "TL;DR - I think showing the Debug message of an error was a mistake, and that a better choice would be to use the Display message of an error." - <a href="https://github.com/rust-lang/rust/issues/43301#issuecomment-388575730" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rust/issues/43301#issuecomment-388575730</a>
+</li>
+<li>2018-05-26 - <strong>Maintainership of failure #209</strong> - <a href="https://github.com/rust-lang-nursery/failure/issues/209" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/failure/issues/209</a>
+</li>
+<li>2018-06-30 - rust のエラーライブラリは failure を使え！ - <a href="https://qiita.com/legokichi/items/d76b6aa5dac2ad781bda" class="autolink" id="reference-d6dcc4fb676d2d3181a0">https://qiita.com/legokichi/items/d76b6aa5dac2ad781bda</a>
+</li>
+<li>2018-07-19 - <strong>Fix the Error trait #2504</strong> - <a href="https://github.com/rust-lang/rfcs/pull/2504" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rfcs/pull/2504</a>
+
+<ul>
+<li><a href="https://boats.gitlab.io/failure/error-msg.html" class="autolink" rel="nofollow noopener" target="_blank">https://boats.gitlab.io/failure/error-msg.html</a></li>
+</ul>
+</li>
+<li>2018-07-22 - <a href="https://mobile.twitter.com/qnighy/status/1021021205166297090" class="autolink" rel="nofollow noopener" target="_blank">https://mobile.twitter.com/qnighy/status/1021021205166297090</a>
+</li>
+<li>2018-08-14 - Custom error guidelines? - <a href="https://users.rust-lang.org/t/custom-error-guidelines/19547" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/custom-error-guidelines/19547</a>
+</li>
+<li>2018-08-19 - <strong>Tracking issue for RFC 2504, "Fix the Error trait" #53487</strong> - <a href="https://github.com/rust-lang/rust/issues/53487" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rust/issues/53487</a>
+</li>
+<li>2018-10-08 - Current state of error handling in Rust? <a href="https://www.reddit.com/r/rust/comments/9m5w9a/current_state_of_error_handling_in_rust/" class="autolink" rel="nofollow noopener" target="_blank">https://www.reddit.com/r/rust/comments/9m5w9a/current_state_of_error_handling_in_rust/</a>
+</li>
+<li>2018-11-02 - 1.0.0  - <a href="https://crates.io/crates/custom_error" class="autolink" rel="nofollow noopener" target="_blank">https://crates.io/crates/custom_error</a>
+</li>
+<li>2018-11-21 - <code>impl Error for String</code> - <a href="https://internals.rust-lang.org/t/impl-error-for-string/8881" class="autolink" rel="nofollow noopener" target="_blank">https://internals.rust-lang.org/t/impl-error-for-string/8881</a>
+</li>
+<li>2018-12-02 - Rust ergonomics for error handling #23 - <a href="https://github.com/awslabs/aws-lambda-rust-runtime/issues/23" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/awslabs/aws-lambda-rust-runtime/issues/23</a>
+</li>
+<li>2018-12-04 - Rustのエラー処理 - <a href="https://qiita.com/fujitayy/items/cafe661415b6aa33d884" class="autolink" id="reference-09bf768993af10d2ddce">https://qiita.com/fujitayy/items/cafe661415b6aa33d884</a>
+</li>
+<li>2018-12-05 - <strong>on error handling #502</strong> - <a href="https://github.com/rust-lang-nursery/rust-cookbook/issues/502" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/rust-cookbook/issues/502</a>
+</li>
+<li>2018-12-05 - Introduce amethyst_error #1220 - <a href="https://github.com/amethyst/amethyst/pull/1220" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/amethyst/amethyst/pull/1220</a>
+</li>
+<li>2018-12-15 - The state of error handling in the 2018 edition - <a href="https://users.rust-lang.org/t/the-state-of-error-handling-in-the-2018-edition/23263" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/the-state-of-error-handling-in-the-2018-edition/23263</a>
+</li>
+<li>2018-12-18 - <strong>Announcing <code>err-derive</code> - yet another error handling library</strong> - <a href="https://users.rust-lang.org/t/announcing-err-derive-yet-another-error-handling-library/23594" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/announcing-err-derive-yet-another-error-handling-library/23594</a>
+</li>
+<li>2018-12-18 - [RFC] Error handling in Rust runtime #54 - <a href="https://github.com/awslabs/aws-lambda-rust-runtime/issues/54" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/awslabs/aws-lambda-rust-runtime/issues/54</a>
+</li>
+<li>2018-12-18 - [RFC] Runtime crates refactor #53 - <a href="https://github.com/awslabs/aws-lambda-rust-runtime/issues/53" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/awslabs/aws-lambda-rust-runtime/issues/53</a>
+</li>
+<li>2018-12-19 - Fail-rs 0.2.1 released - <a href="https://users.rust-lang.org/t/fail-rs-0-2-1-released/23355" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/fail-rs-0-2-1-released/23355</a>
+</li>
+<li>2018-12-30 - <strong>Towards 0.2 and Beyond #287</strong> - <a href="https://github.com/rust-lang-nursery/failure/issues/287" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/failure/issues/287</a>
+</li>
+</ul>
+
+<h2>
+<span id="2019" class="fragment"></span><a href="#2019"><i class="fa fa-link"></i></a>2019</h2>
+
+<ul>
+<li>2019-01-07 - How to port error_chain to 2018? - <a href="https://users.rust-lang.org/t/how-to-port-error-chain-to-2018/23960" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/how-to-port-error-chain-to-2018/23960</a>
+</li>
+<li>2019-01-13 - Best practice to return a <code>Result&lt;_, impl Error&gt;</code> and not a <code>Result&lt;_, &amp;str&gt;</code> in Rust? - <a href="https://stackoverflow.com/questions/54159232/best-practice-to-return-a-result-impl-error-and-not-a-result-str-in-rus" class="autolink" rel="nofollow noopener" target="_blank">https://stackoverflow.com/questions/54159232/best-practice-to-return-a-result-impl-error-and-not-a-result-str-in-rus</a>
+</li>
+<li>2019-01-15 - The Evolution of a Rust Programmer - <a href="http://antoyo.ml/evolution-rust-programmer" class="autolink" rel="nofollow noopener" target="_blank">http://antoyo.ml/evolution-rust-programmer</a>
+</li>
+<li>2019-01-19 - 0.1.0 - <a href="https://crates.io/crates/errer" class="autolink" rel="nofollow noopener" target="_blank">https://crates.io/crates/errer</a>
+</li>
+<li>2019-01-20 - Rustでtraitのassociated typeに対してtrait boundaryを課す - <a href="https://in-neuro.hatenablog.com/entry/2019/01/20/210653" class="autolink" rel="nofollow noopener" target="_blank">https://in-neuro.hatenablog.com/entry/2019/01/20/210653</a>
+</li>
+<li>2019-01-21 - 0.1.0 - <a href="https://crates.io/crates/easy-error" class="autolink" rel="nofollow noopener" target="_blank">https://crates.io/crates/easy-error</a>
+</li>
+<li>2019-01-28 - 0.1.0 - <a href="https://crates.io/crates/snafu" class="autolink" rel="nofollow noopener" target="_blank">https://crates.io/crates/snafu</a>
+</li>
+<li>2019-02-09 - Custom Exit Status Codes with ? in main - <a href="https://www.joshmcguigan.com/blog/custom-exit-status-codes-rust/" class="autolink" rel="nofollow noopener" target="_blank">https://www.joshmcguigan.com/blog/custom-exit-status-codes-rust/</a>
+</li>
+<li>2019-02-17 - <strong>Tracking issue for error source iterators #58520</strong> - <a href="https://github.com/rust-lang/rust/issues/58520" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rust/issues/58520</a>
+</li>
+<li>2019-03-01 - Rust: failureを用いたエラー型定義 - <a href="https://qiita.com/OvQ/items/cb866c04196dc59fe847" class="autolink" id="reference-ef99a423326345c62ba6">https://qiita.com/OvQ/items/cb866c04196dc59fe847</a>
+</li>
+<li>2019-03-02 - std: implement <code>Error</code> for <code>Box&lt;dyn Error&gt;</code> #58859 - <a href="https://github.com/rust-lang/rust/pull/58859" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rust/pull/58859</a>
+</li>
+<li>2019-03-11 - RFC 2504 "fix_error": Rustの新たなErrorトレイト - <a href="https://qiita.com/termoshtt/items/830008898f90c647a971" class="autolink" id="reference-31a3dc8f653655417d3d">https://qiita.com/termoshtt/items/830008898f90c647a971</a>
+</li>
+<li>2019-03-22 - On error handling - <a href="https://users.rust-lang.org/t/on-error-handling/26515" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/on-error-handling/26515</a>
+</li>
+<li>2019-03-27 - 0.1.1 - <a href="https://crates.io/crates/error-rules" class="autolink" rel="nofollow noopener" target="_blank">https://crates.io/crates/error-rules</a>
+</li>
+<li>2019-04-02 - Review and address feedback #46 - <a href="https://github.com/shepmaster/snafu/issues/46#issuecomment-486482005" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/shepmaster/snafu/issues/46#issuecomment-486482005</a>
+</li>
+<li>2019-04-09 - rust-lang/rustlings/exercises/error_handling/ - <a href="https://github.com/rust-lang/rustlings/tree/d7e58ee1af3945dc2b13f2ebb9daa7c2b2a26175/exercises/error_handling" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang/rustlings/tree/d7e58ee1af3945dc2b13f2ebb9daa7c2b2a26175/exercises/error_handling</a>
+</li>
+<li>2019-04-15 - SNAFU 0.2.1 Released - <a href="https://users.rust-lang.org/t/snafu-0-2-1-released/27269" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/snafu-0-2-1-released/27269</a>
+</li>
+<li>2019-04-19 - removed error-chain from examples having only one error variant #525 - <a href="https://github.com/rust-lang-nursery/rust-cookbook/pull/525" class="autolink" rel="nofollow noopener" target="_blank">https://github.com/rust-lang-nursery/rust-cookbook/pull/525</a>
+</li>
+<li>2019-04-24 - <strong>Error-chain is no longer maintained</strong> - <a href="https://users.rust-lang.org/t/error-chain-is-no-longer-maintained/27561" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/error-chain-is-no-longer-maintained/27561</a>
+</li>
+<li>2019-04-25 - Failing to port from error-chain to std error handling - <a href="https://users.rust-lang.org/t/failing-to-port-from-error-chain-to-std-error-handling/27611" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/failing-to-port-from-error-chain-to-std-error-handling/27611</a>
+</li>
+<li>2018-04-25 - Any experiences with <code>snafu</code>? - <a href="https://www.reddit.com/r/rust/comments/bgy80y/any_experiences_with_snafu/" class="autolink" rel="nofollow noopener" target="_blank">https://www.reddit.com/r/rust/comments/bgy80y/any_experiences_with_snafu/</a>
+</li>
+<li>2019-04-26 - Today, I would probably not use any error handling helper library for a library. - <a href="https://users.rust-lang.org/t/error-chain-is-no-longer-maintained/27561/8" class="autolink" rel="nofollow noopener" target="_blank">https://users.rust-lang.org/t/error-chain-is-no-longer-maintained/27561/8</a>
+</li>
+<li>2019-04-29 - Rust’s 2019 roadmap - <a href="https://www.reddit.com/r/rust/comments/bgikmz/rusts_2019_roadmap/eln8h8y/" class="autolink" rel="nofollow noopener" target="_blank">https://www.reddit.com/r/rust/comments/bgikmz/rusts_2019_roadmap/eln8h8y/</a>
+</li>
+<li>2019-05-13 - Security advisory for the standard library  -<a href="https://blog.rust-lang.org/2019/05/13/Security-advisory.html" class="autolink" rel="nofollow noopener" target="_blank">https://blog.rust-lang.org/2019/05/13/Security-advisory.html</a>
+</li>
+<li>2019-05-21 - <code>Returning errors: -&gt; Result&lt;(), Box&lt;error::Error&gt;&gt;</code> <a href="https://www.reddit.com/r/rust/comments/br2gut/returning_errors_result_boxerrorerror/" class="autolink" rel="nofollow noopener" target="_blank">https://www.reddit.com/r/rust/comments/br2gut/returning_errors_result_boxerrorerror/</a>
+</li>
+<li>2019-05-22 - <a href="https://twitter.com/wx257osn2/status/1131255087379013632" class="autolink" rel="nofollow noopener" target="_blank">https://twitter.com/wx257osn2/status/1131255087379013632</a>
+</li>
+</ul>
