@@ -1,1 +1,0 @@
-{"created_at":"2018-02-11T01:53:56+09:00","id":"0a4a13371c2b54d3fbe1","updated_at":"2018-02-11T01:53:56+09:00","title":"Python の generator で asyncio.Future Monad と do 記法を実装する","tags":["generator","Python3","Monad","asyncio"]}
