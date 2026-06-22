@@ -5,10 +5,10 @@
   <title>Redirecting to duxca.com</title>
   <meta name="robots" content="noindex, follow" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="refresh" content="0; url=https://duxca.com/" />
   <link rel="canonical" href="https://duxca.com/" />
   <script>
-    window.location.replace("https://duxca.com/");
+    var target = "https://duxca.com" + window.location.pathname + window.location.search + window.location.hash;
+    window.location.replace(target);
   </script>
 </head>
 <body>
